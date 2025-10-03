@@ -198,22 +198,23 @@ export class ProNeuralLM {
     return y;
   }
 
-  private forward(inputs: number[]) {
+  private forward(inputs: number[], train = false) {
     const emb = this.averageVectors(inputs.map((i) => this.embedding[i]));
 
-    const hPre = this.matrixVectorMul(this.wHidden, emb);
-    let h = hPre.map((v, i) => this.relu(v + this.bHidden[i]));
+    const hPreCore = this.matrixVectorMul(this.wHidden, emb);
+    const preAct = hPreCore.map((v, i) => v + this.bHidden[i]);
+    let h = preAct.map((v) => this.relu(v));
 
     let dropMask: number[] | null = null;
-    if (this.dropout > 0) {
+    if (train && this.dropout > 0) {
       const scale = 1 / (1 - this.dropout);
       dropMask = new Array(h.length).fill(0).map(() => (this.rng() > this.dropout ? scale : 0));
-      h = h.map((v, i) => v * (dropMask ? dropMask[i] : 1));
+      h = h.map((v, i) => v * dropMask![i]);
     }
 
     const logits = this.matrixVectorMulTranspose(this.wOutput, h).map((v, i) => v + this.bOutput[i]);
     const probs = softmax(logits);
-    return { h, logits, probs, avgEmb: emb, dropMask };
+    return { h, logits, probs, avgEmb: emb, dropMask, preAct };
   }
 
   private applyMomentumMatrix(W: number[][], G: number[][], M: number[][]) {
@@ -236,14 +237,18 @@ export class ProNeuralLM {
     }
   }
 
-  private applyAdamMatrix(W: number[][], G: number[][], M: number[][], V: number[][]) {
+  private applyAdamMatrix(
+    W: number[][],
+    G: number[][],
+    M: number[][],
+    V: number[][],
+    b1t: number,
+    b2t: number
+  ) {
     const lr = this.learningRate;
     const b1 = this.adamBeta1;
     const b2 = this.adamBeta2;
     const eps = this.adamEps;
-    this.adamT++;
-    const b1t = 1 - Math.pow(b1, this.adamT);
-    const b2t = 1 - Math.pow(b2, this.adamT);
     for (let i = 0; i < W.length; i++) {
       for (let j = 0; j < W[i].length; j++) {
         const g = G[i][j];
@@ -256,14 +261,18 @@ export class ProNeuralLM {
     }
   }
 
-  private applyAdamVector(b: number[], g: number[], M: number[], V: number[]) {
+  private applyAdamVector(
+    b: number[],
+    g: number[],
+    M: number[],
+    V: number[],
+    b1t: number,
+    b2t: number
+  ) {
     const lr = this.learningRate;
     const b1 = this.adamBeta1;
     const b2 = this.adamBeta2;
     const eps = this.adamEps;
-    this.adamT++;
-    const b1t = 1 - Math.pow(b1, this.adamT);
-    const b2t = 1 - Math.pow(b2, this.adamT);
     for (let i = 0; i < b.length; i++) {
       const gi = g[i];
       M[i] = b1 * M[i] + (1 - b1) * gi;
@@ -274,14 +283,19 @@ export class ProNeuralLM {
     }
   }
 
-  private applyAdamRow(W: number[][], rowIdx: number, gRow: number[], M: number[][], V: number[][]) {
+  private applyAdamRow(
+    W: number[][],
+    rowIdx: number,
+    gRow: number[],
+    M: number[][],
+    V: number[][],
+    b1t: number,
+    b2t: number
+  ) {
     const lr = this.learningRate;
     const b1 = this.adamBeta1;
     const b2 = this.adamBeta2;
     const eps = this.adamEps;
-    this.adamT++;
-    const b1t = 1 - Math.pow(b1, this.adamT);
-    const b2t = 1 - Math.pow(b2, this.adamT);
     const row = W[rowIdx];
     const mRow = M[rowIdx];
     const vRow = V[rowIdx];
@@ -298,9 +312,15 @@ export class ProNeuralLM {
   private backward(
     inputs: number[],
     target: number,
-    cache: { h: number[]; probs: number[]; avgEmb: number[]; dropMask: number[] | null }
+    cache: {
+      h: number[];
+      probs: number[];
+      avgEmb: number[];
+      dropMask: number[] | null;
+      preAct: number[];
+    }
   ) {
-    const { h, probs, avgEmb, dropMask } = cache;
+    const { h, probs, avgEmb, dropMask, preAct } = cache;
     const V = this.vocab.length;
     const H = this.hiddenSize;
 
@@ -318,7 +338,7 @@ export class ProNeuralLM {
     for (let i = 0; i < H; i++) {
       let s = 0;
       for (let j = 0; j < V; j++) s += this.wOutput[i][j] * dLogits[j];
-      s *= h[i] > 0 ? 1 : 0;
+      s *= preAct[i] > 0 ? 1 : 0;
       if (dropMask) s *= dropMask[i];
       dHidden[i] = s;
     }
@@ -332,19 +352,17 @@ export class ProNeuralLM {
       dBh[i] += dHidden[i];
     }
 
-    const wHiddenSnap = this.wHidden.map((r) => r.slice());
+    const clipRow = (row: number[], m = 5) => {
+      const n = l2norm(row);
+      if (n > m) {
+        const s = m / n;
+        for (let k = 0; k < row.length; k++) row[k] *= s;
+      }
+    };
+    for (let i = 0; i < dWout.length; i++) clipRow(dWout[i]);
+    for (let i = 0; i < dWh.length; i++) clipRow(dWh[i]);
 
-    if (this.optimizer === 'adam') {
-      this.applyAdamMatrix(this.wOutput, dWout, this.aWOutput.m, this.aWOutput.v);
-      this.applyAdamVector(this.bOutput, dBout, this.aBOutput.m, this.aBOutput.v);
-      this.applyAdamMatrix(this.wHidden, dWh, this.aWHidden.m, this.aWHidden.v);
-      this.applyAdamVector(this.bHidden, dBh, this.aBHidden.m, this.aBHidden.v);
-    } else {
-      this.applyMomentumMatrix(this.wOutput, dWout, this.mWOutput);
-      this.applyMomentumVector(this.bOutput, dBout, this.mBOutput);
-      this.applyMomentumMatrix(this.wHidden, dWh, this.mWHidden);
-      this.applyMomentumVector(this.bHidden, dBh, this.mBHidden);
-    }
+    const wHiddenSnap = this.wHidden.map((r) => r.slice());
 
     const scale = 1 / Math.max(1, inputs.length);
     const dEmb = new Array(H).fill(0);
@@ -353,12 +371,26 @@ export class ProNeuralLM {
       for (let k = 0; k < H; k++) s += wHiddenSnap[k][i] * dHidden[k];
       dEmb[i] = s * scale;
     }
-    for (const idx of inputs) {
-      if (this.optimizer === 'adam') {
-        this.applyAdamRow(this.embedding, idx, dEmb, this.aEmbedding.m, this.aEmbedding.v);
-      } else {
+    if (this.optimizer === 'adam') {
+      this.adamT += 1;
+      const b1t = 1 - Math.pow(this.adamBeta1, this.adamT);
+      const b2t = 1 - Math.pow(this.adamBeta2, this.adamT);
+      this.applyAdamMatrix(this.wOutput, dWout, this.aWOutput.m, this.aWOutput.v, b1t, b2t);
+      this.applyAdamVector(this.bOutput, dBout, this.aBOutput.m, this.aBOutput.v, b1t, b2t);
+      this.applyAdamMatrix(this.wHidden, dWh, this.aWHidden.m, this.aWHidden.v, b1t, b2t);
+      this.applyAdamVector(this.bHidden, dBh, this.aBHidden.m, this.aBHidden.v, b1t, b2t);
+      for (const idx of inputs) {
+        this.applyAdamRow(this.embedding, idx, dEmb, this.aEmbedding.m, this.aEmbedding.v, b1t, b2t);
+      }
+    } else {
+      this.applyMomentumMatrix(this.wOutput, dWout, this.mWOutput);
+      this.applyMomentumVector(this.bOutput, dBout, this.mBOutput);
+      this.applyMomentumMatrix(this.wHidden, dWh, this.mWHidden);
+      this.applyMomentumVector(this.bHidden, dBh, this.mBHidden);
+      for (const idx of inputs) {
         for (let i = 0; i < H; i++) {
-          this.mEmbedding[idx][i] = this.momentum * this.mEmbedding[idx][i] + this.learningRate * dEmb[i];
+          this.mEmbedding[idx][i] =
+            this.momentum * this.mEmbedding[idx][i] + this.learningRate * dEmb[i];
           this.embedding[idx][i] -= this.mEmbedding[idx][i];
         }
       }
@@ -378,7 +410,8 @@ export class ProNeuralLM {
   }
 
   private createTrainingSequences(text: string): [number[], number][] {
-    const toks = [this.bos, this.bos, this.bos, ...this.tokenize(text), this.eos];
+    const bosArr = Array(this.contextSize).fill(this.bos);
+    const toks = [...bosArr, ...this.tokenize(text), this.eos];
     const seqs: [number[], number][] = [];
     for (let i = this.contextSize; i < toks.length; i++) {
       const ctx = toks.slice(i - this.contextSize, i).map((t) => this.toIndex(t));
@@ -408,7 +441,7 @@ export class ProNeuralLM {
       let epochLoss = 0;
       let epochCorrect = 0;
       for (const [ctx, tgt] of seqs) {
-        const cache = this.forward(ctx);
+        const cache = this.forward(ctx, true);
         const loss = -Math.log(cache.probs[tgt] + 1e-8);
         epochLoss += loss;
         totalLoss += loss;
@@ -473,7 +506,7 @@ export class ProNeuralLM {
     const out: string[] = [];
     while (out.length < maxLen) {
       const window = ctx.slice(-this.contextSize);
-      const { logits } = this.forward(window);
+      const { logits } = this.forward(window, false);
       const idx = this.sampleFromLogits(logits, temperature, topK, topP);
       const tok = this.idxToWord.get(idx)!;
       if (tok === this.eos) break;
@@ -497,9 +530,13 @@ export class ProNeuralLM {
     return this.trainingHistory;
   }
 
+  getVocabSignature() {
+    return this.vocab.join('\u241F');
+  }
+
   toJSON() {
     return {
-      version: '3.2',
+      version: '3.2.4',
       vocab: this.vocab,
       hiddenSize: this.hiddenSize,
       learningRate: this.learningRate,

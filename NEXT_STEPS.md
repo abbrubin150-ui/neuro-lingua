@@ -1,29 +1,27 @@
 # Next Coding Tasks for Neuro-Lingua
 
-The repository currently only contains the project README, so the next steps focus on scaffolding the actual application that the README describes.
+The core scaffolding, training script, and neural LM implementation now exist. The next milestones should bring the implementation in line with the README promises and polish the developer experience.
 
-## 1. Project Scaffolding
-- Initialize a Vite React + TypeScript project structure (`pnpm create vite` or equivalent) to provide the `/src`, `/public`, and configuration files referenced in the README.
-- Add base dependencies to `package.json`, including React, TypeScript, Vite, and state management/testing utilities as needed.
+## 1. Align the React UI with the README
+- Translate all Hebrew copy in `src/App.tsx` to English so the in-browser experience matches the English-only promise in the README.
+- Replace the hard-coded Hebrew demo corpus with a concise English example and add inline guidance in English for new users.
+- Double-check that UI labels, notifications, and the training chart use consistent English terminology.
 
-## 2. Core Library Implementation
-- Create `src/lib/ProNeuralLM.ts` that houses the framework-independent neural language model logic described in the README (supporting SGD with Momentum/Adam, dropout, top-p/top-k sampling, pause/resume, and tokenizer customization).
-- Write accompanying unit tests to verify training steps, sampling strategies, and serialization routines.
+## 2. Improve persistence & onboarding
+- Persist the last-used hyperparameters and training corpus to `localStorage` so that reloading the page restores the session fully.
+- Add a lightweight onboarding panel (or tooltip) that explains how to load/import/export models and how pause/resume behaves.
+- Document within the UI when the stored model was last updated (timestamp + vocab size) to help users decide whether to retrain.
 
-## 3. React UI
-- Implement `src/App.tsx` and `src/main.tsx` to render the browser interface for loading corpora, kicking off training, monitoring history, and interacting with the model artifact in English as promised by the README.
-- Wire the UI to browser storage (localStorage) so sessions can be saved/loaded.
+## 3. GitHub Action automation
+- Replace the placeholder `.github/workflows/jekyll-docker.yml` with a `train-model.yml` workflow that installs dependencies, runs `pnpm train`, and commits the updated artifact back to the repo.
+- Ensure the workflow exposes inputs for key hyperparameters (epochs, optimizer, dropout) so retraining can be tuned without modifying the repo.
+- Update the README with any workflow usage notes (e.g., required repository permissions) once the workflow exists.
 
-## 4. Training Script
-- Add the `scripts/train.ts` Node script that reads `data/corpus.txt`, trains the model headlessly, and outputs the JSON artifact under `models/`.
-- Ensure the script respects environment variables such as `USE_ASCII_TOKENIZER` and exposes CLI flags for key hyperparameters (epochs, optimizer, dropout rate).
+## 4. Developer experience enhancements
+- Add ESLint + Prettier (or Biome) with npm scripts and CI checks to keep the TypeScript codebase consistent.
+- Introduce Vitest-based unit tests for the React UI (current tests only cover `ProNeuralLM`).
+- Provide a sample corpus in `data/corpus.txt` that is longer than a single sentence so the training script demonstrates history and perplexity changes.
 
-## 5. CI Workflow and Artifacts
-- Populate `data/corpus.txt`, `models/.gitkeep`, and create the GitHub Action defined in the README that runs the training pipeline and commits updated artifacts.
-- Document the workflow configuration and provide guidance on enabling "Read and write" permissions so the action can push commits.
-
-## 6. Developer Experience Enhancements
-- Add formatting and linting (Prettier/ESLint) plus a testing setup (Vitest or Jest) to keep the project maintainable.
-- Provide scripts in `package.json` for development, build, test, lint, and training to match the commands advertised in the README.
-
-Completing these steps will bring the repository in line with the capabilities outlined in the README and establish a solid foundation for future iterations of the Neuro-Lingua project.
+## 5. Future ideas
+- Surface perplexity/accuracy history as a downloadable CSV to compare runs.
+- Explore exporting/importing tokenizer configurations so ASCII vs Unicode modes can be swapped in the UI.

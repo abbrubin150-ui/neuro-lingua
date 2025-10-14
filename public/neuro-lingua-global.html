@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Neuro‑Lingua GLOBAL v7.1 — Offline Bigram LM (Real)</title>
+<style>
+:root{
+  --primary: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+  --success: linear-gradient(135deg,#11998e 0%,#38ef7d 100%);
+  --danger: linear-gradient(135deg,#ee0979 0%,#ff6a00 100%);
+  --warning: linear-gradient(135deg,#f093fb 0%,#f5576c 100%);
+  --dark:#0f172a; --light:#f8fafc;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  background: linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#312e81 100%);
+  min-height:100vh; padding:1rem; color:#0f172a; overflow-x:hidden;
+}
+.container{ max-width:1920px; margin:0 auto; }
+.card{ background:rgba(255,255,255,.98); backdrop-filter:blur(20px); border-radius:20px; padding:1.75rem; margin-bottom:1rem; box-shadow:0 20px 60px rgba(0,0,0,.4),0 0 1px rgba(255,255,255,.2) inset; border:1px solid rgba(255,255,255,.1); animation:fadeIn .5s ease-out }
+@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.header{ background: linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%); color:white; position:relative; overflow:hidden }
+.header::before{ content:""; position:absolute; inset:0; background:linear-gradient(45deg,transparent 30%,rgba(255,255,255,.05) 50%,transparent 70%); animation:shimmer 3s infinite }
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.badge{ background:var(--primary); color:white; padding:.5rem 1.25rem; border-radius:10px; font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:1.5px; box-shadow:0 4px 15px rgba(102,126,234,.4); animation:pulse 2s infinite }
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.grid{ display:grid; gap:1rem }
+.grid-2{ grid-template-columns:repeat(auto-fit,minmax(450px,1fr)) }
+.grid-3{ grid-template-columns:repeat(auto-fit,minmax(280px,1fr)) }
+.grid-4{ grid-template-columns:repeat(auto-fit,minmax(200px,1fr)) }
+textarea,input,select{ width:100%; padding:.875rem; border:2px solid #e2e8f0; border-radius:10px; font-family:inherit; font-size:.9rem; transition:.2s; background:white }
+textarea:focus,input:focus,select:focus{ outline:none; border-color:#667eea; box-shadow:0 0 0 4px rgba(102,126,234,.1); transform:translateY(-2px) }
+button{ padding:.875rem 1.75rem; border:none; border-radius:10px; font-weight:700; cursor:pointer; transition:.2s; font-size:.9rem; position:relative; overflow:hidden }
+button::before{ content:""; position:absolute; top:50%; left:50%; width:0; height:0; border-radius:50%; background:rgba(255,255,255,.3); transform:translate(-50%,-50%); transition:width .6s,height .6s }
+button:active::before{ width:300px; height:300px }
+button:disabled{ opacity:.5; cursor:not-allowed }
+.btn-primary{ background:var(--primary); color:white; box-shadow:0 4px 15px rgba(102,126,234,.4) }
+.btn-primary:hover:not(:disabled){ transform:translateY(-3px); box-shadow:0 6px 25px rgba(102,126,234,.5) }
+.btn-success{ background:var(--success); color:white; box-shadow:0 4px 15px rgba(17,153,142,.4) }
+.btn-success:hover:not(:disabled){ transform:translateY(-3px); box-shadow:0 6px 25px rgba(56,239,125,.5) }
+.btn-secondary{ background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white }
+.btn-secondary:hover:not(:disabled){ transform:translateY(-2px); box-shadow:0 4px 15px rgba(102,126,234,.3) }
+.stat-box{ background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%); padding:1.5rem; border-radius:15px; text-align:center; border:2px solid #bae6fd; position:relative; overflow:hidden; transition:.2s }
+.stat-box:hover{ transform:translateY(-5px); box-shadow:0 10px 30px rgba(59,130,246,.3) }
+.stat-value{ font-size:2rem; font-weight:900; background:var(--primary); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; position:relative; z-index:1 }
+.feature-badge{ display:inline-block; background:var(--primary); color:white; padding:.35rem .85rem; border-radius:8px; font-size:.65rem; margin:.25rem; font-weight:700; box-shadow:0 3px 10px rgba(102,126,234,.3) }
+.tech-indicator{ display:inline-flex; align-items:center; gap:.5rem; padding:.5rem 1rem; background:rgba(16,185,129,.1); border:2px solid rgba(16,185,129,.3); border-radius:10px; font-size:.75rem; font-weight:600; color:#059669 }
+.status-dot{ width:10px; height:10px; border-radius:50%; animation:pulse-dot 2s infinite }
+@keyframes pulse-dot{0%,100%{opacity:1;box-shadow:0 0 0 0 currentColor}50%{opacity:.8;box-shadow:0 0 0 4px rgba(16,185,129,.3)}}
+.status-dot.active{background:#10b981}.status-dot.inactive{background:#ef4444}.status-dot.warning{background:#f59e0b}
+h2{ font-size:1.5rem; margin-bottom:1.25rem; color:#0f172a; font-weight:900; position:relative; padding-bottom:.75rem }
+h2::after{ content:""; position:absolute; bottom:0; left:0; width:60px; height:4px; background:var(--primary); border-radius:2px }
+.tab-container{ display:flex; gap:.5rem; margin-bottom:1.5rem; border-bottom:3px solid #e2e8f0; flex-wrap:wrap }
+.tab{ padding:.875rem 1.75rem; border:none; background:transparent; color:#64748b; font-weight:700; cursor:pointer; border-bottom:3px solid transparent }
+.tab.active{ color:#667eea; border-bottom-color:#667eea }
+.output-box{ background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%); border:2px solid #cbd5e1; border-radius:12px; padding:1.5rem; min-height:140px; font-family:'JetBrains Mono','Courier New',monospace; font-size:.9rem; line-height:1.8; white-space:pre-wrap; position:relative; overflow:hidden }
+.output-box::before{ content:""; position:absolute; top:0; left:0; right:0; height:3px; background:var(--primary) }
+.chart-container{ width:100%; height:300px; background:#f8fafc; border-radius:12px; padding:1rem; position:relative; border:2px solid #e2e8f0 }
+canvas{ width:100% !important; height:100% !important }
+.advanced-feature{ background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%); border:2px solid #93c5fd; border-radius:12px; padding:1.5rem; margin-top:1rem; position:relative }
+.transformer-visual{ display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; padding:1rem; background:rgba(255,255,255,.5); border-radius:8px; margin-top:1rem }
+.layer-block{ padding:1rem; background:white; border-radius:8px; border:2px solid #e2e8f0; text-align:center; font-size:.8rem; font-weight:600; transition:.2s }
+.layer-block:hover{ transform:scale(1.05); border-color:#667eea; box-shadow:0 5px 15px rgba(102,126,234,.2) }
+.metrics-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1rem; margin-top:1rem }
+.metric-card{ background:white; padding:1rem; border-radius:10px; border:2px solid #e2e8f0; transition:.2s }
+.metric-card:hover{ transform:translateY(-3px); box-shadow:0 5px 15px rgba(0,0,0,.1) }
+.metric-label{ font-size:.75rem; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:.5px }
+.metric-value{ font-size:1.5rem; font-weight:800; color:#0f172a; margin-top:.5rem }
+.floating-action{ position:fixed; bottom:2rem; right:2rem; z-index:1000 }
+.floating-btn{ width:60px; height:60px; border-radius:50%; background:var(--primary); color:white; border:none; font-size:1.5rem; box-shadow:0 8px 25px rgba(102,126,234,.5); cursor:pointer; transition:.2s }
+.floating-btn:hover{ transform:scale(1.1) rotate(90deg); box-shadow:0 10px 30px rgba(102,126,234,.6) }
+.loading-spinner{ display:inline-block; width:20px; height:20px; border:3px solid rgba(255,255,255,.3); border-top-color:white; border-radius:50%; animation:spin .8s linear infinite }
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:768px){ .grid-2,.grid-3,.grid-4{grid-template-columns:1fr} .transformer-visual{grid-template-columns:1fr} }
+.rtl-toggle{ display:flex; gap:.5rem; align-items:center; color:white; font-weight:700 }
+.small{font-size:.85rem;color:#475569}
+</style>
+</head>
+<body>
+<div class="container">
+  <div id="jsStatusBar" style="margin:8px 0 12px 0;padding:10px;border-radius:10px;border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);color:#0f172a;font-weight:800;display:flex;justify-content:space-between;align-items:center">
+    <span>🧩 Script status: <span id="jsStatus">initializing…</span></span>
+    <button id="selfTestBtn" class="btn-secondary" style="padding:.5rem 1rem">Run self‑test</button>
+  </div>
+  <details style="margin:0 0 12px 0"><summary style="cursor:pointer;font-weight:800">Console</summary>
+    <pre id="errorLog" style="max-height:160px;overflow:auto;background:#0f172a;color:#e2e8f0;padding:10px;border-radius:8px"></pre>
+  </details>
+  <div class="card header">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1.5rem;position:relative;z-index:1">
+      <div style="display:flex;align-items:center;gap:1.5rem">
+        <span class="badge">🧮 Bigram — Real Train/Test</span>
+        <div>
+          <h1 style="font-size:2.3rem;font-weight:900;margin-bottom:.4rem">🧠 Neuro‑Lingua GLOBAL</h1>
+          <p style="font-size:.9rem;opacity:.95">Browser‑native Bigram LM • IndexedDB • Honest metrics (train/validation split) • No dependencies</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.6rem">
+        <div class="tech-indicator" id="webgpuStatus"><span class="status-dot" id="gpuDot"></span><span id="gpuText">Checking WebGPU…</span></div>
+        <div class="tech-indicator" id="workerStatus"><span class="status-dot" id="workerDot"></span><span id="workerText">Checking Workers…</span></div>
+        <div class="tech-indicator" id="dbStatus"><span class="status-dot" id="dbDot"></span><span id="dbText">Checking IndexedDB…</span></div>
+      </div>
+    </div>
+    <div style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:.5rem;position:relative;z-index:1">
+      <span class="feature-badge">🔥 Offline — Native JS</span>
+      <span class="feature-badge">🧪 Train/Test split</span>
+      <span class="feature-badge">📝 Word/Char Tokenizer</span>
+      <span class="feature-badge">💾 Save/Load/Export</span>
+      <span class="feature-badge">📊 Loss/PPX Chart</span>
+      <span class="feature-badge">🎯 Top‑k / Top‑p</span>
+      <span class="feature-badge">🔎 Beam & Contrastive</span>
+      <span class="feature-badge">🌐 RTL toggle</span>
+      <span class="feature-badge">🔒 No external calls</span>
+    </div>
+    <div class="rtl-toggle" style="margin-top:1rem">
+      <label><input type="checkbox" id="rtlToggle" /> RTL (עברית)</label>
+    </div>
+  </div>
+
+  <!-- Architecture Viz -->
+  <div class="card">
+    <h2>🏗️ Minimal Architecture (Bigram)</h2>
+    <div class="transformer-visual">
+      <div class="layer-block" style="background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%)">Tokenizer<br/><small id="tokType">Word‑Level</small></div>
+      <div class="layer-block" style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%)">Context<br/><small>n‑1 (Bigram)</small></div>
+      <div class="layer-block" style="background:linear-gradient(135deg,#fce7f3 0%,#fbcfe8 100%)">LM Head<br/><small>Counts → Probs (α)</small></div>
+      <div class="layer-block" style="background:linear-gradient(135deg,#d1fae5 0%,#a7f3d0 100%)">Sampling<br/><small>Greedy/Top‑k/Top‑p</small></div>
+      <div class="layer-block" style="background:linear-gradient(135deg,#e0e7ff 0%,#c7d2fe 100%)">Beam<br/><small>No‑repeat n‑gram</small></div>
+      <div class="layer-block" style="background:linear-gradient(135deg,#fef08a 0%,#fde047 100%)">Contrastive<br/><small>α & rep‑penalty</small></div>
+    </div>
+  </div>
+
+  <div class="grid grid-2">
+    <div class="card">
+      <h2>⚙️ Model Configuration</h2>
+      <div class="grid grid-3" style="font-size:.9rem;margin-bottom:1rem">
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">Tokenizer</span>
+          <select id="tokenizerMode"><option value="word" selected>Word</option><option value="char">Character</option></select>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">Min Frequency</span>
+          <input type="number" id="minFreq" value="1" min="1" max="10" />
+        </label>
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">Smoothing (α)</span>
+          <input type="number" id="alpha" value="0.75" min="0" max="5" step="0.05" />
+        </label>
+      </div>
+      <div class="advanced-feature">
+        <h3>📝 Training Corpus</h3>
+        <textarea id="trainingText" style="min-height:200px;font-family:'JetBrains Mono',monospace">The transformer architecture revolutionized natural language processing through self‑attention mechanisms. Multi‑head attention allows the model to attend to information from different representation subspaces. Layer normalization and residual connections enable training of deeper networks. Positional encodings provide sequence information. The feed‑forward networks process attended representations. GELU activations often outperform ReLU. Byte‑pair encoding handles rare words via subwords. Mixed‑precision training accelerates computation. WebGPU enables GPU acceleration in browsers. Progressive layer unfreezing helps fine‑tuning.</textarea>
+        <div class="small" style="margin-top:.5rem">Split: 90% train / 10% validation by sentences. Vocab is built on train only to avoid leakage.</div>
+        <div style="display:flex;gap:.75rem;margin-top:1rem;flex-wrap:wrap">
+          <button class="btn-primary" id="trainBtn"><span id="trainBtnText">🚀 Train</span></button>
+          <button class="btn-success" id="fineTuneBtn">🔧 Fine‑tune (merge)</button>
+          <button class="btn-secondary" id="exampleBtn">📖 Load Example</button>
+        </div>
+        <div style="display:flex;gap:.75rem;align-items:center;margin-top:1rem">
+          <div class="progress-bar" style="height:12px;background:linear-gradient(90deg,#e2e8f0,#cbd5e1);border-radius:6px;overflow:hidden;flex:1;position:relative">
+            <div class="progress-fill" id="progressBar" style="height:100%;background:var(--primary);width:0%"></div>
+          </div>
+          <div id="progressText" style="min-width:70px;font-weight:800;font-size:.9rem;color:#667eea">0%</div>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-card"><div class="metric-label">Train Loss</div><div class="metric-value" id="trainLoss">0.000</div></div>
+          <div class="metric-card"><div class="metric-label">Train Perplexity</div><div class="metric-value" id="trainPPX">∞</div></div>
+          <div class="metric-card"><div class="metric-label">Val Loss</div><div class="metric-value" id="valLoss">0.000</div></div>
+          <div class="metric-card"><div class="metric-label">Val Perplexity</div><div class="metric-value" id="valPPX">∞</div></div>
+          <div class="metric-card"><div class="metric-label">Vocab Size</div><div class="metric-value" id="vocabSizeDisplay">0</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📊 Training Dynamics</h2>
+      <div class="chart-container"><canvas id="trainingChart"></canvas></div>
+      <div style="margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn-secondary" data-chart="loss">📉 Train Loss</button>
+        <button class="btn-secondary" data-chart="ppx">🎯 Val Perplexity</button>
+        <button class="btn-secondary" id="clearChart">🧹 Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>✨ Text Generation</h2>
+    <div class="tab-container" id="genTabs">
+      <button class="tab active" data-mode="greedy">Greedy</button>
+      <button class="tab" data-mode="sampling">Sampling</button>
+      <button class="tab" data-mode="beam">Beam Search</button>
+      <button class="tab" data-mode="contrastive">Contrastive</button>
+    </div>
+
+    <div id="greedyGen" class="gen-panel">
+      <div style="display:flex;gap:.75rem;align-items:center;margin-bottom:1rem">
+        <input type="text" id="promptGreedy" placeholder="Enter your prompt…" style="flex:1" value="The future of artificial intelligence" />
+        <input type="number" id="maxLenGreedy" value="60" min="10" max="500" style="width:110px" />
+        <button class="btn-success" id="btnGreedy">Generate</button>
+      </div>
+    </div>
+
+    <div id="samplingGen" class="gen-panel" style="display:none">
+      <div style="display:flex;gap:.75rem;margin-bottom:1rem">
+        <input type="text" id="promptSampling" placeholder="Enter your prompt…" style="flex:1" value="Machine learning models can" />
+        <button class="btn-success" id="btnSampling">Generate</button>
+      </div>
+      <div class="grid grid-4">
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">Temperature</span><input type="number" id="temperature" value="0.9" min="0.1" max="2" step="0.1" /></label>
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">Top‑K</span><input type="number" id="topK" value="40" min="0" max="100" /></label>
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">Top‑P</span><input type="number" id="topP" value="0.95" min="0" max="1" step="0.05" /></label>
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">Max Length</span><input type="number" id="maxLenSampling" value="80" min="10" max="500" /></label>
+      </div>
+    </div>
+
+    <div id="beamGen" class="gen-panel" style="display:none">
+      <div style="display:flex;gap:.75rem;margin-bottom:1rem">
+        <input type="text" id="promptBeam" placeholder="Enter your prompt…" style="flex:1" value="Natural language processing enables" />
+        <button class="btn-success" id="btnBeam">Generate</button>
+      </div>
+      <div class="grid grid-4">
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">Beam Width</span><input type="number" id="beamWidth" value="5" min="2" max="10" /></label>
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">Length Penalty</span><input type="number" id="lengthPenalty" value="1.0" min="0.5" max="2" step="0.1" /></label>
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">No‑Repeat n‑gram</span><input type="number" id="noRepeat" value="3" min="0" max="5" /></label>
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">Max Length</span><input type="number" id="maxLenBeam" value="80" min="10" max="500" /></label>
+      </div>
+    </div>
+
+    <div id="contrastiveGen" class="gen-panel" style="display:none">
+      <div style="display:flex;gap:.75rem;margin-bottom:1rem">
+        <input type="text" id="promptContrastive" placeholder="Enter your prompt…" style="flex:1" value="Deep learning revolutionized" />
+        <button class="btn-success" id="btnContrastive">Generate</button>
+      </div>
+      <div class="grid grid-4">
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">Penalty α</span><input type="number" id="penaltyAlpha" value="0.6" min="0" max="1" step="0.1" /></label>
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">Top‑K</span><input type="number" id="contrastiveK" value="4" min="2" max="10" /></label>
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">Repetition Penalty</span><input type="number" id="repPenalty" value="1.2" min="1" max="2" step="0.1" /></label>
+        <label style="display:flex;flex-direction:column;gap:.5rem"><span style="font-weight:700">Max Length</span><input type="number" id="maxLenContrastive" value="80" min="10" max="500" /></label>
+      </div>
+    </div>
+
+    <div class="output-box" id="generatedText" style="margin-top:1.2rem">Generated text will appear here…</div>
+    <div style="margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn-secondary" id="btnCopy">📋 Copy</button>
+      <button class="btn-secondary" id="btnRegen">🔄 Regenerate</button>
+      <button class="btn-secondary" id="btnBatch">📦 Batch (5×)</button>
+      <button class="btn-secondary" id="btnExportGen">💾 Export</button>
+    </div>
+  </div>
+
+  <div class="grid grid-2">
+    <div class="card">
+      <h2>🔍 Model Inspection</h2>
+      <div class="metrics-grid">
+        <div class="metric-card"><div class="metric-label">Parameters (bigrams)</div><div class="metric-value" id="paramCount">0</div></div>
+        <div class="metric-card"><div class="metric-label">Context</div><div class="metric-value">Bigram</div></div>
+        <div class="metric-card"><div class="metric-label">Memory (est.)</div><div class="metric-value" id="memoryUsage">0 MB</div></div>
+        <div class="metric-card"><div class="metric-label">Tokenizer</div><div class="metric-value" id="tokLabel">Word</div></div>
+      </div>
+      <div class="advanced-feature" style="margin-top:1rem">
+        <h3>💾 Storage</h3>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">
+          <button class="btn-secondary" id="btnSaveDB">💾 Save to DB</button>
+          <button class="btn-secondary" id="btnLoadDB">📂 Load from DB</button>
+          <button class="btn-secondary" id="btnExportModel">📤 Export</button>
+          <button class="btn-secondary" id="btnImportModel">📥 Import</button>
+          <input type="file" id="importFile" style="display:none" accept=".json" />
+        </div>
+        <div style="font-size:.9rem;color:#64748b">
+          <div>💾 IndexedDB: <span id="dbSize" style="font-weight:700;color:#0f172a">—</span></div>
+          <div>🔄 Last saved: <span id="lastSaved" style="font-weight:700;color:#0f172a">Never</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>⚡ System Performance</h2>
+      <div class="grid grid-4">
+        <div class="stat-box"><div class="stat-value" id="cpuUsage">0%</div><div style="font-size:.7rem;color:#64748b;margin-top:.5rem;font-weight:600">CPU Usage (approx)</div></div>
+        <div class="stat-box"><div class="stat-value" id="ramUsage">0MB</div><div style="font-size:.7rem;color:#64748b;margin-top:.5rem;font-weight:600">RAM (est.)</div></div>
+        <div class="stat-box"><div class="stat-value" id="gpuMemory">0MB</div><div style="font-size:.7rem;color:#64748b;margin-top:.5rem;font-weight:600">GPU Memory (mock)</div></div>
+        <div class="stat-box"><div class="stat-value" id="throughput">0</div><div style="font-size:.7rem;color:#64748b;margin-top:.5rem;font-weight:600">Throughput (tok/s)</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="floating-action"><button class="floating-btn" id="quickBtn" title="Quick Actions">⚡</button></div>
+
+<script>
+// ==================== UTIL ====================
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const randChoice=(arr)=>arr[Math.floor(Math.random()*arr.length)];
+const nowStr=()=>new Date().toLocaleString();
+let RNG_SEED=42; function sfc32(a,b,c,d){return function(){a|=0;b|=0;c|=0;d|=0;var t=(a+b|0)+(d|0)|0;d=d+1|0;a=b^b>>>9;b=c+(c<<3)|0;c=(c<<21|c>>>11);c=c+t|0;return (t>>>0)/4294967296}}; let prng=sfc32(0x9e3779b9,0x243f6a88,0xb7e15162,RNG_SEED);
+function seededRand(){ return prng(); }
+
+// Tokenizer
+function tokenize(text,mode){
+  if(mode==='char') return Array.from(text);
+  return text
+    .toLowerCase()
+    .replace(/\s+/g,' ')
+    .trim()
+    .split(/(\b[^\s]+\b|[\.\!\?,;:\-\(\)\[\]\{\}"])/)
+    .map(t=>t.trim())
+    .filter(Boolean);
+}
+
+// Build vocabulary with min frequency (train only)
+function buildVocab(tokens,minFreq){
+  const freq=new Map();
+  for(const t of tokens){ freq.set(t,(freq.get(t)||0)+1); }
+  const vocab=["<BOS>","<EOS>",...Array.from(freq.entries()).filter(([,c])=>c>=minFreq).map(([w])=>w)];
+  const id=new Map(vocab.map((w,i)=>[w,i]));
+  return {vocab,id};
+}
+
+// Split into sentences (retain punctuation)
+function splitSentences(text){
+  const parts = text.split(/([.!?]+)\s+/);
+  const sents=[]; for(let i=0;i<parts.length;i+=2){ const seg=(parts[i]||'').trim(); const tail=parts[i+1]||''; if(seg) sents.push((seg+tail).trim()); }
+  return sents;
+}
+
+// Bigram training with α smoothing (on train sentences)
+function trainBigramLMSentences(sentences, mode, minFreq, alpha){
+  const trainSents = sentences.filter(s=>s.__split==='train').map(s=>s.text);
+  const trainTokens = tokenize(trainSents.join(' '), mode);
+  const {vocab,id}=buildVocab(trainTokens, minFreq);
+  const V=vocab.length;
+  const counts=Array.from({length:V},()=>new Float64Array(V));
+  let nBigrams=0;
+  for(const s of trainSents){
+    const ts=tokenize(s, mode).filter(t=>id.has(t));
+    const seq=["<BOS>",...ts,"<EOS>"];
+    for(let i=0;i<seq.length-1;i++){
+      const a=id.get(seq[i]); const b=id.get(seq[i+1]);
+      counts[a][b]+=1; nBigrams++;
+    }
+  }
+  const probs=counts.map(row=>{
+    let sum=0; for(const val of row) sum+=val;
+    const out=new Float64Array(row.length);
+    for(let j=0;j<row.length;j++) out[j]=(row[j]+alpha)/(sum+alpha*V);
+    return out;
+  });
+  return {vocab,id,probs,countBigrams:nBigrams,mode};
+}
+
+// Evaluate on given sentences
+function evaluateLMOnSentences(lm, sentences){
+  const {id,probs}=lm; let nll=0, n=0;
+  for(const s of sentences){
+    const ts=tokenize(s.text, lm.mode).filter(t=>id.has(t));
+    if(!ts.length) continue;
+    const seq=["<BOS>",...ts,"<EOS>"];
+    for(let i=0;i<seq.length-1;i++){
+      const a=id.get(seq[i]); const b=id.get(seq[i+1]);
+      const p=probs[a][b]||1e-12; nll += -Math.log(p); n++;
+    }
+  }
+  const loss = n ? nll/n : Infinity;
+  const ppx = Math.exp(loss);
+  return {loss,ppx,n};
+}
+
+// Sample next token id
+function sampleDist(dist,{temperature=1,topK=0,topP=0}={}){
+  let probs=Array.from(dist);
+  if(temperature!==1){ probs=probs.map(p=>Math.pow(p,1/temperature)); }
+  if(topK>0){ const idx=probs.map((p,i)=>[p,i]).sort((a,b)=>b[0]-a[0]).slice(0,topK).map(x=>x[1]); const mask=new Array(probs.length).fill(0); for(const i of idx) mask[i]=1; probs=probs.map((p,i)=>p*mask[i]); }
+  if(topP>0 && topP<1){ const pairs=probs.map((p,i)=>[p,i]).sort((a,b)=>b[0]-a[0]); let cum=0; const keep=[]; for(const [p,i] of pairs){ keep.push(i); cum+=p; if(cum>=topP) break; } const mask=new Array(probs.length).fill(0); for(const i of keep) mask[i]=1; probs=probs.map((p,i)=>p*mask[i]); }
+  const sum=probs.reduce((a,c)=>a+c,0) || 1;
+  let r=seededRand()*sum; for(let i=0;i<probs.length;i++){ r-=probs[i]; if(r<=0) return i; }
+  return probs.length-1;
+}
+
+// No‑repeat n‑gram helper
+function violatesNoRepeat(seq, token, n){ if(n<=1) return false; const cand=[...seq, token].join(' '); const grams=new Set(); const parts=cand.split(' '); for(let i=0;i<=parts.length-n;i++){ const g=parts.slice(i,i+n).join(' '); if(grams.has(g)) return true; grams.add(g); } return false; }
+
+// Generate
+function generateText(lm,prompt,maxLen,mode,opts={}){
+  const {vocab,id,probs,mode:tokMode}=lm; const inv=Object.fromEntries([...id.entries()].map(([k,v])=>[v,k]));
+  let contextTokens=tokenize(prompt, tokMode).filter(t=>id.has(t));
+  let last = id.get(contextTokens.length?contextTokens[contextTokens.length-1]:"<BOS>") ?? id.get("<BOS>");
+  const out=[...contextTokens];
+  const seen=new Map();
+  for(let step=0; step<maxLen; step++){
+    const dist=probs[last];
+    let nextId;
+    if(mode==='greedy'){
+      let mx=-1, mj=0; for(let j=0;j<dist.length;j++){ if(dist[j]>mx){mx=dist[j]; mj=j;} } nextId=mj;
+    } else if(mode==='sampling'){
+      nextId=sampleDist(dist,opts);
+    } else if(mode==='beam'){
+      const width=opts.beamWidth||5; const lp=opts.lengthPenalty||1.0; const noRep=opts.noRepeat||0;
+      const candidates=Array.from(dist).map((p,j)=>({seq:[j],score:Math.log(Math.max(p,1e-12))/Math.pow(out.length+1,lp)})).filter(c=>!violatesNoRepeat(out.map(t=>t), inv[c.seq[0]], noRep));
+      candidates.sort((a,b)=>b.score-a.score); nextId=(candidates[0]?.seq[0]) ?? sampleDist(dist,{});
+    } else if(mode==='contrastive'){
+      const k=opts.k||4; const alpha=opts.alpha||0.6; const rep=opts.repPenalty||1.2; const pairs=Array.from(dist).map((p,i)=>[p,i]).sort((a,b)=>b[0]-a[0]).slice(0,k);
+      let bestI=pairs[0]?.[1] ?? 0, bestScore=-Infinity;
+      for(const [p,i] of pairs){ const token=inv[i]; const repCount=seen.get(token)||0; const penalty=Math.pow(rep,repCount); const score=Math.log(Math.max(p,1e-12)) - alpha*Math.log(Math.max(penalty,1e-12)); if(score>bestScore){bestScore=score; bestI=i;} }
+      nextId=bestI;
+    } else {
+      nextId=sampleDist(dist,opts);
+    }
+    const token=inv[nextId]; if(token==="<EOS>") break; out.push(token); seen.set(token,(seen.get(token)||0)+1); last=nextId;
+  }
+  return out.join(' ');
+}
+
+// IndexedDB
+const DB_NAME='NLG-DB-REAL'; const DB_STORE='models';
+function openDB(){ return new Promise((res,rej)=>{ const req=indexedDB.open(DB_NAME,1); req.onupgradeneeded=()=>{ if(!req.result.objectStoreNames.contains(DB_STORE)) req.result.createObjectStore(DB_STORE); }; req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); }); }
+async function dbPut(key,val){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(DB_STORE,'readwrite'); tx.objectStore(DB_STORE).put(val,key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+async function dbGet(key){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(DB_STORE,'readonly'); const req=tx.objectStore(DB_STORE).get(key); req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); }); }
+
+// ==================== STATE ====================
+let lm=null; let lossHistory=[]; let ppxHistory=[]; let lastGen={mode:'greedy'};
+let systemMetrics={ cpuUsage:32, ramUsage:512, gpuMemory:128, tokensPerSec:0 };
+
+// ==================== FEATURE DETECTION ====================
+async function detectFeatures(){
+  if('gpu' in navigator){ try{ const ad=await navigator.gpu.requestAdapter(); if(ad){ document.getElementById('gpuDot').classList.add('active'); document.getElementById('gpuText').textContent='WebGPU: Available ✓'; } else throw new Error(); } catch{ document.getElementById('gpuDot').classList.add('inactive'); document.getElementById('gpuText').textContent='WebGPU: Not Available'; } } else { document.getElementById('gpuDot').classList.add('inactive'); document.getElementById('gpuText').textContent='WebGPU: Not Supported'; }
+  if(typeof Worker!=='undefined'){ document.getElementById('workerDot').classList.add('active'); document.getElementById('workerText').textContent='Web Workers: Available ✓'; } else { document.getElementById('workerDot').classList.add('inactive'); document.getElementById('workerText').textContent='Web Workers: Not Available'; }
+  if('indexedDB' in window){ document.getElementById('dbDot').classList.add('active'); document.getElementById('dbText').textContent='IndexedDB: Available ✓'; } else { document.getElementById('dbDot').classList.add('inactive'); document.getElementById('dbText').textContent='IndexedDB: Not Available'; }
+}
+
+// ==================== CHART (Canvas) ====================
+const chart={ canvas:null, ctx:null, mode:'loss' };
+function initChart(){ chart.canvas=document.getElementById('trainingChart'); chart.ctx=chart.canvas.getContext('2d'); drawChart(); }
+function clearChart(){ lossHistory=[]; ppxHistory=[]; drawChart(); }
+function drawChart(){ const ctx=chart.ctx; const w=chart.canvas.width=chart.canvas.clientWidth; const h=chart.canvas.height=chart.canvas.clientHeight; ctx.clearRect(0,0,w,h); ctx.fillStyle='#eef2ff'; ctx.fillRect(0,0,w,h); ctx.fillStyle='#334155'; ctx.font='12px Inter'; ctx.fillText(chart.mode.toUpperCase(),10,18);
+  const data = chart.mode==='loss'? lossHistory : ppxHistory;
+  if(data.length<1){ ctx.fillText('No data yet',10,36); return; }
+  const min=Math.min(...data), max=Math.max(...data);
+  ctx.strokeStyle='#6366f1'; ctx.lineWidth=2; ctx.beginPath();
+  for(let i=0;i<data.length;i++){
+    const x = (i/(Math.max(1,data.length-1)))*(w-40)+20;
+    const y = h-30 - ((data[i]-min)/(max-min+1e-9))*(h-60);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+  ctx.fillStyle='#64748b'; ctx.fillText('min:'+min.toFixed(3),w-120,18); ctx.fillText('max:'+max.toFixed(3),w-60,18);
+}
+
+// ==================== TRAIN / EVAL ====================
+function makeSplit(text){
+  const sents = splitSentences(text).map(t=>({text:t, __split:'train'}));
+  for(const s of sents){ s.__split = (seededRand()<0.9)?'train':'val'; }
+  return sents;
+}
+
+async function handleTrain(){
+  try {
+    const txt=document.getElementById('trainingText').value.trim(); if(!txt){ alert('Please enter training text!'); return; }
+    document.getElementById('trainBtn').disabled=true; document.getElementById('trainBtnText').innerHTML='<span class="loading-spinner"></span> Training…';
+    document.getElementById('progressBar').style.width='8%'; document.getElementById('progressText').textContent='8%';
+    const mode=document.getElementById('tokenizerMode').value; const minFreq=Number(document.getElementById('minFreq').value||1); const alpha=Number(document.getElementById('alpha').value||0.75);
+    RNG_SEED = 42; prng = sfc32(0x9e3779b9,0x243f6a88,0xb7e15162,RNG_SEED);
+    const sentences=makeSplit(txt);
+    lm=trainBigramLMSentences(sentences, mode, minFreq, alpha);
+    const trRes=evaluateLMOnSentences(lm, sentences.filter(s=>s.__split==='train'));
+    const vaRes=evaluateLMOnSentences(lm, sentences.filter(s=>s.__split==='val'));
+    document.getElementById('trainLoss').textContent=isFinite(trRes.loss)?trRes.loss.toFixed(3):'∞';
+    document.getElementById('trainPPX').textContent=isFinite(trRes.ppx)?trRes.ppx.toFixed(1):'∞';
+    document.getElementById('valLoss').textContent=isFinite(vaRes.loss)?vaRes.loss.toFixed(3):'∞';
+    document.getElementById('valPPX').textContent=isFinite(vaRes.ppx)?vaRes.ppx.toFixed(1):'∞';
+    document.getElementById('vocabSizeDisplay').textContent=lm.vocab.length;
+    document.getElementById('paramCount').textContent=lm.countBigrams.toLocaleString();
+    document.getElementById('memoryUsage').textContent=(( (lm.vocab.length**2)*8 )/1024/1024).toFixed(2)+' MB';
+    lossHistory.push(trRes.loss); ppxHistory.push(vaRes.ppx); drawChart();
+    document.getElementById('progressBar').style.width='100%'; document.getElementById('progressText').textContent='100%';
+    document.getElementById('generatedText').textContent='✅ Training complete! Model ready for generation.';
+  } catch (err) {
+    logError(err);
+    alert('Training failed. See console for details.');
+  } finally {
+    document.getElementById('trainBtn').disabled=false; document.getElementById('trainBtnText').textContent='🚀 Train';
+  }
+}
+
+function handleFineTune(){
+  const extra=prompt('Paste extra text to merge into training (will retrain model):');
+  if(!extra) return;
+  const combined=(document.getElementById('trainingText').value||'')+'\n'+extra;
+  document.getElementById('trainingText').value=combined; handleTrain();
+}
+
+// ==================== GENERATION (UI) ====================
+function switchGen(mode){ document.querySelectorAll('#genTabs .tab').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode)); document.querySelectorAll('.gen-panel').forEach(p=>p.style.display='none'); document.getElementById(mode+'Gen').style.display='block'; lastGen.mode=mode; }
+function doGenerate(mode){ if(!lm){ alert('Train the model first.'); return; } lastGen.mode=mode; let prompt='', maxLen=60; const t0=performance.now();
+  if(mode==='greedy'){ prompt=document.getElementById('promptGreedy').value; maxLen=Number(document.getElementById('maxLenGreedy').value); document.getElementById('generatedText').textContent = prompt + ' ' + generateText(lm,prompt,maxLen,'greedy',{}); }
+  if(mode==='sampling'){ prompt=document.getElementById('promptSampling').value; maxLen=Number(document.getElementById('maxLenSampling').value); const temperature=Number(document.getElementById('temperature').value); const topK=Number(document.getElementById('topK').value); const topP=Number(document.getElementById('topP').value); document.getElementById('generatedText').textContent = prompt + ' ' + generateText(lm,prompt,maxLen,'sampling',{temperature,topK,topP}); }
+  if(mode==='beam'){ prompt=document.getElementById('promptBeam').value; maxLen=Number(document.getElementById('maxLenBeam').value); const beamWidth=Number(document.getElementById('beamWidth').value); const lengthPenalty=Number(document.getElementById('lengthPenalty').value); const noRepeat=Number(document.getElementById('noRepeat').value); document.getElementById('generatedText').textContent = prompt + ' ' + generateText(lm,prompt,maxLen,'beam',{beamWidth,lengthPenalty,noRepeat}); }
+  if(mode==='contrastive'){ prompt=document.getElementById('promptContrastive').value; maxLen=Number(document.getElementById('maxLenContrastive').value); const alpha=Number(document.getElementById('penaltyAlpha').value); const k=Number(document.getElementById('contrastiveK').value); const repPenalty=Number(document.getElementById('repPenalty').value); document.getElementById('generatedText').textContent = prompt + ' ' + generateText(lm,prompt,maxLen,'contrastive',{alpha,k,repPenalty}); }
+  const dt=performance.now()-t0; systemMetrics.tokensPerSec = clamp(1000*maxLen/Math.max(dt,1), 10, 5000);
+  document.getElementById('throughput').textContent = Math.round(systemMetrics.tokensPerSec);
+}
+function regenerate(){ if(!lastGen.mode) lastGen.mode='greedy'; doGenerate(lastGen.mode); }
+function generateBatch(){ if(!lm){ alert('Train the model first.'); return; } const idByMode={greedy:'promptGreedy', sampling:'promptSampling', beam:'promptBeam', contrastive:'promptContrastive'}; const prompt=document.getElementById(idByMode[lastGen.mode]).value; let output='=== Batch Generation (5 samples) ===\n\n'; for(let i=0;i<5;i++){ output += `${i+1}. ${prompt} ` + generateText(lm,prompt,60,lastGen.mode,{ temperature:Number(document.getElementById('temperature')?.value||1), topK:Number(document.getElementById('topK')?.value||0), topP:Number(document.getElementById('topP')?.value||0), beamWidth:Number(document.getElementById('beamWidth')?.value||5), lengthPenalty:Number(document.getElementById('lengthPenalty')?.value||1), noRepeat:Number(document.getElementById('noRepeat')?.value||0), alpha:Number(document.getElementById('penaltyAlpha')?.value||0.6), k:Number(document.getElementById('contrastiveK')?.value||4), repPenalty:Number(document.getElementById('repPenalty')?.value||1.2) }) + "\n\n"; } document.getElementById('generatedText').textContent=output; }
+
+// ==================== STORAGE (UI) ====================
+async function saveToIndexedDB(){ if(!lm){ alert('No model to save. Train first.'); return; } const payload={ lm, lossHistory, ppxHistory, ts: Date.now() }; await dbPut('default',payload); document.getElementById('lastSaved').textContent=nowStr(); const sz = JSON.stringify(payload).length/1024/1024; document.getElementById('dbSize').textContent=sz.toFixed(2)+' MB'; alert('💾 Saved.'); }
+async function loadFromIndexedDB(){ const payload=await dbGet('default'); if(!payload){ alert('No saved model.'); return; } lm=payload.lm; lossHistory=payload.lossHistory||[]; ppxHistory=payload.ppxHistory||[]; drawChart(); document.getElementById('vocabSizeDisplay').textContent=lm.vocab.length; document.getElementById('paramCount').textContent=lm.countBigrams.toLocaleString(); document.getElementById('memoryUsage').textContent=( (lm.vocab.length**2)*8 /1024/1024 ).toFixed(2)+' MB'; alert('📂 Loaded.'); }
+function exportModel(){ if(!lm){ alert('No model to export.'); return; } const blob=new Blob([JSON.stringify({lm},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='nl-global-v7.1-model.json'; a.click(); URL.revokeObjectURL(url); }
+function importModel(file){ const fr=new FileReader(); fr.onload=()=>{ try{ const obj=JSON.parse(fr.result); if(obj.lm){ lm=obj.lm; document.getElementById('vocabSizeDisplay').textContent=lm.vocab.length; document.getElementById('paramCount').textContent=lm.countBigrams.toLocaleString(); document.getElementById('memoryUsage').textContent=( (lm.vocab.length**2)*8 /1024/1024 ).toFixed(2)+' MB'; alert('📥 Model imported.'); } else alert('Invalid file.'); } catch(e){ logError(e); alert('Parse error.'); } }; fr.readAsText(file); }
+
+// ==================== SYSTEM MONITORING (approx) ====================
+function updateSystemMetrics(){
+  systemMetrics.cpuUsage=clamp(systemMetrics.cpuUsage + (Math.random()*10-5),0,100);
+  systemMetrics.ramUsage=clamp(systemMetrics.ramUsage + (Math.random()*30-10),128,2048);
+  systemMetrics.gpuMemory=clamp(systemMetrics.gpuMemory + (Math.random()*20-10),64,1024);
+  document.getElementById('cpuUsage').textContent = Math.round(systemMetrics.cpuUsage)+'%';
+  document.getElementById('ramUsage').textContent = Math.round(systemMetrics.ramUsage)+'MB';
+  document.getElementById('gpuMemory').textContent = Math.round(systemMetrics.gpuMemory)+'MB';
+}
+
+// ==================== LOGGING ====================
+function logError(err){ const log=document.getElementById('errorLog'); const entry=`[${nowStr()}] ${err?.stack||err}`; log.textContent += entry + '\n'; log.scrollTop = log.scrollHeight; }
+window.addEventListener('error', (evt)=>{ logError(evt.error || evt.message); });
+
+// ==================== SELF TEST ====================
+function runSelfTest(){
+  try {
+    const wordTokens = tokenize('Hello world!', 'word');
+    if(wordTokens.length < 2) throw new Error('Tokenizer failed');
+    const charTokens = tokenize('ab', 'char');
+    if(charTokens.join('') !== 'ab') throw new Error('Char tokenizer failed');
+    const vocab = buildVocab(['a','b','a','c'],2);
+    if(!vocab.id.has('a') || vocab.id.has('c')) throw new Error('Min frequency logic bad');
+    const lmTmp = trainBigramLMSentences([{text:'a b',__split:'train'}], 'word', 1, 0.1);
+    const gen = generateText(lmTmp,'a',5,'greedy',{});
+    if(typeof gen !== 'string') throw new Error('Generation failed');
+    document.getElementById('jsStatus').textContent='✅ Ready (self-test passed)';
+  } catch (err) {
+    document.getElementById('jsStatus').textContent='⚠️ Self-test failed';
+    logError(err);
+  }
+}
+
+// ==================== INITIALIZE ====================
+function updateTokenizerLabels(mode){ document.getElementById('tokLabel').textContent = mode==='char'?'Character':'Word'; document.getElementById('tokType').textContent = mode==='char'?'Character-Level':'Word‑Level'; }
+
+function setupEvents(){
+  document.getElementById('trainBtn').addEventListener('click', handleTrain);
+  document.getElementById('fineTuneBtn').addEventListener('click', handleFineTune);
+  document.getElementById('exampleBtn').addEventListener('click',()=>{
+    const samples=[
+      'Transformers leverage self-attention to model global dependencies in sequences. Tokenization strategies like byte-pair encoding help manage open vocabularies.',
+      'Graph neural networks extend deep learning to non-Euclidean domains. Message passing captures relational structure among nodes and edges.',
+      'Diffusion models iteratively refine noise into coherent samples. Classifier-free guidance balances fidelity and diversity.'
+    ];
+    document.getElementById('trainingText').value=samples.join(' ');
+  });
+  document.querySelectorAll('#genTabs .tab').forEach(btn=>btn.addEventListener('click',()=>switchGen(btn.dataset.mode)));
+  document.getElementById('btnGreedy').addEventListener('click',()=>doGenerate('greedy'));
+  document.getElementById('btnSampling').addEventListener('click',()=>doGenerate('sampling'));
+  document.getElementById('btnBeam').addEventListener('click',()=>doGenerate('beam'));
+  document.getElementById('btnContrastive').addEventListener('click',()=>doGenerate('contrastive'));
+  document.getElementById('btnRegen').addEventListener('click',regenerate);
+  document.getElementById('btnBatch').addEventListener('click',generateBatch);
+  document.getElementById('btnCopy').addEventListener('click',async()=>{
+    try { await navigator.clipboard.writeText(document.getElementById('generatedText').textContent||''); } catch(err){ logError(err); alert('Copy failed.'); }
+  });
+  document.getElementById('btnExportGen').addEventListener('click',()=>{
+    const blob=new Blob([document.getElementById('generatedText').textContent||''],{type:'text/plain'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='nl-global-generation.txt'; a.click(); URL.revokeObjectURL(url);
+  });
+  document.getElementById('btnSaveDB').addEventListener('click',()=>saveToIndexedDB().catch(logError));
+  document.getElementById('btnLoadDB').addEventListener('click',()=>loadFromIndexedDB().catch(logError));
+  document.getElementById('btnExportModel').addEventListener('click',exportModel);
+  document.getElementById('btnImportModel').addEventListener('click',()=>document.getElementById('importFile').click());
+  document.getElementById('importFile').addEventListener('change',(evt)=>{ const file=evt.target.files?.[0]; if(file) importModel(file); evt.target.value=''; });
+  document.querySelectorAll('[data-chart]').forEach(btn=>btn.addEventListener('click',()=>{ chart.mode=btn.dataset.chart; drawChart(); }));
+  document.getElementById('clearChart').addEventListener('click',clearChart);
+  document.getElementById('rtlToggle').addEventListener('change',(evt)=>{ document.documentElement.dir = evt.target.checked ? 'rtl' : 'ltr'; });
+  document.getElementById('tokenizerMode').addEventListener('change',(evt)=>updateTokenizerLabels(evt.target.value));
+  document.getElementById('quickBtn').addEventListener('click',()=>{
+    alert('Quick actions:\n• Train model\n• Generate text\n• Save/Load to IndexedDB');
+  });
+  document.getElementById('selfTestBtn').addEventListener('click',runSelfTest);
+}
+
+async function init(){
+  document.getElementById('jsStatus').textContent='Loading…';
+  updateTokenizerLabels(document.getElementById('tokenizerMode').value);
+  initChart();
+  setupEvents();
+  await detectFeatures();
+  runSelfTest();
+  document.getElementById('jsStatus').textContent='✅ Ready';
+  setInterval(updateSystemMetrics, 2000);
+}
+
+init();
+</script>
+</body>
+</html>

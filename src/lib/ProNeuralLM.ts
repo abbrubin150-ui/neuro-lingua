@@ -549,6 +549,17 @@ export class ProNeuralLM {
       wOutput: this.wOutput,
       bHidden: this.bHidden,
       bOutput: this.bOutput,
+      adamT: this.adamT,
+      mEmbedding: this.mEmbedding,
+      mWHidden: this.mWHidden,
+      mWOutput: this.mWOutput,
+      mBHidden: this.mBHidden,
+      mBOutput: this.mBOutput,
+      aEmbedding: this.aEmbedding,
+      aWHidden: this.aWHidden,
+      aWOutput: this.aWOutput,
+      aBHidden: this.aBHidden,
+      aBOutput: this.aBOutput,
       wordToIdx: Array.from(this.wordToIdx.entries()),
       idxToWord: Array.from(this.idxToWord.entries()),
       trainingHistory: this.trainingHistory
@@ -583,6 +594,17 @@ export class ProNeuralLM {
       m.wOutput = d.wOutput;
       m.bHidden = d.bHidden;
       m.bOutput = d.bOutput;
+      if (typeof d.adamT === 'number') m.adamT = d.adamT;
+      if (d.mEmbedding) m.mEmbedding = d.mEmbedding;
+      if (d.mWHidden) m.mWHidden = d.mWHidden;
+      if (d.mWOutput) m.mWOutput = d.mWOutput;
+      if (d.mBHidden) m.mBHidden = d.mBHidden;
+      if (d.mBOutput) m.mBOutput = d.mBOutput;
+      if (d.aEmbedding) m.aEmbedding = { m: d.aEmbedding.m, v: d.aEmbedding.v };
+      if (d.aWHidden) m.aWHidden = { m: d.aWHidden.m, v: d.aWHidden.v };
+      if (d.aWOutput) m.aWOutput = { m: d.aWOutput.m, v: d.aWOutput.v };
+      if (d.aBHidden) m.aBHidden = { m: d.aBHidden.m, v: d.aBHidden.v };
+      if (d.aBOutput) m.aBOutput = { m: d.aBOutput.m, v: d.aBOutput.v };
       m.wordToIdx = new Map(d.wordToIdx);
       m.idxToWord = new Map(d.idxToWord);
       m.trainingHistory = d.trainingHistory || [];

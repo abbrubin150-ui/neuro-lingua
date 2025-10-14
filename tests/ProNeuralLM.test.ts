@@ -106,4 +106,31 @@ function modelStateClose(base: ProNeuralLM, other: ProNeuralLM) {
   assert.equal((original as any).adamT, (resumed as any).adamT, 'adamT should persist');
 })();
 
+(function rngRestorationRegression() {
+  storage.clear();
+  const vocab = ['<BOS>', '<EOS>', '<UNK>', 'foo', 'bar'];
+  const text = 'foo bar foo';
+  const key = 'test-pro-neural-lm-rng';
+  const seed = 2024;
+  const dropout = 0.25;
+
+  const original = new ProNeuralLM(vocab, 8, 0.05, 2, 'momentum', 0.9, dropout, seed);
+  const seqs: [number[], number][] = (original as any).createTrainingSequences(text);
+  assert.ok(seqs.length >= 2, 'need at least two training sequences');
+
+  // Advance RNG state before saving to simulate an interruption mid-training.
+  (original as any).forward(seqs[0][0], true);
+  original.saveToLocalStorage(key);
+
+  const resumed = ProNeuralLM.loadFromLocalStorage(key);
+  assert.ok(resumed, 'model should reload with rng state');
+
+  const originalCache = (original as any).forward(seqs[1][0], true);
+  const resumedCache = (resumed as any).forward(seqs[1][0], true);
+
+  assert.ok(originalCache.dropMask, 'original dropout mask should be present');
+  assert.ok(resumedCache.dropMask, 'resumed dropout mask should be present');
+  vectorsClose(originalCache.dropMask!, resumedCache.dropMask!);
+})();
+
 console.log('ProNeuralLM serialization regression test passed');

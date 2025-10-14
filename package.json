@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "tsx tests/ProNeuralLM.test.ts"
+    "test": "tsx tests/ProNeuralLM.test.ts",
+    "train": "tsx scripts/train.ts"
   },
   "dependencies": {
     "react": "^18.2.0",

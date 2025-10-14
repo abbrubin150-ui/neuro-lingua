@@ -1,12 +1,22 @@
 export type Optimizer = 'momentum' | 'adam';
 
-function makeRng(seed: number) {
-  let t = seed >>> 0;
-  return () => {
-    t += 0x6d2b79f5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+type Rng = {
+  next(): number;
+  getState(): number;
+};
+
+function makeRng(seed: number, state?: number): Rng {
+  let t = (state ?? seed) >>> 0;
+  return {
+    next() {
+      t += 0x6d2b79f5;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    },
+    getState() {
+      return t >>> 0;
+    }
   };
 }
 
@@ -59,7 +69,9 @@ export class ProNeuralLM {
   private hiddenSize: number;
   private learningRate: number;
   private contextSize: number;
-  private rng: () => number;
+  private rng: Rng;
+  private rngSeed: number;
+  private rngState: number;
 
   private dropout: number;
   private optimizer: Optimizer;
@@ -104,18 +116,26 @@ export class ProNeuralLM {
     this.optimizer = optimizer;
     this.momentum = momentum;
     this.dropout = clamp(dropout, 0, 0.5);
+    this.rngSeed = seed;
     this.rng = makeRng(seed);
+    this.rngState = this.rng.getState();
 
     this.wordToIdx = new Map(vocab.map((w, i) => [w, i]));
     this.idxToWord = new Map(vocab.map((w, i) => [i, w]));
     this.initializeParameters();
   }
 
+  private nextRandom() {
+    const value = this.rng.next();
+    this.rngState = this.rng.getState();
+    return value;
+  }
+
   private randn(scale = 0.1) {
     let u = 0;
     let v = 0;
-    while (u === 0) u = this.rng();
-    while (v === 0) v = this.rng();
+    while (u === 0) u = this.nextRandom();
+    while (v === 0) v = this.nextRandom();
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v) * scale;
   }
 
@@ -208,7 +228,9 @@ export class ProNeuralLM {
     let dropMask: number[] | null = null;
     if (train && this.dropout > 0) {
       const scale = 1 / (1 - this.dropout);
-      dropMask = new Array(h.length).fill(0).map(() => (this.rng() > this.dropout ? scale : 0));
+      dropMask = new Array(h.length)
+        .fill(0)
+        .map(() => (this.nextRandom() > this.dropout ? scale : 0));
       h = h.map((v, i) => v * dropMask![i]);
     }
 
@@ -423,7 +445,7 @@ export class ProNeuralLM {
 
   private shuffleInPlace<T>(arr: T[]) {
     for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(this.rng() * (i + 1));
+      const j = Math.floor(this.nextRandom() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
   }
@@ -490,7 +512,7 @@ export class ProNeuralLM {
       p = p.map((v, i) => (keep.has(i) ? v / (sum || 1) : 0));
     }
 
-    let r = Math.max(0, Math.min(0.999999, this.rng()));
+    let r = Math.max(0, Math.min(0.999999, this.nextRandom()));
     for (let i = 0; i < p.length; i++) {
       r -= p[i];
       if (r <= 0) return i;
@@ -535,6 +557,7 @@ export class ProNeuralLM {
   }
 
   toJSON() {
+    this.rngState = this.rng.getState();
     return {
       version: '3.2.4',
       vocab: this.vocab,
@@ -544,6 +567,8 @@ export class ProNeuralLM {
       optimizer: this.optimizer,
       momentum: this.momentum,
       dropout: this.dropout,
+      rngSeed: this.rngSeed,
+      rngState: this.rngState,
       embedding: this.embedding,
       wHidden: this.wHidden,
       wOutput: this.wOutput,
@@ -579,6 +604,8 @@ export class ProNeuralLM {
       const raw = localStorage.getItem(key);
       if (!raw) return null;
       const d = JSON.parse(raw);
+      const seed = typeof d.rngSeed === 'number' ? d.rngSeed : 1337;
+      const state = typeof d.rngState === 'number' ? d.rngState : undefined;
       const m = new ProNeuralLM(
         d.vocab,
         d.hiddenSize,
@@ -587,7 +614,7 @@ export class ProNeuralLM {
         (d.optimizer as Optimizer) ?? 'momentum',
         d.momentum ?? 0.9,
         d.dropout ?? 0,
-        1337
+        seed
       );
       m.embedding = d.embedding;
       m.wHidden = d.wHidden;
@@ -608,6 +635,13 @@ export class ProNeuralLM {
       m.wordToIdx = new Map(d.wordToIdx);
       m.idxToWord = new Map(d.idxToWord);
       m.trainingHistory = d.trainingHistory || [];
+      m.rngSeed = seed;
+      if (state !== undefined) {
+        m.rngState = state >>> 0;
+        m.rng = makeRng(m.rngSeed, m.rngState);
+      } else {
+        m.rngState = m.rng.getState();
+      }
       return m;
     } catch (e) {
       console.warn('Failed to load model', e);

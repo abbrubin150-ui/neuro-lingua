@@ -60,10 +60,11 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 
 ## Agent / CI
 
-- **Trigger**: `workflow_dispatch` or on changes to `data/corpus.txt`
-- **Action**: run `pnpm train` → write `models/neuro‑lingua‑v322.json` → commit back
+- **Trigger**: `workflow_dispatch` (with configurable inputs) or on changes to `data/corpus.txt`
+- **Action**: run `pnpm train` → write `models/neuro‑lingua‑v322.json` → commit back using the default `GITHUB_TOKEN`
+- **Manual runs**: provide optional `epochs`, `optimizer` (`momentum`/`adam`) and `dropout` values when dispatching to override defaults without editing the repo.
 
-You may need to allow the workflow to push commits:
+The workflow pushes directly to the repository, so ensure it has permission to write:
 - Repo → Settings → Actions → General → Workflow permissions → **Read and write permissions**
 
 ---

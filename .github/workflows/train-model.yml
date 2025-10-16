@@ -1,0 +1,58 @@
+name: Train Neuro-Lingua Model
+
+on:
+  workflow_dispatch:
+    inputs:
+      epochs:
+        description: "Number of training epochs"
+        required: false
+        default: "30"
+      optimizer:
+        description: "Optimizer to use (momentum or adam)"
+        required: false
+        default: "momentum"
+      dropout:
+        description: "Dropout rate (0-0.5)"
+        required: false
+        default: "0.1"
+  push:
+    paths:
+      - data/corpus.txt
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install
+      - name: Train model
+        env:
+          EPOCHS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.epochs || '' }}
+          OPTIMIZER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.optimizer || '' }}
+          DROPOUT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dropout || '' }}
+        run: pnpm train
+      - name: Commit updated model artifact
+        run: |
+          if [[ -n "$(git status --porcelain models/)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add models/
+            git commit -m "chore: update trained model"
+            git push
+          else
+            echo "No model changes to commit."

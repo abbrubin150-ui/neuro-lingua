@@ -2,10 +2,15 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ProNeuralLM, type Optimizer } from '../src/lib/ProNeuralLM';
+import {
+  ProNeuralLM,
+  type Optimizer,
+  MODEL_VERSION,
+  MODEL_EXPORT_FILENAME
+} from '../src/lib/ProNeuralLM';
 
 const CORPUS_URL = new URL('../data/corpus.txt', import.meta.url);
-const OUTPUT_URL = new URL('../models/neuro-lingua-v322.json', import.meta.url);
+const OUTPUT_URL = new URL(`../models/${MODEL_EXPORT_FILENAME}`, import.meta.url);
 
 const DEFAULTS = {
   epochs: 30,
@@ -69,7 +74,7 @@ async function main() {
   const dropout = Math.min(0.5, Math.max(0, parseNumber(process.env.DROPOUT, DEFAULTS.dropout)));
   const seed = Math.floor(parseNumber(process.env.SEED, DEFAULTS.seed));
 
-  console.log('--- Neuro-Lingua Training ---');
+  console.log(`--- Neuro-Lingua Training v${MODEL_VERSION} ---`);
   console.log(`Corpus path: ${corpusPath}`);
   console.log(`Tokens: ${tokens.length}`);
   console.log(`Vocab size: ${vocab.length}`);
@@ -92,7 +97,7 @@ async function main() {
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
   await fs.writeFile(outputPath, JSON.stringify(model.toJSON(), null, 2), 'utf8');
 
-  console.log(`Model saved to ${outputPath}`);
+  console.log(`Model artifact (${MODEL_EXPORT_FILENAME}) saved to ${outputPath}`);
 }
 
 main().catch((err) => {

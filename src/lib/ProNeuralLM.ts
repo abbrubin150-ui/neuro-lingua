@@ -1,5 +1,10 @@
 export type Optimizer = 'momentum' | 'adam';
 
+export const MODEL_VERSION = '3.2.4';
+export const MODEL_COMPACT_VERSION = MODEL_VERSION.replace(/\./g, '');
+export const MODEL_STORAGE_KEY = `neuro-lingua-pro-v${MODEL_COMPACT_VERSION}`;
+export const MODEL_EXPORT_FILENAME = `neuro-lingua-v${MODEL_COMPACT_VERSION}.json`;
+
 type Rng = {
   next(): number;
   getState(): number;
@@ -559,7 +564,7 @@ export class ProNeuralLM {
   toJSON() {
     this.rngState = this.rng.getState();
     return {
-      version: '3.2.4',
+      version: MODEL_VERSION,
       vocab: this.vocab,
       hiddenSize: this.hiddenSize,
       learningRate: this.learningRate,

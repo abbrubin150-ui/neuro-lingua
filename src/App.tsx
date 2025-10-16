@@ -1,6 +1,35 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-import { ProNeuralLM, type Optimizer, clamp } from './lib/ProNeuralLM';
+import {
+  ProNeuralLM,
+  type Optimizer,
+  clamp,
+  MODEL_VERSION,
+  MODEL_STORAGE_KEY,
+  MODEL_EXPORT_FILENAME
+} from './lib/ProNeuralLM';
+
+const LEGACY_STORAGE_KEYS = ['neuro-lingua-pro-v32'];
+
+function loadLatestModel(): ProNeuralLM | null {
+  const primary = ProNeuralLM.loadFromLocalStorage(MODEL_STORAGE_KEY);
+  if (primary) return primary;
+
+  for (const legacyKey of LEGACY_STORAGE_KEYS) {
+    const legacy = ProNeuralLM.loadFromLocalStorage(legacyKey);
+    if (legacy) {
+      try {
+        legacy.saveToLocalStorage(MODEL_STORAGE_KEY);
+        localStorage.removeItem(legacyKey);
+      } catch (err) {
+        console.warn('Failed to migrate legacy model', err);
+      }
+      return legacy;
+    }
+  }
+
+  return null;
+}
 
 type Msg = { type: 'system' | 'user' | 'assistant'; content: string; timestamp?: number };
 
@@ -89,14 +118,18 @@ export default function NeuroLinguaDomesticaV324() {
 
   useEffect(() => {
     runSelfTests();
-    const saved = ProNeuralLM.loadFromLocalStorage('neuro-lingua-pro-v32');
+    const saved = loadLatestModel();
     if (saved) {
       modelRef.current = saved;
       setInfo({ V: saved.getVocabSize(), P: saved.getParametersCount() });
       setTrainingHistory(saved.getTrainingHistory());
       setMessages((m) => [
         ...m,
-        { type: 'system', content: '📀 Model v3.2 loaded from local storage', timestamp: Date.now() }
+        {
+          type: 'system',
+          content: `📀 Model v${MODEL_VERSION} loaded from local storage`,
+          timestamp: Date.now()
+        }
       ]);
     }
   }, []);
@@ -184,7 +217,7 @@ export default function NeuroLinguaDomesticaV324() {
           timestamp: Date.now()
         }
       ]);
-      modelRef.current!.saveToLocalStorage('neuro-lingua-pro-v32');
+      modelRef.current!.saveToLocalStorage(MODEL_STORAGE_KEY);
     }
 
     setIsTraining(false);
@@ -198,12 +231,12 @@ export default function NeuroLinguaDomesticaV324() {
   }
 
   function onSave() {
-    modelRef.current?.saveToLocalStorage('neuro-lingua-pro-v32');
+    modelRef.current?.saveToLocalStorage(MODEL_STORAGE_KEY);
     setMessages((m) => [...m, { type: 'system', content: '💾 Saved locally', timestamp: Date.now() }]);
   }
 
   function onLoad() {
-    const m = ProNeuralLM.loadFromLocalStorage('neuro-lingua-pro-v32');
+    const m = loadLatestModel();
     if (m) {
       modelRef.current = m;
       setInfo({ V: m.getVocabSize(), P: m.getParametersCount() });
@@ -220,7 +253,7 @@ export default function NeuroLinguaDomesticaV324() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `neuro‑lingua‑v324.json`;
+    a.download = MODEL_EXPORT_FILENAME;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -232,8 +265,8 @@ export default function NeuroLinguaDomesticaV324() {
     reader.onload = () => {
       try {
         const d = JSON.parse(String(reader.result));
-        localStorage.setItem('neuro-lingua-pro-v32', JSON.stringify(d));
-        const m = ProNeuralLM.loadFromLocalStorage('neuro-lingua-pro-v32');
+        localStorage.setItem(MODEL_STORAGE_KEY, JSON.stringify(d));
+        const m = loadLatestModel();
         if (m) {
           modelRef.current = m;
           setInfo({ V: m.getVocabSize(), P: m.getParametersCount() });
@@ -249,7 +282,8 @@ export default function NeuroLinguaDomesticaV324() {
 
   function onReset() {
     modelRef.current = null;
-    localStorage.removeItem('neuro-lingua-pro-v32');
+    localStorage.removeItem(MODEL_STORAGE_KEY);
+    for (const legacyKey of LEGACY_STORAGE_KEYS) localStorage.removeItem(legacyKey);
     setInfo({ V: 0, P: 0 });
     setStats({ loss: 0, acc: 0, ppl: 0 });
     setTrainingHistory([]);
@@ -377,7 +411,7 @@ English-language research communities share open tools, papers, and tutorials so
               marginBottom: 8
             }}
           >
-            🧠 Neuro‑Lingua DOMESTICA — v3.2.4
+            🧠 Neuro‑Lingua DOMESTICA — v{MODEL_VERSION}
           </h1>
           <p style={{ color: '#94a3b8', fontSize: '1.05rem' }}>
             Advanced neural language model with Momentum/Adam, training-only dropout, real-time charts, and flexible context windows.

@@ -1,4 +1,4 @@
-# Neuro‑Lingua DOMESTICA — v3.2.2 (EN)
+# Neuro‑Lingua DOMESTICA — v3.2.4 (EN)
 
 **Browser‑native neural language model** built in React + TypeScript.
 - SGD with **Momentum** or **Adam**
@@ -29,7 +29,7 @@ pnpm train
 ```
 
 The browser UI allows you to paste a training corpus and interact with the model.  
-The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and writes the artifact to `models/neuro‑lingua‑v322.json`.
+The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and writes the artifact to `models/neuro‑lingua‑v324.json`.
 
 ---
 
@@ -40,7 +40,7 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 ├── data/
 │   └── corpus.txt                  # training corpus for the agent
 ├── models/
-│   └── .gitkeep
+│   └── neuro-lingua-v324.json       # latest trained model artifact
 ├── scripts/
 │   └── train.ts                    # Node training script (ts-node)
 ├── src/
@@ -61,7 +61,7 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 ## Agent / CI
 
 - **Trigger**: `workflow_dispatch` (with configurable inputs) or on changes to `data/corpus.txt`
-- **Action**: run `pnpm train` → write `models/neuro‑lingua‑v322.json` → commit back using the default `GITHUB_TOKEN`
+- **Action**: run `pnpm train` → write `models/neuro‑lingua‑v324.json` → commit back using the default `GITHUB_TOKEN`
 - **Manual runs**: provide optional `epochs`, `optimizer` (`momentum`/`adam`) and `dropout` values when dispatching to override defaults without editing the repo.
 
 The workflow pushes directly to the repository, so ensure it has permission to write:

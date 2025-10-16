@@ -6,7 +6,7 @@ type Msg = { type: 'system' | 'user' | 'assistant'; content: string; timestamp?:
 
 export default function NeuroLinguaDomesticaV324() {
   const [trainingText, setTrainingText] = useState(
-    'מודל שפה עצבי מתקדם מתאמן בדפדפן. המודל לומד דפוסים מהטקסט, ויכול ליצור ניסוחים בעברית.'
+    'An advanced neural language model trains in the browser. The model learns patterns from the text and can draft fluent English responses.'
   );
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -38,11 +38,11 @@ export default function NeuroLinguaDomesticaV324() {
 
   function runSelfTests() {
     try {
-      const vocab = ['<PAD>', '<BOS>', '<EOS>', '<UNK>', 'שלום', 'עולם'];
+      const vocab = ['<PAD>', '<BOS>', '<EOS>', '<UNK>', 'hello', 'world'];
       const m = new ProNeuralLM(vocab, 16, 0.05, 3, 'momentum', 0.9, 0, 1234);
-      const res = m.train('שלום עולם שלום', 1);
+      const res = m.train('hello world hello', 1);
       console.assert(res.loss > 0 && res.accuracy >= 0 && res.accuracy <= 1, '[SelfTest] train metrics valid');
-      const out = m.generate('שלום', 5, 0.9, 0, 0.9);
+      const out = m.generate('hello', 5, 0.9, 0, 0.9);
       console.assert(typeof out === 'string' && out.length <= 5 * 10, '[SelfTest] generate output (bounded)');
 
       const m2: any = new ProNeuralLM(vocab, 8, 0.05, 3, 'momentum', 0.9, 0.3, 42);
@@ -52,32 +52,32 @@ export default function NeuroLinguaDomesticaV324() {
 
       const m3 = new ProNeuralLM(vocab, 8, 0.05, 3, 'adam', 0.9, 0.0, 7);
       const hLen0 = m3.getTrainingHistory().length;
-      m3.train('שלום עולם שלום', 2);
+      m3.train('hello world hello', 2);
       const hLen1 = m3.getTrainingHistory().length;
       console.assert(hLen1 === hLen0 + 2, '[SelfTest] history grows per epoch (adam)');
 
       const m4: any = new ProNeuralLM(vocab, 8, 0.05, 5, 'momentum', 0.9, 0.0, 9);
-      const seqs = m4.createTrainingSequences('שלום');
+      const seqs = m4.createTrainingSequences('hello');
       console.assert(seqs.length > 0, '[SelfTest] sequences exist');
       console.assert(seqs[0][0].length === 5, '[SelfTest] context window = 5');
 
-      const sK = m.generate('שלום', 5, 0.9, 2, 0);
-      const sP = m.generate('שלום', 5, 0.9, 0, 0.8);
+      const sK = m.generate('hello', 5, 0.9, 2, 0);
+      const sP = m.generate('hello', 5, 0.9, 0, 0.8);
       console.assert(typeof sK === 'string' && typeof sP === 'string', '[SelfTest] sampling modes');
 
       const mA = new ProNeuralLM(vocab, 12, 0.05, 3, 'momentum', 0.9, 0.0, 111);
       const mB = new ProNeuralLM(vocab, 12, 0.05, 3, 'momentum', 0.9, 0.0, 111);
-      const gA = mA.generate('שלום', 6, 0.7, 0, 0.9);
-      const gB = mB.generate('שלום', 6, 0.7, 0, 0.9);
+      const gA = mA.generate('hello', 6, 0.7, 0, 0.9);
+      const gB = mB.generate('hello', 6, 0.7, 0, 0.9);
       console.assert(gA === gB, '[SelfTest] deterministic generation with same seed');
 
-      const vocab2 = ['<PAD>', '<BOS>', '<EOS>', '<UNK>', 'שלום', 'חברים'];
+      const vocab2 = ['<PAD>', '<BOS>', '<EOS>', '<UNK>', 'hello', 'friends'];
       const s1 = new ProNeuralLM(vocab).getVocabSignature();
       const s2 = new ProNeuralLM(vocab2).getVocabSignature();
       console.assert(s1 !== s2, '[SelfTest] vocab signature reflects vocab');
 
       const m5 = new ProNeuralLM(vocab, 8, 0.05, 3, 'momentum', 0.9, 0.0, 3);
-      const r5 = m5.train('שלום עולם', 1);
+      const r5 = m5.train('hello world', 1);
       const ppl = Math.exp(Math.max(1e-8, r5.loss));
       console.assert(!Number.isNaN(ppl), '[SelfTest] perplexity finite');
 
@@ -96,7 +96,7 @@ export default function NeuroLinguaDomesticaV324() {
       setTrainingHistory(saved.getTrainingHistory());
       setMessages((m) => [
         ...m,
-        { type: 'system', content: '📀 מודל v3.2 נטען מהזיכרון המקומי', timestamp: Date.now() }
+        { type: 'system', content: '📀 Model v3.2 loaded from local storage', timestamp: Date.now() }
       ]);
     }
   }, []);
@@ -104,7 +104,7 @@ export default function NeuroLinguaDomesticaV324() {
   function buildVocab(text: string): string[] {
     const toks = text
       .toLowerCase()
-      .replace(/[^\u0590-\u05FF\w\s'-]/g, ' ')
+      .replace(/[^\p{L}\d\s'-]/gu, ' ')
       .split(/\s+/)
       .filter((t) => t.length > 0);
     const uniq = Array.from(new Set(toks));
@@ -123,7 +123,7 @@ export default function NeuroLinguaDomesticaV324() {
     if (vocab.length < 8) {
       setMessages((m) => [
         ...m,
-        { type: 'system', content: '❌ צריך יותר טקסט לאימון (לפחות 8 מילים שונות).', timestamp: Date.now() }
+        { type: 'system', content: '❌ Need more training text (at least 8 unique tokens).', timestamp: Date.now() }
       ]);
       setIsTraining(false);
       trainingRef.current.running = false;
@@ -147,12 +147,12 @@ export default function NeuroLinguaDomesticaV324() {
       );
       setMessages((m) => [
         ...m,
-        { type: 'system', content: `🎯 התחלת אימון חדש עם ${vocab.length} מילים באוצר…`, timestamp: Date.now() }
+        { type: 'system', content: `🎯 Starting fresh training with ${vocab.length} vocabulary tokens…`, timestamp: Date.now() }
       ]);
     } else {
       setMessages((m) => [
         ...m,
-        { type: 'system', content: '🔁 ממשיך אימון על המודל הנוכחי…', timestamp: Date.now() }
+        { type: 'system', content: '🔁 Continuing training on the current model…', timestamp: Date.now() }
       ]);
     }
 
@@ -180,7 +180,7 @@ export default function NeuroLinguaDomesticaV324() {
         ...m,
         {
           type: 'system',
-          content: `✅ אימון הושלם! דיוק ממוצע: ${(aggAcc / total * 100).toFixed(1)}%`,
+          content: `✅ Training complete! Average accuracy: ${(aggAcc / total * 100).toFixed(1)}%`,
           timestamp: Date.now()
         }
       ]);
@@ -194,12 +194,12 @@ export default function NeuroLinguaDomesticaV324() {
   function onStopTraining() {
     trainingRef.current.running = false;
     setIsTraining(false);
-    setMessages((m) => [...m, { type: 'system', content: '⏹️ האימון הופסק', timestamp: Date.now() }]);
+    setMessages((m) => [...m, { type: 'system', content: '⏹️ Training stopped', timestamp: Date.now() }]);
   }
 
   function onSave() {
     modelRef.current?.saveToLocalStorage('neuro-lingua-pro-v32');
-    setMessages((m) => [...m, { type: 'system', content: '💾 נשמר מקומית', timestamp: Date.now() }]);
+    setMessages((m) => [...m, { type: 'system', content: '💾 Saved locally', timestamp: Date.now() }]);
   }
 
   function onLoad() {
@@ -208,7 +208,7 @@ export default function NeuroLinguaDomesticaV324() {
       modelRef.current = m;
       setInfo({ V: m.getVocabSize(), P: m.getParametersCount() });
       setTrainingHistory(m.getTrainingHistory());
-      setMessages((s) => [...s, { type: 'system', content: '📀 נטען מקומית', timestamp: Date.now() }]);
+      setMessages((s) => [...s, { type: 'system', content: '📀 Loaded from local storage', timestamp: Date.now() }]);
     }
   }
 
@@ -238,10 +238,10 @@ export default function NeuroLinguaDomesticaV324() {
           modelRef.current = m;
           setInfo({ V: m.getVocabSize(), P: m.getParametersCount() });
           setTrainingHistory(m.getTrainingHistory());
-          setMessages((s) => [...s, { type: 'system', content: '📥 יובא קובץ מודל', timestamp: Date.now() }]);
+          setMessages((s) => [...s, { type: 'system', content: '📥 Imported model file', timestamp: Date.now() }]);
         }
       } catch {
-        setMessages((s) => [...s, { type: 'system', content: '❌ כשל בייבוא הקובץ', timestamp: Date.now() }]);
+        setMessages((s) => [...s, { type: 'system', content: '❌ Failed to import model file', timestamp: Date.now() }]);
       }
     };
     reader.readAsText(file);
@@ -253,12 +253,12 @@ export default function NeuroLinguaDomesticaV324() {
     setInfo({ V: 0, P: 0 });
     setStats({ loss: 0, acc: 0, ppl: 0 });
     setTrainingHistory([]);
-    setMessages((m) => [...m, { type: 'system', content: '🔄 מודל אופס. אפשר לאמן מחדש.', timestamp: Date.now() }]);
+    setMessages((m) => [...m, { type: 'system', content: '🔄 Model reset. Ready to train again.', timestamp: Date.now() }]);
   }
 
   function onGenerate() {
     if (!modelRef.current || !input.trim()) {
-      setMessages((m) => [...m, { type: 'system', content: '❌ צריך לאמן את המודל קודם.', timestamp: Date.now() }]);
+      setMessages((m) => [...m, { type: 'system', content: '❌ Please train the model first.', timestamp: Date.now() }]);
       return;
     }
     setMessages((m) => [...m, { type: 'user', content: input, timestamp: Date.now() }]);
@@ -271,11 +271,11 @@ export default function NeuroLinguaDomesticaV324() {
 
   function onExample() {
     setTrainingText(
-      `למידת מכונה ובינה מלאכותית משנות את העולם הטכנולוגי. אלגוריתמים מתקדמים לומדים מדפוסים בנתונים ומשפרים את ביצועיהם עם הזמן.
+      `Machine learning and artificial intelligence are reshaping the technology landscape. Advanced algorithms learn from data patterns and improve their performance over time.
 
-מודלים עצביים מלאכותיים מחקים את פעולת המוח האנושי באמצעות שכבות של נוירונים דיגיטליים. טכנולוגיות אלו מאפשרות יצירת מערכות חכמות שמבינות שפה, מזהות תמונות, ומקבלות החלטות.
+Artificial neural models emulate the human brain using layers of digital neurons. These technologies enable smart systems that understand language, recognize images, and support decision making.
 
-בעברית אפשר לפתח תכניות מתקדמות בתחום הבינה המלאכותית. קהילת המפתחים הישראלית תורמת רבות לקידום התחום במחקר ופיתוח.`
+English-language research communities share open tools, papers, and tutorials so builders everywhere can prototype intelligent assistants.`
     );
   }
 
@@ -292,7 +292,7 @@ export default function NeuroLinguaDomesticaV324() {
           border: '1px solid #334155'
         }}
       >
-        <h4 style={{ color: '#a78bfa', margin: '0 0 12px 0' }}>📈 התקדמות אימון</h4>
+        <h4 style={{ color: '#a78bfa', margin: '0 0 12px 0' }}>📈 Training Progress</h4>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, height: 140 }}>
           <div>
             <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Loss</div>
@@ -380,7 +380,7 @@ export default function NeuroLinguaDomesticaV324() {
             🧠 Neuro‑Lingua DOMESTICA — v3.2.4
           </h1>
           <p style={{ color: '#94a3b8', fontSize: '1.05rem' }}>
-            מודל שפה עצבי מתקדם עם Momentum/Adam, Dropout (אימון בלבד), גרפים בזמן אמת, ו‑context גמיש
+            Advanced neural language model with Momentum/Adam, training-only dropout, real-time charts, and flexible context windows.
           </p>
         </header>
 
@@ -608,7 +608,7 @@ export default function NeuroLinguaDomesticaV324() {
               style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}
             >
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                <input type="checkbox" checked={resume} onChange={(e) => setResume(e.target.checked)} /> המשך אימון (אם אפשר)
+                <input type="checkbox" checked={resume} onChange={(e) => setResume(e.target.checked)} /> Resume training when possible
               </label>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
@@ -627,7 +627,7 @@ export default function NeuroLinguaDomesticaV324() {
                     minWidth: 120
                   }}
                 >
-                  {isTraining ? '🔄 מאמן…' : '🚀 אמן מודל'}
+                  {isTraining ? '🔄 Training…' : '🚀 Train model'}
                 </button>
                 {isTraining && (
                   <button
@@ -642,7 +642,7 @@ export default function NeuroLinguaDomesticaV324() {
                       cursor: 'pointer'
                     }}
                   >
-                    ⏹️ עצור
+                    ⏹️ Stop
                   </button>
                 )}
                 <button
@@ -657,7 +657,7 @@ export default function NeuroLinguaDomesticaV324() {
                     cursor: 'pointer'
                   }}
                 >
-                  🔄 אפס
+                  🔄 Reset
                 </button>
                 <button
                   onClick={onSave}
@@ -671,7 +671,7 @@ export default function NeuroLinguaDomesticaV324() {
                     cursor: 'pointer'
                   }}
                 >
-                  💾 שמור
+                  💾 Save
                 </button>
                 <button
                   onClick={onLoad}
@@ -685,7 +685,7 @@ export default function NeuroLinguaDomesticaV324() {
                     cursor: 'pointer'
                   }}
                 >
-                  📀 טען
+                  📀 Load
                 </button>
                 <button
                   onClick={onExport}
@@ -740,7 +740,7 @@ export default function NeuroLinguaDomesticaV324() {
                     marginTop: 6
                   }}
                 >
-                  <span>אימון… {progress.toFixed(0)}%</span>
+                  <span>Training… {progress.toFixed(0)}%</span>
                   <span>Epoch: {trainingRef.current.currentEpoch + 1}/{epochs}</span>
                 </div>
               </div>
@@ -757,14 +757,14 @@ export default function NeuroLinguaDomesticaV324() {
               flexDirection: 'column'
             }}
           >
-            <h3 style={{ color: '#34d399', marginTop: 0, marginBottom: 16 }}>📊 סטטיסטיקות מתקדמות</h3>
+            <h3 style={{ color: '#34d399', marginTop: 0, marginBottom: 16 }}>📊 Advanced Statistics</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 12, color: '#94a3b8' }}>Loss</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: '#ef4444' }}>{stats.loss.toFixed(4)}</div>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 12, color: '#94a3b8' }}>דיוק</div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>Accuracy</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>{(stats.acc * 100).toFixed(1)}%</div>
               </div>
               <div style={{ textAlign: 'center' }}>
@@ -772,11 +772,11 @@ export default function NeuroLinguaDomesticaV324() {
                 <div style={{ fontSize: 24, fontWeight: 800, color: '#f59e0b' }}>{stats.ppl.toFixed(2)}</div>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 12, color: '#94a3b8' }}>גודל אוצר</div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>Vocab Size</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: '#a78bfa' }}>{info.V}</div>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 12, color: '#94a3b8' }}>פרמטרים</div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>Parameters</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: '#60a5fa' }}>{info.P.toLocaleString()}</div>
               </div>
             </div>
@@ -795,11 +795,11 @@ export default function NeuroLinguaDomesticaV324() {
               flexDirection: 'column'
             }}
           >
-            <h3 style={{ color: '#a78bfa', marginTop: 0, marginBottom: 16 }}>🎓 אימון</h3>
+            <h3 style={{ color: '#a78bfa', marginTop: 0, marginBottom: 16 }}>🎓 Training</h3>
             <textarea
               value={trainingText}
               onChange={(e) => setTrainingText(e.target.value)}
-              placeholder="הזן טקסט לאימון (עדיף 200+ מילים בעברית)..."
+              placeholder="Enter training text (ideally 200+ English words)..."
               style={{
                 width: '100%',
                 minHeight: 200,
@@ -823,8 +823,8 @@ export default function NeuroLinguaDomesticaV324() {
                 justifyContent: 'space-between'
               }}
             >
-              <span>אורך טקסט: {trainingText.length} תווים</span>
-              <span>מילים: {trainingText.split(/\s+/).filter((w) => w.length > 0).length}</span>
+              <span>Characters: {trainingText.length}</span>
+              <span>Words: {trainingText.split(/\s+/).filter((w) => w.length > 0).length}</span>
             </div>
             <div style={{ marginTop: 12 }}>
               <button
@@ -839,7 +839,7 @@ export default function NeuroLinguaDomesticaV324() {
                   cursor: 'pointer'
                 }}
               >
-                📚 דוגמה
+                📚 Example
               </button>
             </div>
           </div>
@@ -863,9 +863,9 @@ export default function NeuroLinguaDomesticaV324() {
                 marginBottom: 16
               }}
             >
-              <h3 style={{ color: '#60a5fa', margin: 0 }}>💬 צ'אט מתקדם</h3>
+              <h3 style={{ color: '#60a5fa', margin: 0 }}>💬 Chat Console</h3>
               <div style={{ fontSize: 12, color: '#94a3b8' }}>
-                {messages.filter((m) => m.type === 'assistant').length} תשובות
+                {messages.filter((m) => m.type === 'assistant').length} replies
               </div>
             </div>
 
@@ -897,8 +897,8 @@ export default function NeuroLinguaDomesticaV324() {
                   }}
                 >
                   <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
-                    {m.type === 'user' ? '👤 אתה' : m.type === 'assistant' ? '🤖 המודל' : '⚙️ מערכת'}
-                    {m.timestamp && <span style={{ marginLeft: 8 }}>{new Date(m.timestamp).toLocaleTimeString('he-IL')}</span>}
+                    {m.type === 'user' ? '👤 You' : m.type === 'assistant' ? '🤖 Model' : '⚙️ System'}
+                    {m.timestamp && <span style={{ marginLeft: 8 }}>{new Date(m.timestamp).toLocaleTimeString('en-US')}</span>}
                   </div>
                   {m.content}
                 </div>
@@ -915,7 +915,7 @@ export default function NeuroLinguaDomesticaV324() {
                     onGenerate();
                   }
                 }}
-                placeholder={modelRef.current ? 'הקלד הודעה למודל…' : 'אמן את המודל קודם…'}
+                placeholder={modelRef.current ? 'Type a message for the model…' : 'Train the model first…'}
                 style={{
                   flex: 1,
                   padding: '12px 16px',
@@ -964,16 +964,16 @@ export default function NeuroLinguaDomesticaV324() {
         >
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
             <div>
-              <strong>🎯 אימון אופטימלי</strong>
-              <div style={{ fontSize: 12, marginTop: 4 }}>• 200–500 מילים • 20–50 epochs • LR: 0.05–0.1 • Context: 3–5</div>
+              <strong>🎯 Training Tips</strong>
+              <div style={{ fontSize: 12, marginTop: 4 }}>• 200–500 words • 20–50 epochs • LR: 0.05–0.1 • Context: 3–5</div>
             </div>
             <div>
-              <strong>🎲 יצירת טקסט</strong>
-              <div style={{ fontSize: 12, marginTop: 4 }}>• Temperature: 0.7–1.0 • בחרו מצב: top‑k או top‑p (מומלץ top‑p=0.85–0.95)</div>
+              <strong>🎲 Text Generation</strong>
+              <div style={{ fontSize: 12, marginTop: 4 }}>• Temperature: 0.7–1.0 • Choose top‑k or top‑p (top‑p ≈ 0.85–0.95)</div>
             </div>
             <div>
-              <strong>⚡ ביצועים</strong>
-              <div style={{ fontSize: 12, marginTop: 4 }}>• Momentum: 0.9 או Adam • Seed קבוע • Hidden: 32–128</div>
+              <strong>⚡ Performance</strong>
+              <div style={{ fontSize: 12, marginTop: 4 }}>• Momentum: 0.9 or Adam • Stable seed • Hidden: 32–128</div>
             </div>
           </div>
         </div>

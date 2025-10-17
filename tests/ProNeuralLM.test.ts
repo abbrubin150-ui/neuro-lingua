@@ -122,8 +122,16 @@ function modelStateClose(base: ProNeuralLM, other: ProNeuralLM) {
   (original as any).forward(seqs[0][0], true);
   original.saveToLocalStorage(key);
 
+  const raw = storage.get(key);
+  assert.ok(raw, 'serialized model should exist');
+  const saved = JSON.parse(raw!);
+  assert.equal(saved.rngSeed, seed >>> 0, 'serialized rng seed should match');
+  assert.equal(typeof saved.rngState, 'number', 'serialized rng state should be present');
+
   const resumed = ProNeuralLM.loadFromLocalStorage(key);
   assert.ok(resumed, 'model should reload with rng state');
+  assert.equal((resumed as any).rngSeed, (original as any).rngSeed, 'rng seed should restore');
+  assert.equal((resumed as any).rngState, (original as any).rngState, 'rng state should restore');
 
   const originalCache = (original as any).forward(seqs[1][0], true);
   const resumedCache = (resumed as any).forward(seqs[1][0], true);

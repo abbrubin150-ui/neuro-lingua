@@ -11,10 +11,11 @@ type Rng = {
 };
 
 function makeRng(seed: number, state?: number): Rng {
-  let t = (state ?? seed) >>> 0;
+  const baseSeed = seed >>> 0;
+  let t = (state !== undefined ? state : baseSeed) >>> 0;
   return {
     next() {
-      t += 0x6d2b79f5;
+      t = (t + 0x6d2b79f5) >>> 0;
       let r = Math.imul(t ^ (t >>> 15), 1 | t);
       r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
       return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
@@ -121,8 +122,8 @@ export class ProNeuralLM {
     this.optimizer = optimizer;
     this.momentum = momentum;
     this.dropout = clamp(dropout, 0, 0.5);
-    this.rngSeed = seed;
-    this.rng = makeRng(seed);
+    this.rngSeed = seed >>> 0;
+    this.rng = makeRng(this.rngSeed);
     this.rngState = this.rng.getState();
 
     this.wordToIdx = new Map(vocab.map((w, i) => [w, i]));
@@ -609,8 +610,10 @@ export class ProNeuralLM {
       const raw = localStorage.getItem(key);
       if (!raw) return null;
       const d = JSON.parse(raw);
-      const seed = typeof d.rngSeed === 'number' ? d.rngSeed : 1337;
-      const state = typeof d.rngState === 'number' ? d.rngState : undefined;
+      const hasSeed = typeof d.rngSeed === 'number';
+      const hasState = typeof d.rngState === 'number';
+      const seed = hasSeed ? (d.rngSeed as number) : undefined;
+      const state = hasState ? (d.rngState as number) : undefined;
       const m = new ProNeuralLM(
         d.vocab,
         d.hiddenSize,
@@ -640,13 +643,11 @@ export class ProNeuralLM {
       m.wordToIdx = new Map(d.wordToIdx);
       m.idxToWord = new Map(d.idxToWord);
       m.trainingHistory = d.trainingHistory || [];
-      m.rngSeed = seed;
-      if (state !== undefined) {
-        m.rngState = state >>> 0;
-        m.rng = makeRng(m.rngSeed, m.rngState);
-      } else {
-        m.rngState = m.rng.getState();
+      if (hasSeed) {
+        m.rngSeed = seed! >>> 0;
       }
+      m.rng = makeRng(m.rngSeed, hasState ? (state! >>> 0) : undefined);
+      m.rngState = m.rng.getState();
       return m;
     } catch (e) {
       console.warn('Failed to load model', e);

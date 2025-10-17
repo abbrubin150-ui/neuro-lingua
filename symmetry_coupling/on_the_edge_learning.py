@@ -203,17 +203,57 @@ class OnTheEdgeLearning:
     # --- Composite measures -------------------------------------------------------
 
     def compute_efficiency_measures(self) -> None:
+        """Populate ``E_p`` and the smoothed upper envelope ``E_max``.
+
+        The original notebook applied a log-sum-exp (LSE) smoothing to the
+        dominant eigenvalue of the Fisher-scaled covariance.  The scalar
+        setting collapses the spectrum to a single value, but we still benefit
+        from a small spatial neighbourhood when constructing the envelope: it
+        avoids sharp transitions caused by discretisation artifacts and uses
+        the ``tau`` temperature parameter that was previously unused in the
+        port.
+        """
+
         for i, theta_value in enumerate(self.theta):
             fisher = self.compute_fisher_information(theta_value)
             self.I1[i] = fisher
-            for j, n_value in enumerate(self.n):
+
+        for j, n_value in enumerate(self.n):
+            products: List[float] = [0.0] * self.n_grid
+            for i, theta_value in enumerate(self.theta):
+                fisher = self.I1[i]
                 sigma = self.compute_estimator_covariance(theta_value, n_value)
                 product = fisher * sigma
                 self.E_p[i][j] = n_value * product
-                self.E_max[i][j] = n_value * self.lse_max(product)
+                products[i] = product
 
-    def lse_max(self, value: float) -> float:
-        return max(value, self.epsilon_min)
+            lse_values = self._local_lse_max(products)
+            for i, envelope in enumerate(lse_values):
+                self.E_max[i][j] = n_value * envelope
+
+    def _local_lse_max(self, values: List[float], radius: int = 2) -> List[float]:
+        if not values:
+            return []
+        smoothed: List[float] = [0.0] * len(values)
+        for idx in range(len(values)):
+            start = max(0, idx - radius)
+            end = min(len(values), idx + radius + 1)
+            window = values[start:end]
+            smoothed[idx] = self._log_sum_exp(window)
+        return smoothed
+
+    def _log_sum_exp(self, window: List[float]) -> float:
+        if not window:
+            return self.epsilon_min
+        max_value = max(window)
+        if not math.isfinite(max_value):
+            return max_value
+        shifted = [math.exp(self.tau * (value - max_value)) for value in window]
+        total = sum(shifted)
+        if total == 0.0:
+            return self.epsilon_min
+        result = max_value + (math.log(total) / self.tau)
+        return result if result > self.epsilon_min else self.epsilon_min
 
     def compute_variance_constraint(self) -> None:
         for i in range(self.n_grid):

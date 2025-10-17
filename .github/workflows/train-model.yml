@@ -4,17 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       epochs:
-        description: "Number of training epochs"
+        description: 'Number of training epochs'
         required: false
-        default: "30"
+        default: '30'
       optimizer:
-        description: "Optimizer to use (momentum or adam)"
+        description: 'Optimizer to use (momentum or adam)'
         required: false
-        default: "momentum"
+        default: 'momentum'
       dropout:
-        description: "Dropout rate (0-0.5)"
+        description: 'Dropout rate (0-0.5)'
         required: false
-        default: "0.1"
+        default: '0.1'
   push:
     paths:
       - data/corpus.txt

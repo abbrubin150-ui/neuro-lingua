@@ -1,4 +1,12 @@
 export type Optimizer = 'momentum' | 'adam';
+export type TokenizerMode = 'unicode' | 'ascii' | 'custom';
+
+export type TokenizerConfig = {
+  mode: TokenizerMode;
+  pattern?: string;
+};
+
+const DEFAULT_TOKENIZER_CONFIG: TokenizerConfig = { mode: 'unicode' };
 
 export const MODEL_VERSION = '3.2.4';
 export const MODEL_COMPACT_VERSION = MODEL_VERSION.replace(/\./g, '');
@@ -93,13 +101,19 @@ export class ProNeuralLM {
   private adamBeta2 = 0.999;
   private adamEps = 1e-8;
   private adamT = 0;
-  private aEmbedding: { m: number[][]; v: number[][] } = { m: [] as number[][], v: [] as number[][] };
+  private aEmbedding: { m: number[][]; v: number[][] } = {
+    m: [] as number[][],
+    v: [] as number[][]
+  };
   private aWHidden: { m: number[][]; v: number[][] } = { m: [] as number[][], v: [] as number[][] };
   private aWOutput: { m: number[][]; v: number[][] } = { m: [] as number[][], v: [] as number[][] };
   private aBHidden: { m: number[]; v: number[] } = { m: [] as number[], v: [] as number[] };
   private aBOutput: { m: number[]; v: number[] } = { m: [] as number[], v: [] as number[] };
 
   private trainingHistory: { loss: number; accuracy: number; timestamp: number }[] = [];
+
+  private tokenizerConfig: TokenizerConfig = DEFAULT_TOKENIZER_CONFIG;
+  private lastUpdatedAt: number | null = null;
 
   private bos = '<BOS>';
   private eos = '<EOS>';
@@ -113,7 +127,8 @@ export class ProNeuralLM {
     optimizer: Optimizer = 'momentum',
     momentum = 0.9,
     dropout = 0.0,
-    seed = 1337
+    seed = 1337,
+    tokenizerConfig: TokenizerConfig = DEFAULT_TOKENIZER_CONFIG
   ) {
     this.vocab = vocab;
     this.hiddenSize = hiddenSize;
@@ -125,10 +140,75 @@ export class ProNeuralLM {
     this.rngSeed = seed >>> 0;
     this.rng = makeRng(this.rngSeed);
     this.rngState = this.rng.getState();
+    this.setTokenizerConfig(tokenizerConfig);
 
     this.wordToIdx = new Map(vocab.map((w, i) => [w, i]));
     this.idxToWord = new Map(vocab.map((w, i) => [i, w]));
     this.initializeParameters();
+  }
+
+  private static normalizeTokenizerConfig(config?: TokenizerConfig): TokenizerConfig {
+    if (!config) return { ...DEFAULT_TOKENIZER_CONFIG };
+    if (config.mode === 'ascii') return { mode: 'ascii' };
+    if (config.mode === 'custom') {
+      if (config.pattern && config.pattern.length > 0) {
+        return { mode: 'custom', pattern: config.pattern };
+      }
+      return { ...DEFAULT_TOKENIZER_CONFIG };
+    }
+    return { mode: 'unicode' };
+  }
+
+  private static tokenizerRegexFromConfig(config: TokenizerConfig): RegExp {
+    try {
+      if (config.mode === 'ascii') {
+        return /[^a-z0-9\s'-]/g;
+      }
+      if (config.mode === 'custom' && config.pattern) {
+        try {
+          return new RegExp(config.pattern, 'gu');
+        } catch {
+          return new RegExp(config.pattern, 'g');
+        }
+      }
+      return /[^\p{L}\d\s'-]/gu;
+    } catch (err) {
+      console.warn('Failed to compile tokenizer regex. Falling back to Unicode pattern.', err);
+      return /[^\p{L}\d\s'-]/gu;
+    }
+  }
+
+  static tokenizeText(text: string, config?: TokenizerConfig): string[] {
+    const normalized = ProNeuralLM.normalizeTokenizerConfig(config);
+    const regex = ProNeuralLM.tokenizerRegexFromConfig(normalized);
+    return text
+      .toLowerCase()
+      .replace(regex, ' ')
+      .split(/\s+/)
+      .filter((t) => t.length > 0);
+  }
+
+  setTokenizerConfig(config: TokenizerConfig) {
+    const normalized = ProNeuralLM.normalizeTokenizerConfig(config);
+    this.tokenizerConfig = normalized;
+  }
+
+  getTokenizerConfig(): TokenizerConfig {
+    return { ...this.tokenizerConfig };
+  }
+
+  exportTokenizerConfig() {
+    return this.getTokenizerConfig();
+  }
+
+  importTokenizerConfig(config: TokenizerConfig) {
+    this.setTokenizerConfig(config);
+  }
+
+  getLastUpdatedAt() {
+    if (this.lastUpdatedAt) return this.lastUpdatedAt;
+    const last = this.trainingHistory[this.trainingHistory.length - 1];
+    return last?.timestamp ?? null;
   }
 
   private nextRandom() {
@@ -240,7 +320,9 @@ export class ProNeuralLM {
       h = h.map((v, i) => v * dropMask![i]);
     }
 
-    const logits = this.matrixVectorMulTranspose(this.wOutput, h).map((v, i) => v + this.bOutput[i]);
+    const logits = this.matrixVectorMulTranspose(this.wOutput, h).map(
+      (v, i) => v + this.bOutput[i]
+    );
     const probs = softmax(logits);
     return { h, logits, probs, avgEmb: emb, dropMask, preAct };
   }
@@ -408,7 +490,15 @@ export class ProNeuralLM {
       this.applyAdamMatrix(this.wHidden, dWh, this.aWHidden.m, this.aWHidden.v, b1t, b2t);
       this.applyAdamVector(this.bHidden, dBh, this.aBHidden.m, this.aBHidden.v, b1t, b2t);
       for (const idx of inputs) {
-        this.applyAdamRow(this.embedding, idx, dEmb, this.aEmbedding.m, this.aEmbedding.v, b1t, b2t);
+        this.applyAdamRow(
+          this.embedding,
+          idx,
+          dEmb,
+          this.aEmbedding.m,
+          this.aEmbedding.v,
+          b1t,
+          b2t
+        );
       }
     } else {
       this.applyMomentumMatrix(this.wOutput, dWout, this.mWOutput);
@@ -426,11 +516,7 @@ export class ProNeuralLM {
   }
 
   private tokenize(text: string): string[] {
-    return text
-      .toLowerCase()
-      .replace(/[^\u0590-\u05FF\w\s'-]/g, ' ')
-      .split(/\s+/)
-      .filter((t) => t.length > 0);
+    return ProNeuralLM.tokenizeText(text, this.tokenizerConfig);
   }
 
   private toIndex(tok: string) {
@@ -486,11 +572,13 @@ export class ProNeuralLM {
       this.trainingHistory.push({ loss: avgLoss, accuracy, timestamp: Date.now() });
     }
 
-    return {
+    const payload = {
       loss: totalLoss / Math.max(1, count),
       accuracy: correct / Math.max(1, count),
       history: this.trainingHistory
-    };
+    } as const;
+    this.lastUpdatedAt = Date.now();
+    return payload;
   }
 
   private sampleFromLogits(logits: number[], temperature = 1.0, topK = 0, topP = 0): number {
@@ -499,9 +587,7 @@ export class ProNeuralLM {
     let p = softmax(scaled);
 
     if (topP && topP > 0 && topP < 1) {
-      const idx = p
-        .map((v, i) => i)
-        .sort((a, b) => p[b] - p[a]);
+      const idx = p.map((v, i) => i).sort((a, b) => p[b] - p[a]);
       let c = 0;
       const keep: number[] = [];
       for (const i of idx) {
@@ -593,7 +679,9 @@ export class ProNeuralLM {
       aBOutput: this.aBOutput,
       wordToIdx: Array.from(this.wordToIdx.entries()),
       idxToWord: Array.from(this.idxToWord.entries()),
-      trainingHistory: this.trainingHistory
+      trainingHistory: this.trainingHistory,
+      tokenizerConfig: this.tokenizerConfig,
+      lastUpdatedAt: this.lastUpdatedAt
     } as const;
   }
 
@@ -622,7 +710,8 @@ export class ProNeuralLM {
         (d.optimizer as Optimizer) ?? 'momentum',
         d.momentum ?? 0.9,
         d.dropout ?? 0,
-        seed
+        seed,
+        ProNeuralLM.normalizeTokenizerConfig(d.tokenizerConfig)
       );
       m.embedding = d.embedding;
       m.wHidden = d.wHidden;
@@ -643,10 +732,15 @@ export class ProNeuralLM {
       m.wordToIdx = new Map(d.wordToIdx);
       m.idxToWord = new Map(d.idxToWord);
       m.trainingHistory = d.trainingHistory || [];
+      if (typeof d.lastUpdatedAt === 'number') {
+        m.lastUpdatedAt = d.lastUpdatedAt;
+      } else if (m.trainingHistory.length > 0) {
+        m.lastUpdatedAt = m.trainingHistory[m.trainingHistory.length - 1]?.timestamp ?? null;
+      }
       if (hasSeed) {
         m.rngSeed = seed! >>> 0;
       }
-      m.rng = makeRng(m.rngSeed, hasState ? (state! >>> 0) : undefined);
+      m.rng = makeRng(m.rngSeed, hasState ? state! >>> 0 : undefined);
       m.rngState = m.rng.getState();
       return m;
     } catch (e) {

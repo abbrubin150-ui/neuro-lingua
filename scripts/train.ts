@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import {
   ProNeuralLM,
   type Optimizer,
+  type TokenizerConfig,
   MODEL_VERSION,
   MODEL_EXPORT_FILENAME
 } from '../src/lib/ProNeuralLM';
@@ -33,32 +34,34 @@ function parseOptimizer(envValue: string | undefined): Optimizer {
   return envValue === 'adam' ? 'adam' : 'momentum';
 }
 
-function createTokenizer() {
-  const useAscii = process.env.USE_ASCII_TOKENIZER === 'true';
-  const pattern = useAscii ? /[^a-z0-9\s'-]/gi : /[^\u0590-\u05FF\w\s'-]/g;
-  return (text: string) =>
-    text
-      .toLowerCase()
-      .replace(pattern, ' ')
-      .split(/\s+/)
-      .filter((token) => token.length > 0);
+function parseTokenizerConfig(): TokenizerConfig {
+  const fallbackMode = process.env.USE_ASCII_TOKENIZER === 'true' ? 'ascii' : 'unicode';
+  const mode = (process.env.TOKENIZER_MODE ?? fallbackMode) as TokenizerConfig['mode'];
+  if (mode === 'ascii') return { mode: 'ascii' };
+  if (mode === 'custom') {
+    const pattern = process.env.TOKENIZER_PATTERN;
+    if (pattern && pattern.length > 0) {
+      return { mode: 'custom', pattern };
+    }
+  }
+  return { mode: 'unicode' };
 }
 
 function buildVocabulary(tokens: string[]) {
-  const specials = ['<BOS>', '<EOS>', '<UNK>'];
+  const specials = ['<PAD>', '<BOS>', '<EOS>', '<UNK>'];
   const uniq = new Set(tokens);
   for (const special of specials) uniq.delete(special.toLowerCase());
   return [...specials, ...Array.from(uniq).sort()];
 }
 
 async function main() {
-  const tokenizer = createTokenizer();
+  const tokenizerConfig = parseTokenizerConfig();
 
   const corpusPath = fileURLToPath(CORPUS_URL);
   const outputPath = fileURLToPath(OUTPUT_URL);
   const corpus = await fs.readFile(corpusPath, 'utf8');
 
-  const tokens = tokenizer(corpus);
+  const tokens = ProNeuralLM.tokenizeText(corpus, tokenizerConfig);
   if (tokens.length === 0) {
     throw new Error('Corpus is empty after tokenization. Add text to data/corpus.txt.');
   }
@@ -66,9 +69,18 @@ async function main() {
   const vocab = buildVocabulary(tokens);
 
   const epochs = Math.max(1, Math.floor(parseNumber(process.env.EPOCHS, DEFAULTS.epochs)));
-  const hiddenSize = Math.max(4, Math.floor(parseNumber(process.env.HIDDEN_SIZE, DEFAULTS.hiddenSize)));
-  const contextSize = Math.max(1, Math.floor(parseNumber(process.env.CONTEXT_SIZE, DEFAULTS.contextSize)));
-  const learningRate = Math.max(1e-4, parseNumber(process.env.LEARNING_RATE, DEFAULTS.learningRate));
+  const hiddenSize = Math.max(
+    4,
+    Math.floor(parseNumber(process.env.HIDDEN_SIZE, DEFAULTS.hiddenSize))
+  );
+  const contextSize = Math.max(
+    1,
+    Math.floor(parseNumber(process.env.CONTEXT_SIZE, DEFAULTS.contextSize))
+  );
+  const learningRate = Math.max(
+    1e-4,
+    parseNumber(process.env.LEARNING_RATE, DEFAULTS.learningRate)
+  );
   const optimizer = parseOptimizer(process.env.OPTIMIZER ?? DEFAULTS.optimizer);
   const momentum = parseNumber(process.env.MOMENTUM, DEFAULTS.momentum);
   const dropout = Math.min(0.5, Math.max(0, parseNumber(process.env.DROPOUT, DEFAULTS.dropout)));
@@ -79,12 +91,29 @@ async function main() {
   console.log(`Tokens: ${tokens.length}`);
   console.log(`Vocab size: ${vocab.length}`);
   console.log(
+    `Tokenizer: ${tokenizerConfig.mode}${
+      tokenizerConfig.mode === 'custom' && tokenizerConfig.pattern
+        ? ` (${tokenizerConfig.pattern})`
+        : ''
+    }`
+  );
+  console.log(
     `Hyperparameters → epochs: ${epochs}, hiddenSize: ${hiddenSize}, contextSize: ${contextSize}, learningRate: ${learningRate.toFixed(
       4
     )}, optimizer: ${optimizer}, momentum: ${momentum}, dropout: ${dropout}, seed: ${seed}`
   );
 
-  const model = new ProNeuralLM(vocab, hiddenSize, learningRate, contextSize, optimizer, momentum, dropout, seed);
+  const model = new ProNeuralLM(
+    vocab,
+    hiddenSize,
+    learningRate,
+    contextSize,
+    optimizer,
+    momentum,
+    dropout,
+    seed,
+    tokenizerConfig
+  );
   const { loss, accuracy, history } = model.train(corpus, epochs);
 
   const lastEpoch = history[history.length - 1];

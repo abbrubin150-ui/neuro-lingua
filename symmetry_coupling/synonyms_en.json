@@ -1,0 +1,9 @@
+{
+  "put": ["place", "set"],
+  "table": ["desk"],
+  "book": ["volume", "tome"],
+  "person": ["human", "individual"],
+  "on": ["upon"],
+  "set": ["put"],
+  "desk": ["table"]
+}

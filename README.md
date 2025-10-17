@@ -1,10 +1,12 @@
 # Neuro‑Lingua DOMESTICA — v3.2.4 (EN)
 
 **Browser‑native neural language model** built in React + TypeScript.
+
 - SGD with **Momentum** or **Adam**
 - **Dropout** (train‑only)
 - **Top‑p** (nucleus) and **Top‑k** sampling with temperature
-- **Pause/Resume**, **training history** and localStorage **save/load**
+- **Session persistence**, onboarding tips, and downloadable **training-history CSVs**
+- **Tokenizer presets** (Unicode/ASCII/custom) with import/export support
 - **Agent** workflow: a single GitHub Action retrains the model and commits the updated JSON artifact
 
 > This repository is intentionally simple: the only thing your agent does is **train** and **update** the model JSON.  
@@ -21,10 +23,13 @@ pnpm i  # or: npm i / yarn
 # 2) Dev
 pnpm dev
 
-# 3) Build
+# 3) Quality
+pnpm lint && pnpm test
+
+# 4) Build
 pnpm build && pnpm preview
 
-# 4) Train (Node script, no browser needed)
+# 5) Train (Node script, no browser needed)
 pnpm train
 ```
 
@@ -60,18 +65,33 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 
 ## Agent / CI
 
-- **Trigger**: `workflow_dispatch` (with configurable inputs) or on changes to `data/corpus.txt`
-- **Action**: run `pnpm train` → write `models/neuro‑lingua‑v324.json` → commit back using the default `GITHUB_TOKEN`
-- **Manual runs**: provide optional `epochs`, `optimizer` (`momentum`/`adam`) and `dropout` values when dispatching to override defaults without editing the repo.
+- **Workflow**: `.github/workflows/train-model.yml`
+- **Triggers**:
+  - `workflow_dispatch` with inputs `epochs`, `optimizer`, `dropout`
+  - `push` events that touch `data/corpus.txt`
+- **Action**: install dependencies, run `pnpm train`, commit the updated JSON artifact (if changed) with the built-in `GITHUB_TOKEN`
 
-The workflow pushes directly to the repository, so ensure it has permission to write:
-- Repo → Settings → Actions → General → Workflow permissions → **Read and write permissions**
+Example manual dispatch:
+
+```bash
+gh workflow run train-model.yml \
+  -f epochs=40 \
+  -f optimizer=adam \
+  -f dropout=0.15
+```
+
+Grant the workflow write access:
+
+- Repository → Settings → Actions → General → Workflow permissions → **Read and write permissions**
 
 ---
 
 ## Notes
 
 - The LM is educational and runs fully in the browser. It is **not** optimized for long texts.
-- The tokenizer uses a Unicode‑aware rule by default. If you want ASCII‑only, set `USE_ASCII_TOKENIZER=true` in env (for the Node script) or tweak the regex in `ProNeuralLM.ts`.
+- Browser sessions persist hyperparameters, tokenizer configuration, and training corpora via `localStorage`. Use the onboarding card in the UI to review import/export and pause/resume behaviour.
+- Download the training-history CSV from the statistics panel to compare runs.
+- The tokenizer uses a Unicode-aware rule by default. Override via environment when training headlessly: set `TOKENIZER_MODE=ascii` or provide `TOKENIZER_MODE=custom` with `TOKENIZER_PATTERN="[^a-z]+"`. The UI exposes the same presets and allows exporting/importing tokenizer JSON files.
+- The Node training script now adds `<PAD>` to the vocabulary to match the browser experience.
 
 Enjoy!

@@ -1,4 +1,5 @@
-import assert from 'node:assert/strict';
+import { beforeEach, describe, expect, it } from 'vitest';
+
 import { ProNeuralLM } from '../src/lib/ProNeuralLM';
 
 const storage = new Map<string, string>();
@@ -34,19 +35,19 @@ type Matrix = number[][];
 type Vector = number[];
 
 function matricesClose(a: Matrix, b: Matrix, eps = 1e-9) {
-  assert.equal(a.length, b.length, 'matrix row mismatch');
+  expect(a.length).toBe(b.length);
   for (let i = 0; i < a.length; i++) {
-    assert.equal(a[i].length, b[i].length, 'matrix column mismatch');
+    expect(a[i].length).toBe(b[i].length);
     for (let j = 0; j < a[i].length; j++) {
-      assert.ok(Math.abs(a[i][j] - b[i][j]) < eps, `matrix diff at ${i},${j}`);
+      expect(Math.abs(a[i][j] - b[i][j])).toBeLessThan(eps);
     }
   }
 }
 
 function vectorsClose(a: Vector, b: Vector, eps = 1e-9) {
-  assert.equal(a.length, b.length, 'vector length mismatch');
+  expect(a.length).toBe(b.length);
   for (let i = 0; i < a.length; i++) {
-    assert.ok(Math.abs(a[i] - b[i]) < eps, `vector diff at ${i}`);
+    expect(Math.abs(a[i] - b[i])).toBeLessThan(eps);
   }
 }
 
@@ -77,68 +78,89 @@ function modelStateClose(base: ProNeuralLM, other: ProNeuralLM) {
   vectorsClose((base as any).bOutput, (other as any).bOutput);
 }
 
-(function regressionTest() {
-  const vocab = ['<BOS>', '<EOS>', '<UNK>', 'hello', 'world'];
-  const text = 'hello world';
-  const key = 'test-pro-neural-lm';
+describe('ProNeuralLM persistence', () => {
+  beforeEach(() => {
+    storage.clear();
+  });
 
-  const original = new ProNeuralLM(vocab, 8, 0.05, 2, 'adam', 0.9, 0, 42);
-  original.train(text, 1);
-  original.saveToLocalStorage(key);
+  it('restores optimizer and model state deterministically', () => {
+    const vocab = ['<BOS>', '<EOS>', '<UNK>', 'hello', 'world'];
+    const text = 'hello world';
+    const key = 'test-pro-neural-lm';
 
-  const resumed = ProNeuralLM.loadFromLocalStorage(key);
-  assert.ok(resumed, 'model should load');
+    const original = new ProNeuralLM(vocab, 8, 0.05, 2, 'adam', 0.9, 0, 42);
+    original.train(text, 1);
+    original.saveToLocalStorage(key);
 
-  const seqs: [number[], number][] = (original as any).createTrainingSequences(text);
-  const step = (model: ProNeuralLM) => {
-    for (const [ctx, tgt] of seqs) {
-      const cache = (model as any).forward(ctx, true);
-      (model as any).backward(ctx, tgt, cache);
-    }
-  };
+    const resumed = ProNeuralLM.loadFromLocalStorage(key);
+    expect(resumed).toBeTruthy();
 
-  // Continue training deterministically for one more pass on both instances.
-  step(original);
-  step(resumed!);
+    const seqs: [number[], number][] = (original as any).createTrainingSequences(text);
+    const step = (model: ProNeuralLM) => {
+      for (const [ctx, tgt] of seqs) {
+        const cache = (model as any).forward(ctx, true);
+        (model as any).backward(ctx, tgt, cache);
+      }
+    };
 
-  modelStateClose(original, resumed!);
-  optimizerStateClose(original, resumed!);
-  assert.equal((original as any).adamT, (resumed as any).adamT, 'adamT should persist');
-})();
+    step(original);
+    step(resumed!);
 
-(function rngRestorationRegression() {
-  storage.clear();
-  const vocab = ['<BOS>', '<EOS>', '<UNK>', 'foo', 'bar'];
-  const text = 'foo bar foo';
-  const key = 'test-pro-neural-lm-rng';
-  const seed = 2024;
-  const dropout = 0.25;
+    modelStateClose(original, resumed!);
+    optimizerStateClose(original, resumed!);
+    expect((resumed as any).adamT).toEqual((original as any).adamT);
+  });
 
-  const original = new ProNeuralLM(vocab, 8, 0.05, 2, 'momentum', 0.9, dropout, seed);
-  const seqs: [number[], number][] = (original as any).createTrainingSequences(text);
-  assert.ok(seqs.length >= 2, 'need at least two training sequences');
+  it('restores RNG state and dropout masks', () => {
+    const vocab = ['<BOS>', '<EOS>', '<UNK>', 'foo', 'bar'];
+    const text = 'foo bar foo';
+    const key = 'test-pro-neural-lm-rng';
+    const seed = 2024;
+    const dropout = 0.25;
 
-  // Advance RNG state before saving to simulate an interruption mid-training.
-  (original as any).forward(seqs[0][0], true);
-  original.saveToLocalStorage(key);
+    const original = new ProNeuralLM(vocab, 8, 0.05, 2, 'momentum', 0.9, dropout, seed);
+    const seqs: [number[], number][] = (original as any).createTrainingSequences(text);
+    expect(seqs.length).toBeGreaterThanOrEqual(2);
 
-  const raw = storage.get(key);
-  assert.ok(raw, 'serialized model should exist');
-  const saved = JSON.parse(raw!);
-  assert.equal(saved.rngSeed, seed >>> 0, 'serialized rng seed should match');
-  assert.equal(typeof saved.rngState, 'number', 'serialized rng state should be present');
+    (original as any).forward(seqs[0][0], true);
+    original.saveToLocalStorage(key);
 
-  const resumed = ProNeuralLM.loadFromLocalStorage(key);
-  assert.ok(resumed, 'model should reload with rng state');
-  assert.equal((resumed as any).rngSeed, (original as any).rngSeed, 'rng seed should restore');
-  assert.equal((resumed as any).rngState, (original as any).rngState, 'rng state should restore');
+    const raw = storage.get(key);
+    expect(raw).toBeTruthy();
+    const saved = JSON.parse(raw!);
+    expect(saved.rngSeed).toEqual(seed >>> 0);
+    expect(typeof saved.rngState).toBe('number');
 
-  const originalCache = (original as any).forward(seqs[1][0], true);
-  const resumedCache = (resumed as any).forward(seqs[1][0], true);
+    const resumed = ProNeuralLM.loadFromLocalStorage(key);
+    expect(resumed).toBeTruthy();
+    expect((resumed as any).rngSeed).toEqual((original as any).rngSeed);
+    expect((resumed as any).rngState).toEqual((original as any).rngState);
 
-  assert.ok(originalCache.dropMask, 'original dropout mask should be present');
-  assert.ok(resumedCache.dropMask, 'resumed dropout mask should be present');
-  vectorsClose(originalCache.dropMask!, resumedCache.dropMask!);
-})();
+    const originalCache = (original as any).forward(seqs[1][0], true);
+    const resumedCache = (resumed as any).forward(seqs[1][0], true);
 
-console.log('ProNeuralLM serialization regression test passed');
+    expect(originalCache.dropMask).toBeTruthy();
+    expect(resumedCache.dropMask).toBeTruthy();
+    vectorsClose(originalCache.dropMask!, resumedCache.dropMask!);
+  });
+
+  it('persists tokenizer configuration and metadata', () => {
+    const vocab = ['<BOS>', '<EOS>', '<UNK>', 'alpha', 'βeta'];
+    const key = 'test-tokenizer-config';
+    const customPattern = '[^\\p{L}\\d]+';
+
+    const model = new ProNeuralLM(vocab, 8, 0.05, 2, 'momentum', 0.8, 0.1, 99, {
+      mode: 'custom',
+      pattern: customPattern
+    });
+    model.train('alpha βeta alpha', 1);
+    model.saveToLocalStorage(key);
+
+    const resumed = ProNeuralLM.loadFromLocalStorage(key);
+    expect(resumed).toBeTruthy();
+    expect(resumed!.getTokenizerConfig()).toEqual({ mode: 'custom', pattern: customPattern });
+    const updatedAt = resumed!.getLastUpdatedAt();
+    expect(typeof updatedAt).toBe('number');
+    expect(updatedAt).toBeGreaterThan(0);
+  });
+});

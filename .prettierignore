@@ -1,0 +1,7 @@
+node_modules
+models
+pnpm-lock.yaml
+dist
+docs
+NEXT_STEPS.md
+public

@@ -1,0 +1,31 @@
+{
+  "name": "bernoulli_eigenvalue_collapse",
+  "components": {
+    "type": "bernoulli",
+    "params": {
+      "epsilon": 1e-4
+    }
+  },
+  "grid": {
+    "theta_min": 0.05,
+    "theta_max": 0.95,
+    "theta_steps": 31,
+    "n_min": 10,
+    "n_max": 500,
+    "n_steps": 21,
+    "theta_bandwidth": 0.15,
+    "n_step_fraction": 0.08
+  },
+  "hyperparameters": {
+    "delta": 0.05,
+    "lambda_H": 0.4,
+    "lambda_E": 0.7,
+    "lambda_S": 0.3,
+    "mu": 0.2,
+    "tau": 20.0,
+    "alpha": 9.0,
+    "eta": 1e-4
+  },
+  "dimension": 1,
+  "epsilon_min": 1e-6
+}

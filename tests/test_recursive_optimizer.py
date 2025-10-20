@@ -49,3 +49,11 @@ def test_optimizer_history_persists_previous_cycle() -> None:
     third_cycle = optimizer.optimize_cycle()
     assert optimizer.J_val_history[-1] == third_cycle
     assert optimizer.is_monotonic_increasing()
+
+
+def test_should_stop_ignores_unpaired_weights() -> None:
+    analyzer = StubAnalyzer(offset=0.0)
+    optimizer = RecursiveOptimizer(analyzer, GRID, weights=[1.0, 1.0, 1.0, -100.0])
+    optimizer.optimize_cycle()
+
+    assert not optimizer.should_stop()

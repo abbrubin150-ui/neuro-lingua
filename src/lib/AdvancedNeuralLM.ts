@@ -9,7 +9,12 @@
  * - Layer normalization for training stability
  * - Beam search for generation
  * - Improved numerical stability
+ *
+ * Note: Uses (this as any) to access private fields from ProNeuralLM parent class.
+ * This is intentional for extending functionality without modifying the base class.
  */
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { ProNeuralLM, type Optimizer, type TokenizerConfig } from './ProNeuralLM';
 import {
@@ -26,11 +31,8 @@ import {
   warmupCosineAnnealingLR,
   stableSoftmax,
   logSoftmax,
-  layerNorm,
-  layerNormBackward,
   beamSearch,
-  nucleusSampling,
-  type BeamCandidate
+  nucleusSampling
 } from './MathUtils';
 
 export type ActivationFunction = 'relu' | 'leaky_relu' | 'elu' | 'gelu';
@@ -142,32 +144,43 @@ export class AdvancedNeuralLM extends ProNeuralLM {
     const H = (this as any).hiddenSize;
     const rng = (this as any).rng;
 
-    const initFn =
-      this.advancedConfig.initialization === 'he'
-        ? (fanIn: number, fanOut?: number) => heInit(fanIn, () => rng.next())
-        : (fanIn: number, fanOut: number) => xavierInit(fanIn, fanOut, () => rng.next());
-
-    // Reinitialize embedding layer
     const embedding = (this as any).embedding;
-    for (let i = 0; i < V; i++) {
-      for (let j = 0; j < H; j++) {
-        embedding[i][j] = initFn(H, H);
-      }
-    }
-
-    // Reinitialize hidden layer weights
     const wHidden = (this as any).wHidden;
-    for (let i = 0; i < H; i++) {
-      for (let j = 0; j < H; j++) {
-        wHidden[i][j] = initFn(H, H);
-      }
-    }
-
-    // Reinitialize output layer weights
     const wOutput = (this as any).wOutput;
-    for (let i = 0; i < H; i++) {
-      for (let j = 0; j < V; j++) {
-        wOutput[i][j] = initFn(H, V);
+
+    if (this.advancedConfig.initialization === 'he') {
+      // He initialization
+      for (let i = 0; i < V; i++) {
+        for (let j = 0; j < H; j++) {
+          embedding[i][j] = heInit(H, () => rng.next());
+        }
+      }
+      for (let i = 0; i < H; i++) {
+        for (let j = 0; j < H; j++) {
+          wHidden[i][j] = heInit(H, () => rng.next());
+        }
+      }
+      for (let i = 0; i < H; i++) {
+        for (let j = 0; j < V; j++) {
+          wOutput[i][j] = heInit(H, () => rng.next());
+        }
+      }
+    } else {
+      // Xavier initialization
+      for (let i = 0; i < V; i++) {
+        for (let j = 0; j < H; j++) {
+          embedding[i][j] = xavierInit(H, H, () => rng.next());
+        }
+      }
+      for (let i = 0; i < H; i++) {
+        for (let j = 0; j < H; j++) {
+          wHidden[i][j] = xavierInit(H, H, () => rng.next());
+        }
+      }
+      for (let i = 0; i < H; i++) {
+        for (let j = 0; j < V; j++) {
+          wOutput[i][j] = xavierInit(H, V, () => rng.next());
+        }
       }
     }
   }
@@ -432,15 +445,9 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   /**
    * Generate text using nucleus sampling (improved version)
    */
-  generateNucleus(
-    seedText: string,
-    maxLen = 25,
-    temperature = 0.9,
-    topP = 0.9
-  ): string {
+  generateNucleus(seedText: string, maxLen = 25, temperature = 0.9, topP = 0.9): string {
     const seedToks = (this as any).tokenize(seedText).map((t: string) => (this as any).toIndex(t));
     const bosIdx = (this as any).toIndex((this as any).bos);
-    const eosIdx = (this as any).toIndex((this as any).eos);
     const contextSize = (this as any).contextSize;
 
     const ctx: number[] = new Array(contextSize).fill(bosIdx);

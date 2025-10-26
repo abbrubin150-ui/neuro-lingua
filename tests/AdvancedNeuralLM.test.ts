@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { AdvancedNeuralLM } from '../src/lib/AdvancedNeuralLM';
 
 describe('AdvancedNeuralLM', () => {
@@ -18,12 +18,23 @@ describe('AdvancedNeuralLM', () => {
     });
 
     it('accepts custom advanced config', () => {
-      const model = new AdvancedNeuralLM(vocab, hiddenSize, 0.05, contextSize, 'adam', 0.9, 0.1, 1337, undefined, {
-        activation: 'leaky_relu',
-        initialization: 'xavier',
-        lrSchedule: 'exponential',
-        weightDecay: 1e-3
-      });
+      const model = new AdvancedNeuralLM(
+        vocab,
+        hiddenSize,
+        0.05,
+        contextSize,
+        'adam',
+        0.9,
+        0.1,
+        1337,
+        undefined,
+        {
+          activation: 'leaky_relu',
+          initialization: 'xavier',
+          lrSchedule: 'exponential',
+          weightDecay: 1e-3
+        }
+      );
 
       const config = model.getAdvancedConfig();
       expect(config.activation).toBe('leaky_relu');
@@ -148,12 +159,8 @@ describe('AdvancedNeuralLM', () => {
       const weights1 = (model1 as any).wHidden;
       const weights2 = (model2 as any).wHidden;
 
-      const norm1 = Math.sqrt(
-        weights1.flat().reduce((sum: number, w: number) => sum + w * w, 0)
-      );
-      const norm2 = Math.sqrt(
-        weights2.flat().reduce((sum: number, w: number) => sum + w * w, 0)
-      );
+      const norm1 = Math.sqrt(weights1.flat().reduce((sum: number, w: number) => sum + w * w, 0));
+      const norm2 = Math.sqrt(weights2.flat().reduce((sum: number, w: number) => sum + w * w, 0));
 
       expect(norm2).toBeLessThan(norm1);
     });

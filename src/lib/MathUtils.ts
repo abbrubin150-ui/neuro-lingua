@@ -32,7 +32,8 @@ export function xavierInit(fanIn: number, fanOut: number, rng: () => number): nu
   const stddev = Math.sqrt(variance);
 
   // Box-Muller transform for normal distribution
-  let u = 0, v = 0;
+  let u = 0,
+    v = 0;
   while (u === 0) u = rng();
   while (v === 0) v = rng();
   const normal = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
@@ -58,7 +59,8 @@ export function heInit(fanIn: number, rng: () => number): number {
   const stddev = Math.sqrt(variance);
 
   // Box-Muller transform
-  let u = 0, v = 0;
+  let u = 0,
+    v = 0;
   while (u === 0) u = rng();
   while (v === 0) v = rng();
   const normal = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
@@ -79,7 +81,8 @@ export function lecunInit(fanIn: number, rng: () => number): number {
   const variance = 1.0 / fanIn;
   const stddev = Math.sqrt(variance);
 
-  let u = 0, v = 0;
+  let u = 0,
+    v = 0;
   while (u === 0) u = rng();
   while (v === 0) v = rng();
   const normal = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
@@ -233,11 +236,7 @@ export function cosineAnnealingLR(
  * @param decayRate - Decay rate (typically 0.9-0.99)
  * @returns Learning rate for current epoch
  */
-export function exponentialDecayLR(
-  epoch: number,
-  lrInitial: number,
-  decayRate: number
-): number {
+export function exponentialDecayLR(epoch: number, lrInitial: number, decayRate: number): number {
   return lrInitial * Math.pow(decayRate, epoch);
 }
 
@@ -328,15 +327,15 @@ export function stableSoftmax(logits: number[], temperature = 1.0): number[] {
   if (logits.length === 0) return [];
 
   const T = Math.max(temperature, 1e-8); // Prevent division by zero
-  const scaled = logits.map(x => x / T);
+  const scaled = logits.map((x) => x / T);
 
   const maxLogit = Math.max(...scaled);
-  const exps = scaled.map(x => Math.exp(x - maxLogit));
+  const exps = scaled.map((x) => Math.exp(x - maxLogit));
   const sumExps = exps.reduce((a, b) => a + b, 0);
 
   // Extra safety: handle numerical errors
   const sum = sumExps > 0 ? sumExps : 1;
-  return exps.map(x => x / sum);
+  return exps.map((x) => x / sum);
 }
 
 /**
@@ -351,7 +350,7 @@ export function stableSoftmax(logits: number[], temperature = 1.0): number[] {
  */
 export function logSoftmax(logits: number[]): number[] {
   const lse = logSumExp(logits);
-  return logits.map(x => x - lse);
+  return logits.map((x) => x - lse);
 }
 
 /**
@@ -395,12 +394,7 @@ export function safeDivide(numerator: number, denominator: number, eps = 1e-10):
  * @param eps - Small constant for numerical stability
  * @returns Normalized vector
  */
-export function layerNorm(
-  x: number[],
-  gamma: number[],
-  beta: number[],
-  eps = 1e-5
-): number[] {
+export function layerNorm(x: number[], gamma: number[], beta: number[], eps = 1e-5): number[] {
   const n = x.length;
 
   // Compute mean
@@ -435,7 +429,7 @@ export function layerNormBackward(
   const variance = x.reduce((sum, val) => sum + (val - mean) ** 2, 0) / n;
   const std = Math.sqrt(variance + eps);
 
-  const xHat = x.map(val => (val - mean) / std);
+  const xHat = x.map((val) => (val - mean) / std);
 
   // Gradient w.r.t. gamma and beta
   const dGamma = dOut.map((d, i) => d * xHat[i]);
@@ -443,12 +437,12 @@ export function layerNormBackward(
 
   // Gradient w.r.t. x (complex due to normalization)
   const dXhat = dOut.map((d, i) => d * gamma[i]);
-  const dVar = dXhat.reduce((sum, d, i) => sum + d * (x[i] - mean), 0) * (-0.5) / Math.pow(std, 3);
-  const dMean = dXhat.reduce((sum, d, i) => sum - d / std, 0) + dVar * x.reduce((sum, val) => sum - 2 * (val - mean), 0) / n;
+  const dVar = (dXhat.reduce((sum, d, i) => sum + d * (x[i] - mean), 0) * -0.5) / Math.pow(std, 3);
+  const dMean =
+    dXhat.reduce((sum, d) => sum - d / std, 0) +
+    (dVar * x.reduce((sum, val) => sum - 2 * (val - mean), 0)) / n;
 
-  const dx = dXhat.map((d, i) =>
-    d / std + dVar * 2 * (x[i] - mean) / n + dMean / n
-  );
+  const dx = dXhat.map((d, i) => d / std + (dVar * 2 * (x[i] - mean)) / n + dMean / n);
 
   return { dx, dGamma, dBeta };
 }
@@ -483,11 +477,13 @@ export function beamSearch(
   eosToken: number
 ): BeamCandidate {
   // Initialize beam with starting context
-  let beams: BeamCandidate[] = [{
-    tokens: [...initialContext],
-    score: 0,
-    probabilities: []
-  }];
+  let beams: BeamCandidate[] = [
+    {
+      tokens: [...initialContext],
+      score: 0,
+      probabilities: []
+    }
+  ];
 
   for (let step = 0; step < maxLength; step++) {
     const candidates: BeamCandidate[] = [];
@@ -522,7 +518,7 @@ export function beamSearch(
     beams = candidates.slice(0, beamWidth);
 
     // Check if all beams have ended
-    if (beams.every(b => b.tokens[b.tokens.length - 1] === eosToken)) {
+    if (beams.every((b) => b.tokens[b.tokens.length - 1] === eosToken)) {
       break;
     }
   }
@@ -552,11 +548,7 @@ export function getTopKIndices(arr: number[], k: number): number[] {
  * @param rng - Random number generator
  * @returns Sampled token index
  */
-export function nucleusSampling(
-  probs: number[],
-  p: number,
-  rng: () => number
-): number {
+export function nucleusSampling(probs: number[], p: number, rng: () => number): number {
   const indices = probs.map((_, i) => i);
   indices.sort((a, b) => probs[b] - probs[a]);
 
@@ -570,9 +562,9 @@ export function nucleusSampling(
   }
 
   // Renormalize probabilities within nucleus
-  const nucleusProbs = nucleus.map(i => probs[i]);
+  const nucleusProbs = nucleus.map((i) => probs[i]);
   const sum = nucleusProbs.reduce((a, b) => a + b, 0);
-  const normalized = nucleusProbs.map(p => p / sum);
+  const normalized = nucleusProbs.map((p) => p / sum);
 
   // Sample from renormalized distribution
   let r = rng();

@@ -52,39 +52,44 @@ The original implementation used a fixed scale (0.05) for all layers, which is n
 **Use case**: Symmetric activation functions (tanh, sigmoid)
 
 **Mathematical Formula**:
+
 ```
 W ~ N(0, √(2 / (fan_in + fan_out)))
 ```
 
 Where:
+
 - `fan_in` = number of input units
 - `fan_out` = number of output units
 
 **Derivation**: Xavier initialization maintains variance across layers by ensuring:
+
 ```
 Var(output) ≈ Var(input)
 ```
 
-**Reference**: *Glorot & Bengio (2010) - Understanding the difficulty of training deep feedforward neural networks*
+**Reference**: _Glorot & Bengio (2010) - Understanding the difficulty of training deep feedforward neural networks_
 
 #### 2. He Initialization
 
 **Use case**: ReLU and variants (LeakyReLU, ELU)
 
 **Mathematical Formula**:
+
 ```
 W ~ N(0, √(2 / fan_in))
 ```
 
 **Rationale**: ReLU zeros out negative values, so we need double the variance to compensate.
 
-**Reference**: *He et al. (2015) - Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet*
+**Reference**: _He et al. (2015) - Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet_
 
 #### 3. LeCun Initialization
 
 **Use case**: SELU activation (self-normalizing networks)
 
 **Mathematical Formula**:
+
 ```
 W ~ N(0, √(1 / fan_in))
 ```
@@ -94,9 +99,20 @@ W ~ N(0, √(1 / fan_in))
 ```typescript
 import { heInit, xavierInit, lecunInit } from './lib/MathUtils';
 
-const model = new AdvancedNeuralLM(vocab, hiddenSize, lr, contextSize, 'adam', 0.9, 0.1, 1337, undefined, {
-  initialization: 'he'  // or 'xavier' or 'default'
-});
+const model = new AdvancedNeuralLM(
+  vocab,
+  hiddenSize,
+  lr,
+  contextSize,
+  'adam',
+  0.9,
+  0.1,
+  1337,
+  undefined,
+  {
+    initialization: 'he' // or 'xavier' or 'default'
+  }
+);
 ```
 
 ---
@@ -106,17 +122,20 @@ const model = new AdvancedNeuralLM(vocab, hiddenSize, lr, contextSize, 'adam', 0
 ### 1. LeakyReLU
 
 **Formula**:
+
 ```
 f(x) = max(αx, x)  where α = 0.01
 ```
 
 **Derivative**:
+
 ```
 f'(x) = 1      if x > 0
         α      if x ≤ 0
 ```
 
 **Advantages**:
+
 - Prevents "dying ReLU" problem
 - Allows gradient flow for all inputs
 - Simple and efficient
@@ -126,68 +145,77 @@ f'(x) = 1      if x > 0
 ### 2. Exponential Linear Unit (ELU)
 
 **Formula**:
+
 ```
 f(x) = x                if x > 0
        α(e^x - 1)       if x ≤ 0
 ```
 
 **Derivative**:
+
 ```
 f'(x) = 1       if x > 0
         αe^x    if x ≤ 0
 ```
 
 **Advantages**:
+
 - Smooth everywhere (C^∞ continuous)
 - Negative saturation pushes mean activation towards zero
 - Self-normalizing properties
 - Better than ReLU for classification tasks
 
-**Reference**: *Clevert et al. (2015) - Fast and Accurate Deep Network Learning by Exponential Linear Units*
+**Reference**: _Clevert et al. (2015) - Fast and Accurate Deep Network Learning by Exponential Linear Units_
 
 ### 3. Gaussian Error Linear Unit (GELU)
 
 **Formula** (approximation):
+
 ```
 f(x) ≈ 0.5x(1 + tanh[√(2/π)(x + 0.044715x³)])
 ```
 
 **Exact form**:
+
 ```
 f(x) = x · Φ(x)
 ```
+
 where Φ(x) is the CDF of standard normal distribution.
 
 **Advantages**:
+
 - Used in BERT, GPT models
 - Smooth, non-monotonic
 - Probabilistic interpretation: expected value of stochastic regularizer
 
-**Reference**: *Hendrycks & Gimpel (2016) - Gaussian Error Linear Units (GELUs)*
+**Reference**: _Hendrycks & Gimpel (2016) - Gaussian Error Linear Units (GELUs)_
 
 ### 4. Swish (SiLU)
 
 **Formula**:
+
 ```
 f(x) = x · σ(βx) = x / (1 + e^(-βx))
 ```
 
 **Advantages**:
+
 - Smooth, non-monotonic
 - Outperforms ReLU on deep networks
 - Self-gated (x controls its own activation)
 
-**Reference**: *Ramachandran et al. (2017) - Searching for Activation Functions*
+**Reference**: _Ramachandran et al. (2017) - Searching for Activation Functions_
 
 ### Activation Comparison
 
-| Activation | Smooth | Non-linear | Unbounded Above | Zero-Centered | Used In |
-|-----------|--------|------------|----------------|---------------|---------|
-| ReLU | ✗ | ✓ | ✓ | ✗ | CNNs |
-| LeakyReLU | ✗ | ✓ | ✓ | ✗ | General |
-| ELU | ✓ | ✓ | ✓ | ~✓ | Classification |
-| GELU | ✓ | ✓ | ✓ | ✗ | Transformers |
-| Swish | ✓ | ✓ | ✓ | ✗ | Mobile/Efficient |
+| Activation | Smooth | Non-linear | Unbounded Above | Zero-Centered | Used In          |
+| ---------- | ------ | ---------- | --------------- | ------------- | ---------------- |
+| ReLU       | ✗      | ✓          | ✓               | ✗             | CNNs             |
+| LeakyReLU  | ✗      | ✓          | ✓               | ✗             | General          |
+| ELU        | ✓      | ✓          | ✓               | ~✓            | Classification   |
+| GELU       | ✓      | ✓          | ✓               | ✗             | Transformers     |
+| Swish      | ✓      | ✓          | ✓               | ✗             | Mobile/Efficient |
 
 ---
 
@@ -202,16 +230,19 @@ f(x) = x · σ(βx) = x / (1 + e^(-βx))
 ### 1. Cosine Annealing
 
 **Formula**:
+
 ```
 η_t = η_min + (η_max - η_min) · (1 + cos(πt/T)) / 2
 ```
 
 **Characteristics**:
+
 - Smooth decay
 - Reaches minimum at T epochs
 - No hyperparameters except η_min, η_max
 
 **Visual**:
+
 ```
 LR
 η_max |‾‾\___
@@ -221,11 +252,12 @@ LR
       0    T/2    T   epochs
 ```
 
-**Reference**: *Loshchilov & Hutter (2016) - SGDR: Stochastic Gradient Descent with Warm Restarts*
+**Reference**: _Loshchilov & Hutter (2016) - SGDR: Stochastic Gradient Descent with Warm Restarts_
 
 ### 2. Exponential Decay
 
 **Formula**:
+
 ```
 η_t = η_0 · γ^t
 ```
@@ -233,6 +265,7 @@ LR
 where γ ∈ (0, 1) is the decay rate (typically 0.9-0.99).
 
 **Characteristics**:
+
 - Simple and common
 - Exponentially decays
 - May require tuning γ
@@ -240,6 +273,7 @@ where γ ∈ (0, 1) is the decay rate (typically 0.9-0.99).
 ### 3. Step Decay
 
 **Formula**:
+
 ```
 η_t = η_0 · γ^⌊t/s⌋
 ```
@@ -247,6 +281,7 @@ where γ ∈ (0, 1) is the decay rate (typically 0.9-0.99).
 where s is epochs per step.
 
 **Characteristics**:
+
 - Constant within steps
 - Sudden drops at boundaries
 - Easy to interpret
@@ -254,17 +289,20 @@ where s is epochs per step.
 ### 4. Warmup + Cosine Annealing
 
 **Formula**:
+
 ```
 η_t = (t / t_warmup) · η_max               if t < t_warmup
       cosineAnnealingLR(t - t_warmup, ...) otherwise
 ```
 
 **Characteristics**:
+
 - Linear warmup prevents early instability
 - Used in Transformers (BERT, GPT)
 - Best for large models
 
 **Visual**:
+
 ```
 LR
      ___/‾‾‾\___
@@ -276,13 +314,13 @@ LR
 
 ### Comparison
 
-| Schedule | Smoothness | Convergence | Hyperparameters | Used In |
-|----------|-----------|-------------|----------------|---------|
-| Constant | - | Slow | 0 | Baseline |
-| Exponential | Smooth | Medium | 1 (γ) | General |
-| Step | Discrete | Medium | 2 (γ, s) | CNNs |
-| Cosine | Very smooth | Fast | 1 (η_min) | ResNets |
-| Warmup+Cosine | Very smooth | Fastest | 2 (warmup, η_min) | Transformers |
+| Schedule      | Smoothness  | Convergence | Hyperparameters   | Used In      |
+| ------------- | ----------- | ----------- | ----------------- | ------------ |
+| Constant      | -           | Slow        | 0                 | Baseline     |
+| Exponential   | Smooth      | Medium      | 1 (γ)             | General      |
+| Step          | Discrete    | Medium      | 2 (γ, s)          | CNNs         |
+| Cosine        | Very smooth | Fast        | 1 (η_min)         | ResNets      |
+| Warmup+Cosine | Very smooth | Fastest     | 2 (warmup, η_min) | Transformers |
 
 ---
 
@@ -293,11 +331,13 @@ LR
 **Mathematical Formulation**:
 
 Standard loss:
+
 ```
 L = (1/n) Σ loss(ŷ_i, y_i)
 ```
 
 With L2 regularization:
+
 ```
 L_reg = (1/n) Σ loss(ŷ_i, y_i) + (λ/2) Σ ||W||²
 ```
@@ -305,6 +345,7 @@ L_reg = (1/n) Σ loss(ŷ_i, y_i) + (λ/2) Σ ||W||²
 where λ is the regularization coefficient.
 
 **Gradient Update**:
+
 ```
 W ← W - η(∇L + λW)
   = W(1 - ηλ) - η∇L
@@ -313,16 +354,19 @@ W ← W - η(∇L + λW)
 This "decays" weights towards zero, hence "weight decay".
 
 **Why It Works**:
+
 1. **Occam's Razor**: Prefers simpler models (smaller weights)
 2. **Reduces overfitting**: Prevents any single weight from dominating
 3. **Bayesian interpretation**: MAP estimation with Gaussian prior
 
 **Typical Values**:
+
 - λ = 1e-4 (default)
 - λ = 1e-5 (large models)
 - λ = 1e-3 (small datasets, high risk of overfitting)
 
 **Implementation**:
+
 ```typescript
 const model = new AdvancedNeuralLM(..., {
   weightDecay: 1e-4
@@ -334,6 +378,7 @@ const model = new AdvancedNeuralLM(..., {
 **Why**: Prevents exploding gradients in RNNs/LSTMs
 
 **Global Norm Clipping**:
+
 ```
 if ||g||_2 > θ:
     g ← (θ / ||g||_2) · g
@@ -342,11 +387,13 @@ if ||g||_2 > θ:
 where θ is the clipping threshold (typically 5.0).
 
 **Per-Parameter Clipping**:
+
 ```
 g_i ← clip(g_i, -θ, +θ)
 ```
 
 **Implementation**:
+
 ```typescript
 const model = new AdvancedNeuralLM(..., {
   gradientClipNorm: 5.0
@@ -360,6 +407,7 @@ const model = new AdvancedNeuralLM(..., {
 ### Problem: Overflow and Underflow
 
 Naive implementations can cause:
+
 - `exp(1000)` → Infinity (overflow)
 - `exp(-1000)` → 0 (underflow)
 - `log(0)` → -Infinity
@@ -368,6 +416,7 @@ Naive implementations can cause:
 ### Solution 1: Log-Sum-Exp
 
 **Naive softmax**:
+
 ```
 softmax(x_i) = exp(x_i) / Σ exp(x_j)
 ```
@@ -375,13 +424,16 @@ softmax(x_i) = exp(x_i) / Σ exp(x_j)
 Problem: `exp(1000)` overflows!
 
 **Stable log-sum-exp**:
+
 ```
 LSE(x) = log(Σ exp(x_i))
        = m + log(Σ exp(x_i - m))
 ```
+
 where `m = max(x)`.
 
 **Why it works**:
+
 - Subtract max before exp → largest value is exp(0) = 1
 - All other values are ≤ 1
 - No overflow!
@@ -389,17 +441,19 @@ where `m = max(x)`.
 ### Solution 2: Stable Softmax
 
 **Implementation**:
+
 ```typescript
 function stableSoftmax(logits: number[], temperature = 1.0): number[] {
-  const scaled = logits.map(x => x / temperature);
+  const scaled = logits.map((x) => x / temperature);
   const maxLogit = Math.max(...scaled);
-  const exps = scaled.map(x => Math.exp(x - maxLogit));
+  const exps = scaled.map((x) => Math.exp(x - maxLogit));
   const sum = exps.reduce((a, b) => a + b, 0);
-  return exps.map(x => x / sum);
+  return exps.map((x) => x / sum);
 }
 ```
 
 **Guarantees**:
+
 - No overflow: max exp is exp(0) = 1
 - No underflow: min exp is very small but not exactly 0
 - Sum is always 1.0 (within floating point precision)
@@ -413,6 +467,7 @@ log(softmax(x_i)) = x_i - LSE(x)
 ```
 
 **Advantages**:
+
 - More numerically stable
 - Avoids computing exp then log
 - Direct computation of log-probabilities
@@ -424,6 +479,7 @@ log(softmax(x_i)) = x_i - LSE(x)
 ### Motivation
 
 **Batch Normalization** works well for CNNs but:
+
 - Requires large batches
 - Doesn't work well for RNNs (varying sequence lengths)
 - Depends on batch statistics
@@ -433,6 +489,7 @@ log(softmax(x_i)) = x_i - LSE(x)
 ### Mathematical Formulation
 
 **Forward Pass**:
+
 ```
 μ = (1/H) Σ x_i
 σ² = (1/H) Σ (x_i - μ)²
@@ -441,6 +498,7 @@ y_i = γ_i · x̂_i + β_i
 ```
 
 where:
+
 - H = hidden size
 - ε = small constant (1e-5) for numerical stability
 - γ = learned scale parameter (initialized to 1)
@@ -457,12 +515,13 @@ where:
 ```
 
 **Benefits**:
+
 1. **Faster convergence**: Reduces covariate shift
 2. **Higher learning rates**: More stable optimization
 3. **Less sensitive to initialization**: Normalization helps
 4. **Regularization effect**: Slight noise from normalization
 
-**Reference**: *Ba et al. (2016) - Layer Normalization*
+**Reference**: _Ba et al. (2016) - Layer Normalization_
 
 ---
 
@@ -473,6 +532,7 @@ where:
 **Idea**: Instead of greedily picking the best token at each step, maintain k best sequences.
 
 **Algorithm**:
+
 ```
 Initialize: beams = [([], 0)]  # (sequence, score)
 
@@ -485,11 +545,13 @@ For each step:
 ```
 
 **Advantages**:
+
 - Finds higher-probability sequences than greedy
 - Explores multiple hypotheses simultaneously
 - Deterministic (reproducible results)
 
 **Disadvantages**:
+
 - k times slower than greedy
 - Can be repetitive (fixed sequences)
 - No diversity within beam
@@ -497,11 +559,12 @@ For each step:
 **Best for**: Translation, summarization (want high quality)
 
 **Implementation**:
+
 ```typescript
-const result = model.generateBeamSearch('seed text', maxLen, beamWidth=4, temperature=0.8);
-console.log(result.text);    // Best sequence
-console.log(result.score);   // Log probability
-console.log(result.tokens);  // Token indices
+const result = model.generateBeamSearch('seed text', maxLen, (beamWidth = 4), (temperature = 0.8));
+console.log(result.text); // Best sequence
+console.log(result.score); // Log probability
+console.log(result.tokens); // Token indices
 ```
 
 ### 2. Nucleus (Top-p) Sampling
@@ -509,6 +572,7 @@ console.log(result.tokens);  // Token indices
 **Idea**: Sample from the smallest set of tokens whose cumulative probability exceeds p.
 
 **Algorithm**:
+
 ```
 1. Sort tokens by probability (descending)
 2. Find smallest set where Σ P(token) ≥ p
@@ -517,11 +581,13 @@ console.log(result.tokens);  // Token indices
 ```
 
 **Advantages**:
+
 - Dynamic vocabulary size (adapts to confidence)
 - More diverse than beam search
 - Reduces low-probability "tail" tokens
 
 **Mathematics**:
+
 ```
 Nucleus(p) = {w : Σ_{w' ∈ V^≥w} P(w') ≥ p}
 ```
@@ -529,25 +595,27 @@ Nucleus(p) = {w : Σ_{w' ∈ V^≥w} P(w') ≥ p}
 where V^≥w is tokens sorted by probability ≥ P(w).
 
 **Typical values**:
+
 - p = 0.9 (balanced: quality + diversity)
 - p = 0.95 (more diverse)
 - p = 0.85 (more conservative)
 
-**Reference**: *Holtzman et al. (2019) - The Curious Case of Neural Text Degeneration*
+**Reference**: _Holtzman et al. (2019) - The Curious Case of Neural Text Degeneration_
 
 **Implementation**:
+
 ```typescript
-const text = model.generateNucleus('seed', maxLen, temperature=0.9, topP=0.9);
+const text = model.generateNucleus('seed', maxLen, (temperature = 0.9), (topP = 0.9));
 ```
 
 ### Comparison: Greedy vs Top-k vs Top-p vs Beam
 
-| Method | Diversity | Quality | Speed | Deterministic | Use Case |
-|--------|-----------|---------|-------|---------------|----------|
-| Greedy | ✗ | ✗ | ✓✓✓ | ✓ | Fast inference |
-| Top-k | ~ | ~ | ✓✓ | ✗ | General generation |
-| Top-p | ✓ | ✓ | ✓✓ | ✗ | Creative writing |
-| Beam | ✗ | ✓✓ | ✓ | ✓ | Translation, summarization |
+| Method | Diversity | Quality | Speed | Deterministic | Use Case                   |
+| ------ | --------- | ------- | ----- | ------------- | -------------------------- |
+| Greedy | ✗         | ✗       | ✓✓✓   | ✓             | Fast inference             |
+| Top-k  | ~         | ~       | ✓✓    | ✗             | General generation         |
+| Top-p  | ✓         | ✓       | ✓✓    | ✗             | Creative writing           |
+| Beam   | ✗         | ✓✓      | ✓     | ✓             | Translation, summarization |
 
 ---
 
@@ -595,15 +663,20 @@ model.trainAdvanced(corpus, epochs=50, {
 
 ```typescript
 // Beam search (best quality)
-const beamResult = model.generateBeamSearch('The neural network', 20, beamWidth=5);
+const beamResult = model.generateBeamSearch('The neural network', 20, (beamWidth = 5));
 console.log('Beam:', beamResult.text);
 
 // Nucleus sampling (diverse)
-const nucleusText = model.generateNucleus('The neural network', 20, temperature=0.9, topP=0.95);
+const nucleusText = model.generateNucleus(
+  'The neural network',
+  20,
+  (temperature = 0.9),
+  (topP = 0.95)
+);
 console.log('Nucleus:', nucleusText);
 
 // Standard generation (baseline)
-const standardText = model.generate('The neural network', 20, temperature=0.8);
+const standardText = model.generate('The neural network', 20, (temperature = 0.8));
 console.log('Standard:', standardText);
 ```
 
@@ -647,12 +720,14 @@ for (const config of configs) {
 ### When to Use What
 
 **Small datasets (<10k tokens)**:
+
 - Use He initialization
 - LeakyReLU or ELU activation
 - Higher weight decay (1e-3)
 - Cosine annealing LR schedule
 
 **Medium datasets (10k-100k tokens)**:
+
 - He initialization
 - GELU activation
 - Standard weight decay (1e-4)
@@ -660,6 +735,7 @@ for (const config of configs) {
 - Beam search for generation
 
 **Large datasets (>100k tokens)**:
+
 - He initialization
 - GELU activation
 - Lower weight decay (1e-5)
@@ -669,13 +745,13 @@ for (const config of configs) {
 
 ### Hyperparameter Ranges
 
-| Parameter | Small Data | Medium Data | Large Data |
-|-----------|-----------|-------------|-----------|
-| Hidden Size | 32-64 | 64-128 | 128-256 |
-| Learning Rate | 0.05-0.1 | 0.05-0.1 | 0.01-0.05 |
-| Weight Decay | 1e-3 | 1e-4 | 1e-5 |
-| Dropout | 0.1-0.2 | 0.1-0.15 | 0.05-0.1 |
-| Warmup Epochs | 0-3 | 3-5 | 5-10 |
+| Parameter     | Small Data | Medium Data | Large Data |
+| ------------- | ---------- | ----------- | ---------- |
+| Hidden Size   | 32-64      | 64-128      | 128-256    |
+| Learning Rate | 0.05-0.1   | 0.05-0.1    | 0.01-0.05  |
+| Weight Decay  | 1e-3       | 1e-4        | 1e-5       |
+| Dropout       | 0.1-0.2    | 0.1-0.15    | 0.05-0.1   |
+| Warmup Epochs | 0-3        | 3-5         | 5-10       |
 
 ---
 
@@ -683,42 +759,42 @@ for (const config of configs) {
 
 ### Weight Initialization
 
-1. **Glorot & Bengio (2010)** - *Understanding the difficulty of training deep feedforward neural networks*
+1. **Glorot & Bengio (2010)** - _Understanding the difficulty of training deep feedforward neural networks_
    - AISTATS 2010
 
-2. **He et al. (2015)** - *Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet Classification*
+2. **He et al. (2015)** - _Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet Classification_
    - ICCV 2015
 
 ### Activation Functions
 
-3. **Clevert et al. (2015)** - *Fast and Accurate Deep Network Learning by Exponential Linear Units (ELUs)*
+3. **Clevert et al. (2015)** - _Fast and Accurate Deep Network Learning by Exponential Linear Units (ELUs)_
    - ICLR 2016
 
-4. **Hendrycks & Gimpel (2016)** - *Gaussian Error Linear Units (GELUs)*
+4. **Hendrycks & Gimpel (2016)** - _Gaussian Error Linear Units (GELUs)_
    - arXiv:1606.08415
 
-5. **Ramachandran et al. (2017)** - *Searching for Activation Functions*
+5. **Ramachandran et al. (2017)** - _Searching for Activation Functions_
    - arXiv:1710.05941
 
 ### Optimization
 
-6. **Kingma & Ba (2014)** - *Adam: A Method for Stochastic Optimization*
+6. **Kingma & Ba (2014)** - _Adam: A Method for Stochastic Optimization_
    - ICLR 2015
 
-7. **Loshchilov & Hutter (2016)** - *SGDR: Stochastic Gradient Descent with Warm Restarts*
+7. **Loshchilov & Hutter (2016)** - _SGDR: Stochastic Gradient Descent with Warm Restarts_
    - ICLR 2017
 
-8. **Loshchilov & Hutter (2019)** - *Decoupled Weight Decay Regularization*
+8. **Loshchilov & Hutter (2019)** - _Decoupled Weight Decay Regularization_
    - ICLR 2019
 
 ### Normalization
 
-9. **Ba et al. (2016)** - *Layer Normalization*
+9. **Ba et al. (2016)** - _Layer Normalization_
    - arXiv:1607.06450
 
 ### Sampling
 
-10. **Holtzman et al. (2019)** - *The Curious Case of Neural Text Degeneration*
+10. **Holtzman et al. (2019)** - _The Curious Case of Neural Text Degeneration_
     - ICLR 2020
 
 ---
@@ -754,6 +830,7 @@ npm test
 ```
 
 Test coverage includes:
+
 - ✓ Weight initialization statistics (44 tests)
 - ✓ Activation function correctness (44 tests)
 - ✓ Learning rate schedules (44 tests)

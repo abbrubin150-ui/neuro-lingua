@@ -8,7 +8,6 @@ import {
   elu,
   eluDerivative,
   gelu,
-  geluDerivative,
   swish,
   cosineAnnealingLR,
   exponentialDecayLR,
@@ -26,8 +25,6 @@ import {
 } from '../src/lib/MathUtils';
 
 describe('Weight Initialization', () => {
-  const mockRng = () => 0.5;
-
   it('He initialization scales correctly with fan-in', () => {
     const samples: number[] = [];
     const fanIn = 100;
@@ -283,7 +280,7 @@ describe('Numerical Stability', () => {
     it('handles large values without overflow', () => {
       const logits = [1000, 1001, 1002];
       const probs = stableSoftmax(logits);
-      expect(probs.every(p => isFinite(p))).toBe(true);
+      expect(probs.every((p) => isFinite(p))).toBe(true);
       const sum = probs.reduce((a, b) => a + b, 0);
       expect(Math.abs(sum - 1.0)).toBeLessThan(1e-6);
     });
@@ -352,8 +349,7 @@ describe('Layer Normalization', () => {
     expect(Math.abs(mean)).toBeLessThan(1e-6);
 
     // Check variance is close to 1
-    const variance =
-      normalized.reduce((a, b) => a + (b - mean) ** 2, 0) / normalized.length;
+    const variance = normalized.reduce((a, b) => a + (b - mean) ** 2, 0) / normalized.length;
     expect(Math.abs(variance - 1.0)).toBeLessThan(1e-5);
   });
 
@@ -381,8 +377,8 @@ describe('Layer Normalization', () => {
     expect(dBeta.length).toBe(dOut.length);
 
     // Gradients should be non-zero
-    expect(dx.some(g => Math.abs(g) > 1e-6)).toBe(true);
-    expect(dGamma.some(g => Math.abs(g) > 1e-6)).toBe(true);
+    expect(dx.some((g) => Math.abs(g) > 1e-6)).toBe(true);
+    expect(dGamma.some((g) => Math.abs(g) > 1e-6)).toBe(true);
     expect(dBeta.every((g, i) => Math.abs(g - dOut[i]) < 1e-10)).toBe(true);
   });
 });

@@ -2,12 +2,29 @@
 
 **Browser‑native neural language model** built in React + TypeScript.
 
+## Core Features
+
 - SGD with **Momentum** or **Adam**
 - **Dropout** (train‑only)
 - **Top‑p** (nucleus) and **Top‑k** sampling with temperature
 - **Session persistence**, onboarding tips, and downloadable **training-history CSVs**
 - **Tokenizer presets** (Unicode/ASCII/custom) with import/export support
 - **Agent** workflow: a single GitHub Action retrains the model and commits the updated JSON artifact
+
+## 🚀 Advanced Mathematical Enhancements (NEW)
+
+Rigorous mathematical improvements for better performance:
+
+- ✅ **He/Xavier Initialization** - Faster convergence with proper weight init
+- ✅ **Advanced Activations** - LeakyReLU, ELU, GELU, Swish
+- ✅ **Learning Rate Scheduling** - Cosine annealing, exponential decay, warmup
+- ✅ **L2 Regularization** - Weight decay for better generalization
+- ✅ **Layer Normalization** - Training stability
+- ✅ **Beam Search** - Higher quality text generation
+- ✅ **Numerical Stability** - Log-sum-exp, stable softmax
+- ✅ **Perplexity Calculation** - Model evaluation metric
+
+📚 **[See full mathematical documentation →](./MATHEMATICAL_ENHANCEMENTS.md)**
 
 > This repository is intentionally simple: the only thing your agent does is **train** and **update** the model JSON.  
 > UI and code are entirely in English. The tokenizer is language‑agnostic.

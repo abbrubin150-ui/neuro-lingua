@@ -444,9 +444,7 @@ export function TrainingPanel(props: TrainingPanelProps) {
             disabled={props.isTraining}
             style={{
               padding: '12px 20px',
-              background: props.isTraining
-                ? '#475569'
-                : 'linear-gradient(90deg, #7c3aed, #059669)',
+              background: props.isTraining ? '#475569' : 'linear-gradient(90deg, #7c3aed, #059669)',
               border: 'none',
               borderRadius: 10,
               color: 'white',

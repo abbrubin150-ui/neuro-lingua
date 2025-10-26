@@ -1,0 +1,595 @@
+import React, { useRef } from 'react';
+import type { Optimizer, TokenizerConfig as TokenizerConfigType } from '../lib/ProNeuralLM';
+import { clamp } from '../lib/ProNeuralLM';
+import { TokenizerConfig } from './TokenizerConfig';
+import { HYPERPARAMETER_CONSTRAINTS } from '../config/constants';
+
+interface TrainingPanelProps {
+  // Hyperparameters
+  hiddenSize: number;
+  epochs: number;
+  lr: number;
+  optimizer: Optimizer;
+  momentum: number;
+  dropout: number;
+  contextSize: number;
+  temperature: number;
+  topK: number;
+  topP: number;
+  samplingMode: 'off' | 'topk' | 'topp';
+  seed: number;
+  resume: boolean;
+
+  // Tokenizer
+  tokenizerConfig: TokenizerConfigType;
+  customTokenizerPattern: string;
+  tokenizerError: string | null;
+
+  // Training state
+  isTraining: boolean;
+  progress: number;
+  currentEpoch: number;
+
+  // Callbacks
+  onHiddenSizeChange: (value: number) => void;
+  onEpochsChange: (value: number) => void;
+  onLrChange: (value: number) => void;
+  onOptimizerChange: (value: Optimizer) => void;
+  onMomentumChange: (value: number) => void;
+  onDropoutChange: (value: number) => void;
+  onContextSizeChange: (value: number) => void;
+  onTemperatureChange: (value: number) => void;
+  onTopKChange: (value: number) => void;
+  onTopPChange: (value: number) => void;
+  onSamplingModeChange: (value: 'off' | 'topk' | 'topp') => void;
+  onSeedChange: (value: number) => void;
+  onResumeChange: (value: boolean) => void;
+  onTokenizerConfigChange: (config: TokenizerConfigType) => void;
+  onCustomPatternChange: (pattern: string) => void;
+  onTokenizerError: (error: string | null) => void;
+  onTrain: () => void;
+  onStop: () => void;
+  onReset: () => void;
+  onSave: () => void;
+  onLoad: () => void;
+  onExport: () => void;
+  onImport: (ev: React.ChangeEvent<HTMLInputElement>) => void;
+  onMessage: (message: string) => void;
+}
+
+/**
+ * TrainingPanel provides controls for all training hyperparameters and model operations
+ */
+export function TrainingPanel(props: TrainingPanelProps) {
+  const importRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div
+      style={{
+        background: 'rgba(30,41,59,0.9)',
+        border: '1px solid #334155',
+        borderRadius: 16,
+        padding: 20
+      }}
+    >
+      {/* Hyperparameters Grid */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(6, 1fr)',
+          gap: 12,
+          alignItems: 'end',
+          marginBottom: 12
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Hidden</div>
+          <input
+            aria-label="Hidden size"
+            type="number"
+            value={props.hiddenSize}
+            onChange={(e) =>
+              props.onHiddenSizeChange(
+                clamp(
+                  parseInt(e.target.value || '64'),
+                  HYPERPARAMETER_CONSTRAINTS.hiddenSize.min,
+                  HYPERPARAMETER_CONSTRAINTS.hiddenSize.max
+                )
+              )
+            }
+            style={{
+              width: '100%',
+              background: '#1e293b',
+              border: '1px solid #475569',
+              borderRadius: 6,
+              padding: 8,
+              color: 'white'
+            }}
+          />
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Epochs</div>
+          <input
+            aria-label="Epochs"
+            type="number"
+            value={props.epochs}
+            onChange={(e) =>
+              props.onEpochsChange(
+                clamp(
+                  parseInt(e.target.value || '20'),
+                  HYPERPARAMETER_CONSTRAINTS.epochs.min,
+                  HYPERPARAMETER_CONSTRAINTS.epochs.max
+                )
+              )
+            }
+            style={{
+              width: '100%',
+              background: '#1e293b',
+              border: '1px solid #475569',
+              borderRadius: 6,
+              padding: 8,
+              color: 'white'
+            }}
+          />
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Learning Rate</div>
+          <input
+            aria-label="Learning rate"
+            type="number"
+            step="0.01"
+            value={props.lr}
+            onChange={(e) =>
+              props.onLrChange(
+                clamp(
+                  parseFloat(e.target.value || '0.08'),
+                  HYPERPARAMETER_CONSTRAINTS.learningRate.min,
+                  HYPERPARAMETER_CONSTRAINTS.learningRate.max
+                )
+              )
+            }
+            style={{
+              width: '100%',
+              background: '#1e293b',
+              border: '1px solid #475569',
+              borderRadius: 6,
+              padding: 8,
+              color: 'white'
+            }}
+          />
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Context</div>
+          <input
+            aria-label="Context window"
+            type="number"
+            value={props.contextSize}
+            onChange={(e) =>
+              props.onContextSizeChange(
+                clamp(
+                  parseInt(e.target.value || '3'),
+                  HYPERPARAMETER_CONSTRAINTS.contextSize.min,
+                  HYPERPARAMETER_CONSTRAINTS.contextSize.max
+                )
+              )
+            }
+            style={{
+              width: '100%',
+              background: '#1e293b',
+              border: '1px solid #475569',
+              borderRadius: 6,
+              padding: 8,
+              color: 'white'
+            }}
+          />
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Optimizer</div>
+          <select
+            aria-label="Optimizer"
+            value={props.optimizer}
+            onChange={(e) => props.onOptimizerChange(e.target.value as Optimizer)}
+            style={{
+              width: '100%',
+              background: '#1e293b',
+              border: '1px solid #475569',
+              borderRadius: 6,
+              padding: 8,
+              color: 'white'
+            }}
+          >
+            <option value="momentum">Momentum</option>
+            <option value="adam">Adam</option>
+          </select>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Momentum</div>
+          <input
+            aria-label="Momentum"
+            type="number"
+            step="0.05"
+            value={props.momentum}
+            onChange={(e) =>
+              props.onMomentumChange(
+                clamp(
+                  parseFloat(e.target.value || '0.9'),
+                  HYPERPARAMETER_CONSTRAINTS.momentum.min,
+                  HYPERPARAMETER_CONSTRAINTS.momentum.max
+                )
+              )
+            }
+            style={{
+              width: '100%',
+              background: '#1e293b',
+              border: '1px solid #475569',
+              borderRadius: 6,
+              padding: 8,
+              color: 'white'
+            }}
+          />
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Dropout</div>
+          <input
+            aria-label="Dropout"
+            type="number"
+            step="0.01"
+            value={props.dropout}
+            onChange={(e) =>
+              props.onDropoutChange(
+                clamp(
+                  parseFloat(e.target.value || '0.1'),
+                  HYPERPARAMETER_CONSTRAINTS.dropout.min,
+                  HYPERPARAMETER_CONSTRAINTS.dropout.max
+                )
+              )
+            }
+            style={{
+              width: '100%',
+              background: '#1e293b',
+              border: '1px solid #475569',
+              borderRadius: 6,
+              padding: 8,
+              color: 'white'
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Sampling Parameters */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(6, 1fr)',
+          gap: 12,
+          alignItems: 'end',
+          marginBottom: 12
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Temperature</div>
+          <input
+            aria-label="Temperature"
+            type="number"
+            step="0.05"
+            value={props.temperature}
+            onChange={(e) =>
+              props.onTemperatureChange(
+                clamp(
+                  parseFloat(e.target.value || '0.8'),
+                  HYPERPARAMETER_CONSTRAINTS.temperature.min,
+                  HYPERPARAMETER_CONSTRAINTS.temperature.max
+                )
+              )
+            }
+            style={{
+              width: '100%',
+              background: '#1e293b',
+              border: '1px solid #475569',
+              borderRadius: 6,
+              padding: 8,
+              color: 'white'
+            }}
+          />
+        </div>
+        <div style={{ gridColumn: 'span 2 / span 2' }}>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Sampling</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+              <input
+                type="radio"
+                checked={props.samplingMode === 'off'}
+                onChange={() => props.onSamplingModeChange('off')}
+              />{' '}
+              off
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+              <input
+                type="radio"
+                checked={props.samplingMode === 'topk'}
+                onChange={() => props.onSamplingModeChange('topk')}
+              />{' '}
+              top‑k
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+              <input
+                type="radio"
+                checked={props.samplingMode === 'topp'}
+                onChange={() => props.onSamplingModeChange('topp')}
+              />{' '}
+              top‑p
+            </label>
+          </div>
+        </div>
+        <div>
+          <div
+            style={{
+              fontSize: 12,
+              color: '#94a3b8',
+              opacity: props.samplingMode === 'topk' ? 1 : 0.5
+            }}
+          >
+            Top‑K
+          </div>
+          <input
+            aria-label="Top K"
+            type="number"
+            value={props.topK}
+            disabled={props.samplingMode !== 'topk'}
+            onChange={(e) =>
+              props.onTopKChange(
+                clamp(
+                  parseInt(e.target.value || '20'),
+                  HYPERPARAMETER_CONSTRAINTS.topK.min,
+                  HYPERPARAMETER_CONSTRAINTS.topK.max
+                )
+              )
+            }
+            style={{
+              width: '100%',
+              background: '#1e293b',
+              border: '1px solid #475569',
+              borderRadius: 6,
+              padding: 8,
+              color: 'white'
+            }}
+          />
+        </div>
+        <div>
+          <div
+            style={{
+              fontSize: 12,
+              color: '#94a3b8',
+              opacity: props.samplingMode === 'topp' ? 1 : 0.5
+            }}
+          >
+            Top‑P
+          </div>
+          <input
+            aria-label="Top P"
+            type="number"
+            step="0.01"
+            value={props.topP}
+            disabled={props.samplingMode !== 'topp'}
+            onChange={(e) =>
+              props.onTopPChange(
+                clamp(
+                  parseFloat(e.target.value || '0.9'),
+                  HYPERPARAMETER_CONSTRAINTS.topP.min,
+                  HYPERPARAMETER_CONSTRAINTS.topP.max
+                )
+              )
+            }
+            style={{
+              width: '100%',
+              background: '#1e293b',
+              border: '1px solid #475569',
+              borderRadius: 6,
+              padding: 8,
+              color: 'white'
+            }}
+          />
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Seed</div>
+          <input
+            aria-label="Random seed"
+            type="number"
+            value={props.seed}
+            onChange={(e) => props.onSeedChange(parseInt(e.target.value || '1337'))}
+            style={{
+              width: '100%',
+              background: '#1e293b',
+              border: '1px solid #475569',
+              borderRadius: 6,
+              padding: 8,
+              color: 'white'
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Tokenizer Configuration */}
+      <TokenizerConfig
+        config={props.tokenizerConfig}
+        customPattern={props.customTokenizerPattern}
+        error={props.tokenizerError}
+        onConfigChange={props.onTokenizerConfigChange}
+        onCustomPatternChange={props.onCustomPatternChange}
+        onError={props.onTokenizerError}
+        onMessage={props.onMessage}
+      />
+
+      {/* Resume Checkbox & Action Buttons */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 12,
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          marginBottom: 10
+        }}
+      >
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+          <input
+            type="checkbox"
+            checked={props.resume}
+            onChange={(e) => props.onResumeChange(e.target.checked)}
+          />{' '}
+          Resume training when possible
+        </label>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            onClick={props.onTrain}
+            disabled={props.isTraining}
+            style={{
+              padding: '12px 20px',
+              background: props.isTraining
+                ? '#475569'
+                : 'linear-gradient(90deg, #7c3aed, #059669)',
+              border: 'none',
+              borderRadius: 10,
+              color: 'white',
+              fontWeight: 700,
+              cursor: props.isTraining ? 'not-allowed' : 'pointer',
+              minWidth: 120
+            }}
+          >
+            {props.isTraining ? '🔄 Training…' : '🚀 Train model'}
+          </button>
+          {props.isTraining && (
+            <button
+              onClick={props.onStop}
+              style={{
+                padding: '12px 16px',
+                background: '#dc2626',
+                border: 'none',
+                borderRadius: 10,
+                color: 'white',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              ⏹️ Stop
+            </button>
+          )}
+          <button
+            onClick={props.onReset}
+            style={{
+              padding: '12px 16px',
+              background: '#374151',
+              border: '1px solid #4b5563',
+              borderRadius: 10,
+              color: '#e5e7eb',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            🔄 Reset
+          </button>
+          <button
+            onClick={props.onSave}
+            style={{
+              padding: '12px 16px',
+              background: '#2563eb',
+              border: 'none',
+              borderRadius: 10,
+              color: 'white',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            💾 Save
+          </button>
+          <button
+            onClick={props.onLoad}
+            style={{
+              padding: '12px 16px',
+              background: '#4b5563',
+              border: 'none',
+              borderRadius: 10,
+              color: 'white',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            📀 Load
+          </button>
+          <button
+            onClick={props.onExport}
+            style={{
+              padding: '12px 16px',
+              background: '#16a34a',
+              border: 'none',
+              borderRadius: 10,
+              color: 'white',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            ⬇️ Export
+          </button>
+          <button
+            onClick={() => importRef.current?.click()}
+            style={{
+              padding: '12px 16px',
+              background: '#9333ea',
+              border: 'none',
+              borderRadius: 10,
+              color: 'white',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            ⬆️ Import
+          </button>
+          <input
+            ref={importRef}
+            type="file"
+            accept="application/json"
+            onChange={props.onImport}
+            style={{ display: 'none' }}
+          />
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      {props.isTraining && (
+        <div style={{ marginTop: 8 }}>
+          <div
+            style={{
+              width: '100%',
+              height: 12,
+              background: '#334155',
+              borderRadius: 6,
+              overflow: 'hidden'
+            }}
+          >
+            <div
+              style={{
+                width: `${props.progress}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #a78bfa, #34d399)',
+                transition: 'width 0.3s ease'
+              }}
+            />
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: '#94a3b8',
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginTop: 6
+            }}
+          >
+            <span>Training… {props.progress.toFixed(0)}%</span>
+            <span>
+              Epoch: {props.currentEpoch + 1}/{props.epochs}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

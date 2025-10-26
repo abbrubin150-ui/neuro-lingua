@@ -2,10 +2,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, beforeEach } from 'vitest';
 
-import App, { UI_SETTINGS_KEY } from '../src/App';
+import App from '../src/App';
+import { STORAGE_KEYS } from '../src/config/constants';
 
-const TOKENIZER_STORAGE_KEY = 'neuro-lingua-tokenizer-config-v1';
-const ONBOARDING_STORAGE_KEY = 'neuro-lingua-onboarding-dismissed';
+const UI_SETTINGS_KEY = STORAGE_KEYS.UI_SETTINGS;
+const TOKENIZER_STORAGE_KEY = STORAGE_KEYS.TOKENIZER_CONFIG;
+const ONBOARDING_STORAGE_KEY = STORAGE_KEYS.ONBOARDING_DISMISSED;
 
 describe('Neuro-Lingua App UI', () => {
   beforeEach(() => {

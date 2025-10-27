@@ -2,6 +2,8 @@
 
 **Browser‑native neural language model** built in React + TypeScript.
 
+🌐 **[Try the live demo →](https://abbrubin150-ui.github.io/neuro-lingua/)**
+
 ## Core Features
 
 - SGD with **Momentum** or **Adam**

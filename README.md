@@ -110,6 +110,7 @@ Grant the workflow write access:
 ### Privacy & Sensitive Data
 
 **DO NOT use this application with:**
+
 - Personally Identifiable Information (PII)
 - Sensitive personal data
 - Confidential business information
@@ -118,6 +119,7 @@ Grant the workflow write access:
 - Authentication credentials or secrets
 
 **Why?** This application stores training data and models in browser localStorage, which:
+
 - Is not encrypted
 - Persists across sessions
 - Could be accessed by browser extensions or malicious scripts

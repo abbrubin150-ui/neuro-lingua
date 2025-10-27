@@ -2,6 +2,8 @@
 
 **Browser‑native neural language model** built in React + TypeScript.
 
+🌐 **[Try the live demo →](https://abbrubin150-ui.github.io/neuro-lingua/)**
+
 ## Core Features
 
 - SGD with **Momentum** or **Adam**
@@ -100,6 +102,30 @@ gh workflow run train-model.yml \
 Grant the workflow write access:
 
 - Repository → Settings → Actions → General → Workflow permissions → **Read and write permissions**
+
+---
+
+## ⚠️ Important Warnings
+
+### Privacy & Sensitive Data
+
+**DO NOT use this application with:**
+
+- Personally Identifiable Information (PII)
+- Sensitive personal data
+- Confidential business information
+- Medical records or health data
+- Financial information
+- Authentication credentials or secrets
+
+**Why?** This application stores training data and models in browser localStorage, which:
+
+- Is not encrypted
+- Persists across sessions
+- Could be accessed by browser extensions or malicious scripts
+- May be included in browser sync/backup
+
+**Recommendation:** Use only public, non-sensitive text for training and experimentation.
 
 ---
 

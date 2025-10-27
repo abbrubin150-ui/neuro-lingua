@@ -33,6 +33,8 @@ export function ChatInterface({
 
   return (
     <div
+      role="region"
+      aria-label="Chat interface"
       style={{
         background: 'rgba(30,41,59,0.9)',
         border: '1px solid #334155',
@@ -52,12 +54,16 @@ export function ChatInterface({
         }}
       >
         <h3 style={{ color: '#60a5fa', margin: 0 }}>💬 Chat Console</h3>
-        <div style={{ fontSize: 12, color: '#94a3b8' }}>
+        <div style={{ fontSize: 12, color: '#94a3b8' }} aria-live="polite">
           {messages.filter((m) => m.type === 'assistant').length} replies
         </div>
       </div>
 
       <div
+        role="log"
+        aria-label="Chat messages"
+        aria-live="polite"
+        aria-atomic="false"
         style={{
           flex: 1,
           overflowY: 'auto',
@@ -70,6 +76,8 @@ export function ChatInterface({
         {messages.map((m, i) => (
           <div
             key={i}
+            role="article"
+            aria-label={`${m.type === 'user' ? 'User' : m.type === 'assistant' ? 'Model' : 'System'} message`}
             style={{
               padding: '12px 16px',
               borderRadius: 12,
@@ -92,7 +100,16 @@ export function ChatInterface({
                 </span>
               )}
             </div>
-            {m.content}
+            <div
+              style={{
+                fontFamily:
+                  m.type === 'assistant'
+                    ? "'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace"
+                    : 'inherit'
+              }}
+            >
+              {m.content}
+            </div>
           </div>
         ))}
       </div>
@@ -121,6 +138,8 @@ export function ChatInterface({
         <button
           onClick={onGenerate}
           disabled={!modelExists}
+          aria-label="Generate text from model"
+          aria-disabled={!modelExists}
           style={{
             padding: '12px 20px',
             background: modelExists ? 'linear-gradient(90deg, #2563eb, #4f46e5)' : '#475569',

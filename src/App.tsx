@@ -6,8 +6,7 @@ import {
   type TokenizerConfig,
   clamp,
   MODEL_VERSION,
-  MODEL_STORAGE_KEY,
-  MODEL_EXPORT_FILENAME
+  MODEL_STORAGE_KEY
 } from './lib/ProNeuralLM';
 
 import { StorageManager } from './lib/storage';
@@ -83,7 +82,7 @@ export default function NeuroLinguaDomesticaV324() {
   // Training state
   const [isTraining, setIsTraining] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [stats, setStats] = useState({ loss: 0, acc: 0, ppl: 0 });
+  const [stats, setStats] = useState({ loss: 0, acc: 0, ppl: 0, lossEMA: 0, tokensPerSec: 0 });
   const [info, setInfo] = useState({ V: 0, P: 0 });
   const [trainingHistory, setTrainingHistory] = useState<
     { loss: number; accuracy: number; timestamp: number }[]
@@ -117,6 +116,7 @@ export default function NeuroLinguaDomesticaV324() {
 
   const modelRef = useRef<ProNeuralLM | null>(null);
   const trainingRef = useRef({ running: false, currentEpoch: 0 });
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Helper to add system messages
   const addSystemMessage = useCallback((content: string) => {
@@ -272,6 +272,41 @@ export default function NeuroLinguaDomesticaV324() {
     }
   }, [applyModelMeta, syncTokenizerFromModel, addSystemMessage]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+      // Ctrl/Cmd + Enter: Start/Stop training
+      if (modKey && e.key === 'Enter') {
+        e.preventDefault();
+        if (isTraining) {
+          onStopTraining();
+        } else {
+          onTrain();
+        }
+      }
+
+      // Ctrl/Cmd + S: Save model
+      if (modKey && e.key === 's') {
+        e.preventDefault();
+        onSave();
+      }
+
+      // Ctrl/Cmd + G: Generate (if input is focused)
+      if (modKey && e.key === 'g') {
+        e.preventDefault();
+        if (modelRef.current && input.trim()) {
+          onGenerate();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isTraining, input]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Persist settings when they change
   useEffect(() => {
     const settings: UiSettings = {
@@ -325,6 +360,8 @@ export default function NeuroLinguaDomesticaV324() {
       return;
     }
 
+    // Create new AbortController for this training session
+    abortControllerRef.current = new AbortController();
     trainingRef.current = { running: true, currentEpoch: 0 };
     setIsTraining(true);
     setProgress(0);
@@ -362,16 +399,38 @@ export default function NeuroLinguaDomesticaV324() {
     const total = Math.max(1, epochs);
     let aggLoss = 0;
     let aggAcc = 0;
+    let lossEMA = 0;
+    const emaAlpha = 0.1; // EMA smoothing factor
+    const tokens = ProNeuralLM.tokenizeText(trainingText, tokenizerConfig);
+    const totalTokens = tokens.length;
 
     for (let e = 0; e < total; e++) {
-      if (!trainingRef.current.running) break;
+      // Check both AbortController and running flag
+      if (abortControllerRef.current?.signal.aborted || !trainingRef.current.running) break;
       trainingRef.current.currentEpoch = e;
 
+      const epochStartTime = Date.now();
       const res = modelRef.current!.train(trainingText, 1);
+      const epochEndTime = Date.now();
+
       aggLoss += res.loss;
       aggAcc += res.accuracy;
+
+      // Calculate EMA of loss
+      lossEMA = e === 0 ? res.loss : emaAlpha * res.loss + (1 - emaAlpha) * lossEMA;
+
+      // Calculate tokens/sec for this epoch
+      const epochDuration = (epochEndTime - epochStartTime) / 1000; // in seconds
+      const tokensPerSec = epochDuration > 0 ? totalTokens / epochDuration : 0;
+
       const meanLoss = aggLoss / (e + 1);
-      setStats({ loss: meanLoss, acc: aggAcc / (e + 1), ppl: Math.exp(Math.max(1e-8, meanLoss)) });
+      setStats({
+        loss: meanLoss,
+        acc: aggAcc / (e + 1),
+        ppl: Math.exp(Math.max(1e-8, meanLoss)),
+        lossEMA: lossEMA,
+        tokensPerSec: tokensPerSec
+      });
       setTrainingHistory(modelRef.current!.getTrainingHistory());
       setProgress(((e + 1) / total) * 100);
       await new Promise((r) => setTimeout(r, TRAINING_UI_UPDATE_DELAY));
@@ -391,6 +450,7 @@ export default function NeuroLinguaDomesticaV324() {
   }
 
   function onStopTraining() {
+    abortControllerRef.current?.abort();
     trainingRef.current.running = false;
     setIsTraining(false);
     addSystemMessage('⏹️ Training stopped');
@@ -415,10 +475,23 @@ export default function NeuroLinguaDomesticaV324() {
 
   function onExport() {
     if (!modelRef.current) return;
-    const blob = new Blob([JSON.stringify(modelRef.current.toJSON(), null, 2)], {
+    const modelData = modelRef.current.toJSON();
+    const blob = new Blob([JSON.stringify(modelData, null, 2)], {
       type: 'application/json'
     });
-    downloadBlob(blob, MODEL_EXPORT_FILENAME);
+
+    // Create filename with timestamp and hash
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const jsonStr = JSON.stringify(modelData);
+    const hash = Math.abs(
+      jsonStr.split('').reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0)
+    )
+      .toString(16)
+      .slice(0, 8);
+    const filename = `neuro-lingua-v${MODEL_VERSION.replace(/\./g, '')}-${timestamp}-${hash}.json`;
+
+    downloadBlob(blob, filename);
+    addSystemMessage(`📦 Exported: ${filename}`);
   }
 
   function onImport(ev: React.ChangeEvent<HTMLInputElement>) {
@@ -654,7 +727,7 @@ export default function NeuroLinguaDomesticaV324() {
               color: '#94a3b8'
             }}
           >
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
               <div>
                 <strong>🎯 Training Tips</strong>
                 <div style={{ fontSize: 12, marginTop: 4 }}>
@@ -671,6 +744,12 @@ export default function NeuroLinguaDomesticaV324() {
                 <strong>⚡ Performance</strong>
                 <div style={{ fontSize: 12, marginTop: 4 }}>
                   • Momentum: 0.9 or Adam • Save tokenizer presets • Export CSV to compare runs
+                </div>
+              </div>
+              <div>
+                <strong>⌨️ Shortcuts</strong>
+                <div style={{ fontSize: 12, marginTop: 4 }}>
+                  • Ctrl/Cmd+Enter: Train/Stop • Ctrl/Cmd+S: Save • Ctrl/Cmd+G: Generate
                 </div>
               </div>
             </div>

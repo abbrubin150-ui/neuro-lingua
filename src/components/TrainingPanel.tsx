@@ -65,8 +65,6 @@ export function TrainingPanel(props: TrainingPanelProps) {
 
   return (
     <div
-      role="region"
-      aria-label="Training controls and hyperparameters"
       style={{
         background: 'rgba(30,41,59,0.9)',
         border: '1px solid #334155',
@@ -444,8 +442,6 @@ export function TrainingPanel(props: TrainingPanelProps) {
           <button
             onClick={props.onTrain}
             disabled={props.isTraining}
-            aria-label={props.isTraining ? 'Training in progress' : 'Start model training'}
-            aria-disabled={props.isTraining}
             style={{
               padding: '12px 20px',
               background: props.isTraining ? '#475569' : 'linear-gradient(90deg, #7c3aed, #059669)',
@@ -462,7 +458,6 @@ export function TrainingPanel(props: TrainingPanelProps) {
           {props.isTraining && (
             <button
               onClick={props.onStop}
-              aria-label="Stop training"
               style={{
                 padding: '12px 16px',
                 background: '#dc2626',
@@ -478,7 +473,6 @@ export function TrainingPanel(props: TrainingPanelProps) {
           )}
           <button
             onClick={props.onReset}
-            aria-label="Reset model"
             style={{
               padding: '12px 16px',
               background: '#374151',
@@ -493,7 +487,6 @@ export function TrainingPanel(props: TrainingPanelProps) {
           </button>
           <button
             onClick={props.onSave}
-            aria-label="Save model to localStorage"
             style={{
               padding: '12px 16px',
               background: '#2563eb',
@@ -508,7 +501,6 @@ export function TrainingPanel(props: TrainingPanelProps) {
           </button>
           <button
             onClick={props.onLoad}
-            aria-label="Load model from localStorage"
             style={{
               padding: '12px 16px',
               background: '#4b5563',
@@ -523,7 +515,6 @@ export function TrainingPanel(props: TrainingPanelProps) {
           </button>
           <button
             onClick={props.onExport}
-            aria-label="Export model to JSON file"
             style={{
               padding: '12px 16px',
               background: '#16a34a',
@@ -538,7 +529,6 @@ export function TrainingPanel(props: TrainingPanelProps) {
           </button>
           <button
             onClick={() => importRef.current?.click()}
-            aria-label="Import model from JSON file"
             style={{
               padding: '12px 16px',
               background: '#9333ea',
@@ -565,11 +555,6 @@ export function TrainingPanel(props: TrainingPanelProps) {
       {props.isTraining && (
         <div style={{ marginTop: 8 }}>
           <div
-            role="progressbar"
-            aria-valuenow={Math.round(props.progress)}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label="Training progress"
             style={{
               width: '100%',
               height: 12,
@@ -595,7 +580,6 @@ export function TrainingPanel(props: TrainingPanelProps) {
               justifyContent: 'space-between',
               marginTop: 6
             }}
-            aria-live="polite"
           >
             <span>Training… {props.progress.toFixed(0)}%</span>
             <span>

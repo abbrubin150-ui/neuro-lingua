@@ -3,7 +3,7 @@ import { formatTimestamp, createTrainingHistoryCsv, downloadBlob } from '../lib/
 import { EXPORT_FILENAMES } from '../config/constants';
 
 interface ModelMetricsProps {
-  stats: { loss: number; acc: number; ppl: number; lossEMA: number; tokensPerSec: number };
+  stats: { loss: number; acc: number; ppl: number };
   info: { V: number; P: number };
   lastModelUpdate: { timestamp: number; vocab: number } | null;
   trainingHistory: { loss: number; accuracy: number; timestamp: number }[];
@@ -124,17 +124,11 @@ export function ModelMetrics({
       }}
     >
       <h3 style={{ color: '#34d399', marginTop: 0, marginBottom: 16 }}>📊 Advanced Statistics</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 12, color: '#94a3b8' }}>Loss (Avg)</div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Loss</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: '#ef4444' }}>
             {stats.loss.toFixed(4)}
-          </div>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 12, color: '#94a3b8' }}>Loss (EMA)</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#f87171' }}>
-            {stats.lossEMA > 0 ? stats.lossEMA.toFixed(4) : '—'}
           </div>
         </div>
         <div style={{ textAlign: 'center' }}>
@@ -150,16 +144,10 @@ export function ModelMetrics({
           </div>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 12, color: '#94a3b8' }}>Tokens/sec</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#06b6d4' }}>
-            {stats.tokensPerSec > 0 ? stats.tokensPerSec.toFixed(1) : '—'}
-          </div>
-        </div>
-        <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 12, color: '#94a3b8' }}>Vocab Size</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: '#a78bfa' }}>{info.V}</div>
         </div>
-        <div style={{ textAlign: 'center', gridColumn: 'span 3' }}>
+        <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 12, color: '#94a3b8' }}>Parameters</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: '#60a5fa' }}>
             {info.P.toLocaleString()}

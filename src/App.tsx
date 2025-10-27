@@ -83,7 +83,7 @@ export default function NeuroLinguaDomesticaV324() {
   // Training state
   const [isTraining, setIsTraining] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [stats, setStats] = useState({ loss: 0, acc: 0, ppl: 0 });
+  const [stats, setStats] = useState({ loss: 0, acc: 0, ppl: 0, lossEMA: 0, tokensPerSec: 0 });
   const [info, setInfo] = useState({ V: 0, P: 0 });
   const [trainingHistory, setTrainingHistory] = useState<
     { loss: number; accuracy: number; timestamp: number }[]
@@ -117,6 +117,7 @@ export default function NeuroLinguaDomesticaV324() {
 
   const modelRef = useRef<ProNeuralLM | null>(null);
   const trainingRef = useRef({ running: false, currentEpoch: 0 });
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Helper to add system messages
   const addSystemMessage = useCallback((content: string) => {
@@ -325,6 +326,8 @@ export default function NeuroLinguaDomesticaV324() {
       return;
     }
 
+    // Create new AbortController for this training session
+    abortControllerRef.current = new AbortController();
     trainingRef.current = { running: true, currentEpoch: 0 };
     setIsTraining(true);
     setProgress(0);
@@ -362,16 +365,39 @@ export default function NeuroLinguaDomesticaV324() {
     const total = Math.max(1, epochs);
     let aggLoss = 0;
     let aggAcc = 0;
+    let lossEMA = 0;
+    const emaAlpha = 0.1; // EMA smoothing factor
+    const tokens = ProNeuralLM.tokenizeText(trainingText, tokenizerConfig);
+    const totalTokens = tokens.length;
+    const startTime = Date.now();
 
     for (let e = 0; e < total; e++) {
-      if (!trainingRef.current.running) break;
+      // Check both AbortController and running flag
+      if (abortControllerRef.current?.signal.aborted || !trainingRef.current.running) break;
       trainingRef.current.currentEpoch = e;
 
+      const epochStartTime = Date.now();
       const res = modelRef.current!.train(trainingText, 1);
+      const epochEndTime = Date.now();
+
       aggLoss += res.loss;
       aggAcc += res.accuracy;
+
+      // Calculate EMA of loss
+      lossEMA = e === 0 ? res.loss : emaAlpha * res.loss + (1 - emaAlpha) * lossEMA;
+
+      // Calculate tokens/sec for this epoch
+      const epochDuration = (epochEndTime - epochStartTime) / 1000; // in seconds
+      const tokensPerSec = epochDuration > 0 ? totalTokens / epochDuration : 0;
+
       const meanLoss = aggLoss / (e + 1);
-      setStats({ loss: meanLoss, acc: aggAcc / (e + 1), ppl: Math.exp(Math.max(1e-8, meanLoss)) });
+      setStats({
+        loss: meanLoss,
+        acc: aggAcc / (e + 1),
+        ppl: Math.exp(Math.max(1e-8, meanLoss)),
+        lossEMA: lossEMA,
+        tokensPerSec: tokensPerSec
+      });
       setTrainingHistory(modelRef.current!.getTrainingHistory());
       setProgress(((e + 1) / total) * 100);
       await new Promise((r) => setTimeout(r, TRAINING_UI_UPDATE_DELAY));
@@ -391,6 +417,7 @@ export default function NeuroLinguaDomesticaV324() {
   }
 
   function onStopTraining() {
+    abortControllerRef.current?.abort();
     trainingRef.current.running = false;
     setIsTraining(false);
     addSystemMessage('⏹️ Training stopped');
@@ -415,10 +442,23 @@ export default function NeuroLinguaDomesticaV324() {
 
   function onExport() {
     if (!modelRef.current) return;
-    const blob = new Blob([JSON.stringify(modelRef.current.toJSON(), null, 2)], {
+    const modelData = modelRef.current.toJSON();
+    const blob = new Blob([JSON.stringify(modelData, null, 2)], {
       type: 'application/json'
     });
-    downloadBlob(blob, MODEL_EXPORT_FILENAME);
+
+    // Create filename with timestamp and hash
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const jsonStr = JSON.stringify(modelData);
+    const hash = Math.abs(
+      jsonStr.split('').reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0)
+    )
+      .toString(16)
+      .slice(0, 8);
+    const filename = `neuro-lingua-v${MODEL_VERSION.replace(/\./g, '')}-${timestamp}-${hash}.json`;
+
+    downloadBlob(blob, filename);
+    addSystemMessage(`📦 Exported: ${filename}`);
   }
 
   function onImport(ev: React.ChangeEvent<HTMLInputElement>) {

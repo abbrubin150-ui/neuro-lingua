@@ -3,7 +3,7 @@ import { formatTimestamp, createTrainingHistoryCsv, downloadBlob } from '../lib/
 import { EXPORT_FILENAMES } from '../config/constants';
 
 interface ModelMetricsProps {
-  stats: { loss: number; acc: number; ppl: number };
+  stats: { loss: number; acc: number; ppl: number; lossEMA: number; tokensPerSec: number };
   info: { V: number; P: number };
   lastModelUpdate: { timestamp: number; vocab: number } | null;
   trainingHistory: { loss: number; accuracy: number; timestamp: number }[];

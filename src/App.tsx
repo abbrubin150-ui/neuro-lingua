@@ -524,7 +524,7 @@ export default function NeuroLinguaDomesticaV324() {
     StorageManager.removeMultiple([...STORAGE_KEYS.LEGACY_MODELS]);
     persistModelMeta(null);
     setInfo({ V: 0, P: 0 });
-    setStats({ loss: 0, acc: 0, ppl: 0 });
+    setStats({ loss: 0, acc: 0, ppl: 0, lossEMA: 0, tokensPerSec: 0 });
     setTrainingHistory([]);
     addSystemMessage('🔄 Model reset. Ready to train again.');
   }

@@ -103,6 +103,28 @@ Grant the workflow write access:
 
 ---
 
+## ⚠️ Important Warnings
+
+### Privacy & Sensitive Data
+
+**DO NOT use this application with:**
+- Personally Identifiable Information (PII)
+- Sensitive personal data
+- Confidential business information
+- Medical records or health data
+- Financial information
+- Authentication credentials or secrets
+
+**Why?** This application stores training data and models in browser localStorage, which:
+- Is not encrypted
+- Persists across sessions
+- Could be accessed by browser extensions or malicious scripts
+- May be included in browser sync/backup
+
+**Recommendation:** Use only public, non-sensitive text for training and experimentation.
+
+---
+
 ## Notes
 
 - The LM is educational and runs fully in the browser. It is **not** optimized for long texts.

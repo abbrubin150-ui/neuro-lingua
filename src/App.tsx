@@ -273,6 +273,41 @@ export default function NeuroLinguaDomesticaV324() {
     }
   }, [applyModelMeta, syncTokenizerFromModel, addSystemMessage]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+      // Ctrl/Cmd + Enter: Start/Stop training
+      if (modKey && e.key === 'Enter') {
+        e.preventDefault();
+        if (isTraining) {
+          onStopTraining();
+        } else {
+          onTrain();
+        }
+      }
+
+      // Ctrl/Cmd + S: Save model
+      if (modKey && e.key === 's') {
+        e.preventDefault();
+        onSave();
+      }
+
+      // Ctrl/Cmd + G: Generate (if input is focused)
+      if (modKey && e.key === 'g') {
+        e.preventDefault();
+        if (modelRef.current && input.trim()) {
+          onGenerate();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isTraining, input]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Persist settings when they change
   useEffect(() => {
     const settings: UiSettings = {
@@ -694,7 +729,7 @@ export default function NeuroLinguaDomesticaV324() {
               color: '#94a3b8'
             }}
           >
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
               <div>
                 <strong>🎯 Training Tips</strong>
                 <div style={{ fontSize: 12, marginTop: 4 }}>
@@ -711,6 +746,12 @@ export default function NeuroLinguaDomesticaV324() {
                 <strong>⚡ Performance</strong>
                 <div style={{ fontSize: 12, marginTop: 4 }}>
                   • Momentum: 0.9 or Adam • Save tokenizer presets • Export CSV to compare runs
+                </div>
+              </div>
+              <div>
+                <strong>⌨️ Shortcuts</strong>
+                <div style={{ fontSize: 12, marginTop: 4 }}>
+                  • Ctrl/Cmd+Enter: Train/Stop • Ctrl/Cmd+S: Save • Ctrl/Cmd+G: Generate
                 </div>
               </div>
             </div>

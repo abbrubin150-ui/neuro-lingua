@@ -38,6 +38,26 @@ export function OnboardingCard({ show, onDismiss }: OnboardingCardProps) {
       <div style={{ fontWeight: 700, fontSize: '1.05rem', color: '#60a5fa' }}>
         👋 Welcome! Here is how Neuro-Lingua keeps your session in sync
       </div>
+
+      <div
+        style={{
+          background: 'rgba(239,68,68,0.15)',
+          border: '1px solid rgba(239,68,68,0.3)',
+          borderRadius: 8,
+          padding: 12,
+          marginTop: 4
+        }}
+      >
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#fca5a5', marginBottom: 6 }}>
+          ⚠️ Privacy Warning
+        </div>
+        <div style={{ fontSize: 12, color: '#fecaca', lineHeight: 1.5 }}>
+          <strong>DO NOT train with sensitive data.</strong> This app stores everything in browser
+          localStorage (unencrypted). Never use PII, passwords, financial data, medical records, or
+          confidential information.
+        </div>
+      </div>
+
       <ul
         style={{
           margin: 0,

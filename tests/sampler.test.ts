@@ -215,10 +215,12 @@ describe('Text Sampler / Generator', () => {
 
       // All output tokens should be in the vocabulary (except special tokens)
       for (const token of tokens) {
-        const isInVocab =
-          vocab.includes(token) || token === '<BOS>' || token === '<PAD>' || token === '<UNK>';
         // Note: <EOS> should not appear in output
         expect(token).not.toBe('<EOS>');
+        // Token should be in vocab or be a special token
+        const isValid =
+          vocab.includes(token) || token === '<BOS>' || token === '<PAD>' || token === '<UNK>';
+        expect(isValid).toBe(true);
       }
     });
   });

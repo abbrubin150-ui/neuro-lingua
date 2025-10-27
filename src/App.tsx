@@ -6,8 +6,7 @@ import {
   type TokenizerConfig,
   clamp,
   MODEL_VERSION,
-  MODEL_STORAGE_KEY,
-  MODEL_EXPORT_FILENAME
+  MODEL_STORAGE_KEY
 } from './lib/ProNeuralLM';
 
 import { StorageManager } from './lib/storage';
@@ -404,7 +403,6 @@ export default function NeuroLinguaDomesticaV324() {
     const emaAlpha = 0.1; // EMA smoothing factor
     const tokens = ProNeuralLM.tokenizeText(trainingText, tokenizerConfig);
     const totalTokens = tokens.length;
-    const startTime = Date.now();
 
     for (let e = 0; e < total; e++) {
       // Check both AbortController and running flag

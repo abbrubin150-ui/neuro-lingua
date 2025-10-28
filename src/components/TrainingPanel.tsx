@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import type { Optimizer, TokenizerConfig as TokenizerConfigType } from '../lib/ProNeuralLM';
+import type { ActivationFunction, LRSchedule, InitializationScheme } from '../lib/AdvancedNeuralLM';
 import { clamp } from '../lib/ProNeuralLM';
 import { TokenizerConfig } from './TokenizerConfig';
 import { HYPERPARAMETER_CONSTRAINTS } from '../config/constants';
@@ -19,6 +20,22 @@ interface TrainingPanelProps {
   samplingMode: 'off' | 'topk' | 'topp';
   seed: number;
   resume: boolean;
+
+  // Advanced features
+  useAdvanced: boolean;
+  activation: ActivationFunction;
+  leakyReluAlpha: number;
+  eluAlpha: number;
+  initialization: InitializationScheme;
+  lrSchedule: LRSchedule;
+  lrMin: number;
+  lrDecayRate: number;
+  warmupEpochs: number;
+  weightDecay: number;
+  gradientClipNorm: number;
+  useLayerNorm: boolean;
+  useBeamSearch: boolean;
+  beamWidth: number;
 
   // Tokenizer
   tokenizerConfig: TokenizerConfigType;
@@ -44,6 +61,23 @@ interface TrainingPanelProps {
   onSamplingModeChange: (value: 'off' | 'topk' | 'topp') => void;
   onSeedChange: (value: number) => void;
   onResumeChange: (value: boolean) => void;
+
+  // Advanced callbacks
+  onUseAdvancedChange: (value: boolean) => void;
+  onActivationChange: (value: ActivationFunction) => void;
+  onLeakyReluAlphaChange: (value: number) => void;
+  onEluAlphaChange: (value: number) => void;
+  onInitializationChange: (value: InitializationScheme) => void;
+  onLrScheduleChange: (value: LRSchedule) => void;
+  onLrMinChange: (value: number) => void;
+  onLrDecayRateChange: (value: number) => void;
+  onWarmupEpochsChange: (value: number) => void;
+  onWeightDecayChange: (value: number) => void;
+  onGradientClipNormChange: (value: number) => void;
+  onUseLayerNormChange: (value: boolean) => void;
+  onUseBeamSearchChange: (value: boolean) => void;
+  onBeamWidthChange: (value: number) => void;
+
   onTokenizerConfigChange: (config: TokenizerConfigType) => void;
   onCustomPatternChange: (pattern: string) => void;
   onTokenizerError: (error: string | null) => void;
@@ -410,6 +444,414 @@ export function TrainingPanel(props: TrainingPanelProps) {
           />
         </div>
       </div>
+
+      {/* Advanced Features Toggle */}
+      <div style={{ marginTop: 12, marginBottom: 12 }}>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={props.useAdvanced}
+            onChange={(e) => props.onUseAdvancedChange(e.target.checked)}
+          />
+          <span>🚀 Enable Advanced Features (AdvancedNeuralLM)</span>
+        </label>
+      </div>
+
+      {/* Advanced Features Panel */}
+      {props.useAdvanced && (
+        <div
+          style={{
+            background: 'rgba(99, 102, 241, 0.1)',
+            border: '1px solid rgba(99, 102, 241, 0.3)',
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 12
+          }}
+        >
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: '#a78bfa' }}>
+            Advanced Neural Network Configuration
+          </div>
+
+          {/* Activation & Initialization */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 12,
+              marginBottom: 12
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 12, color: '#94a3b8' }}>Activation Function</div>
+              <select
+                aria-label="Activation function"
+                value={props.activation}
+                onChange={(e) => props.onActivationChange(e.target.value as ActivationFunction)}
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white'
+                }}
+              >
+                <option value="relu">ReLU</option>
+                <option value="leaky_relu">Leaky ReLU</option>
+                <option value="elu">ELU</option>
+                <option value="gelu">GELU</option>
+              </select>
+            </div>
+
+            {props.activation === 'leaky_relu' && (
+              <div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>Leaky ReLU Alpha</div>
+                <input
+                  aria-label="Leaky ReLU alpha"
+                  type="number"
+                  step="0.01"
+                  value={props.leakyReluAlpha}
+                  onChange={(e) =>
+                    props.onLeakyReluAlphaChange(
+                      clamp(
+                        parseFloat(e.target.value || '0.01'),
+                        HYPERPARAMETER_CONSTRAINTS.leakyReluAlpha.min,
+                        HYPERPARAMETER_CONSTRAINTS.leakyReluAlpha.max
+                      )
+                    )
+                  }
+                  style={{
+                    width: '100%',
+                    background: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: 6,
+                    padding: 8,
+                    color: 'white'
+                  }}
+                />
+              </div>
+            )}
+
+            {props.activation === 'elu' && (
+              <div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>ELU Alpha</div>
+                <input
+                  aria-label="ELU alpha"
+                  type="number"
+                  step="0.1"
+                  value={props.eluAlpha}
+                  onChange={(e) =>
+                    props.onEluAlphaChange(
+                      clamp(
+                        parseFloat(e.target.value || '1.0'),
+                        HYPERPARAMETER_CONSTRAINTS.eluAlpha.min,
+                        HYPERPARAMETER_CONSTRAINTS.eluAlpha.max
+                      )
+                    )
+                  }
+                  style={{
+                    width: '100%',
+                    background: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: 6,
+                    padding: 8,
+                    color: 'white'
+                  }}
+                />
+              </div>
+            )}
+
+            <div>
+              <div style={{ fontSize: 12, color: '#94a3b8' }}>Weight Initialization</div>
+              <select
+                aria-label="Weight initialization"
+                value={props.initialization}
+                onChange={(e) =>
+                  props.onInitializationChange(e.target.value as InitializationScheme)
+                }
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white'
+                }}
+              >
+                <option value="default">Default</option>
+                <option value="xavier">Xavier</option>
+                <option value="he">He</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Learning Rate Schedule */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: 12,
+              marginBottom: 12
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 12, color: '#94a3b8' }}>LR Schedule</div>
+              <select
+                aria-label="Learning rate schedule"
+                value={props.lrSchedule}
+                onChange={(e) => props.onLrScheduleChange(e.target.value as LRSchedule)}
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white'
+                }}
+              >
+                <option value="constant">Constant</option>
+                <option value="cosine">Cosine Annealing</option>
+                <option value="exponential">Exponential Decay</option>
+                <option value="warmup_cosine">Warmup + Cosine</option>
+              </select>
+            </div>
+
+            {(props.lrSchedule === 'cosine' || props.lrSchedule === 'warmup_cosine') && (
+              <div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>Min LR</div>
+                <input
+                  aria-label="Minimum learning rate"
+                  type="number"
+                  step="0.000001"
+                  value={props.lrMin}
+                  onChange={(e) =>
+                    props.onLrMinChange(
+                      clamp(
+                        parseFloat(e.target.value || '0.000001'),
+                        HYPERPARAMETER_CONSTRAINTS.lrMin.min,
+                        HYPERPARAMETER_CONSTRAINTS.lrMin.max
+                      )
+                    )
+                  }
+                  style={{
+                    width: '100%',
+                    background: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: 6,
+                    padding: 8,
+                    color: 'white'
+                  }}
+                />
+              </div>
+            )}
+
+            {props.lrSchedule === 'exponential' && (
+              <div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>Decay Rate</div>
+                <input
+                  aria-label="Learning rate decay rate"
+                  type="number"
+                  step="0.01"
+                  value={props.lrDecayRate}
+                  onChange={(e) =>
+                    props.onLrDecayRateChange(
+                      clamp(
+                        parseFloat(e.target.value || '0.95'),
+                        HYPERPARAMETER_CONSTRAINTS.lrDecayRate.min,
+                        HYPERPARAMETER_CONSTRAINTS.lrDecayRate.max
+                      )
+                    )
+                  }
+                  style={{
+                    width: '100%',
+                    background: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: 6,
+                    padding: 8,
+                    color: 'white'
+                  }}
+                />
+              </div>
+            )}
+
+            {props.lrSchedule === 'warmup_cosine' && (
+              <div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>Warmup Epochs</div>
+                <input
+                  aria-label="Warmup epochs"
+                  type="number"
+                  value={props.warmupEpochs}
+                  onChange={(e) =>
+                    props.onWarmupEpochsChange(
+                      clamp(
+                        parseInt(e.target.value || '0'),
+                        HYPERPARAMETER_CONSTRAINTS.warmupEpochs.min,
+                        HYPERPARAMETER_CONSTRAINTS.warmupEpochs.max
+                      )
+                    )
+                  }
+                  style={{
+                    width: '100%',
+                    background: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: 6,
+                    padding: 8,
+                    color: 'white'
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Regularization */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 12,
+              marginBottom: 12
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 12, color: '#94a3b8' }}>Weight Decay (L2)</div>
+              <input
+                aria-label="Weight decay"
+                type="number"
+                step="0.0001"
+                value={props.weightDecay}
+                onChange={(e) =>
+                  props.onWeightDecayChange(
+                    clamp(
+                      parseFloat(e.target.value || '0.0001'),
+                      HYPERPARAMETER_CONSTRAINTS.weightDecay.min,
+                      HYPERPARAMETER_CONSTRAINTS.weightDecay.max
+                    )
+                  )
+                }
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white'
+                }}
+              />
+            </div>
+
+            <div>
+              <div style={{ fontSize: 12, color: '#94a3b8' }}>Gradient Clip Norm</div>
+              <input
+                aria-label="Gradient clip norm"
+                type="number"
+                step="0.5"
+                value={props.gradientClipNorm}
+                onChange={(e) =>
+                  props.onGradientClipNormChange(
+                    clamp(
+                      parseFloat(e.target.value || '5.0'),
+                      HYPERPARAMETER_CONSTRAINTS.gradientClipNorm.min,
+                      HYPERPARAMETER_CONSTRAINTS.gradientClipNorm.max
+                    )
+                  )
+                }
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  cursor: 'pointer'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={props.useLayerNorm}
+                  onChange={(e) => props.onUseLayerNormChange(e.target.checked)}
+                />
+                Layer Normalization
+              </label>
+            </div>
+          </div>
+
+          {/* Beam Search */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 12
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  cursor: 'pointer'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={props.useBeamSearch}
+                  onChange={(e) => props.onUseBeamSearchChange(e.target.checked)}
+                />
+                Use Beam Search for Generation
+              </label>
+            </div>
+
+            {props.useBeamSearch && (
+              <div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>Beam Width</div>
+                <input
+                  aria-label="Beam width"
+                  type="number"
+                  value={props.beamWidth}
+                  onChange={(e) =>
+                    props.onBeamWidthChange(
+                      clamp(
+                        parseInt(e.target.value || '4'),
+                        HYPERPARAMETER_CONSTRAINTS.beamWidth.min,
+                        HYPERPARAMETER_CONSTRAINTS.beamWidth.max
+                      )
+                    )
+                  }
+                  style={{
+                    width: '100%',
+                    background: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: 6,
+                    padding: 8,
+                    color: 'white'
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tokenizer Configuration */}
       <TokenizerConfig

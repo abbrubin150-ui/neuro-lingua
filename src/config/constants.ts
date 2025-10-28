@@ -1,4 +1,9 @@
 import type { Optimizer, TokenizerConfig } from '../lib/ProNeuralLM';
+import type {
+  ActivationFunction,
+  LRSchedule,
+  InitializationScheme
+} from '../lib/AdvancedNeuralLM';
 
 /**
  * Storage keys for localStorage
@@ -53,7 +58,27 @@ export const DEFAULT_GENERATION = {
   topK: 20,
   topP: 0.9,
   samplingMode: 'topp' as 'off' | 'topk' | 'topp',
-  maxTokens: 25
+  maxTokens: 25,
+  useBeamSearch: false,
+  beamWidth: 4
+};
+
+/**
+ * Default advanced configuration for AdvancedNeuralLM
+ */
+export const DEFAULT_ADVANCED_CONFIG = {
+  useAdvanced: false,
+  activation: 'relu' as ActivationFunction,
+  leakyReluAlpha: 0.01,
+  eluAlpha: 1.0,
+  initialization: 'he' as InitializationScheme,
+  lrSchedule: 'cosine' as LRSchedule,
+  lrMin: 1e-6,
+  lrDecayRate: 0.95,
+  warmupEpochs: 0,
+  weightDecay: 1e-4,
+  gradientClipNorm: 5.0,
+  useLayerNorm: false
 };
 
 /**
@@ -75,7 +100,15 @@ export const HYPERPARAMETER_CONSTRAINTS = {
   contextSize: { min: 2, max: 6 },
   temperature: { min: 0.05, max: 5 },
   topK: { min: 0, max: 1000 },
-  topP: { min: 0, max: 0.99 }
+  topP: { min: 0, max: 0.99 },
+  beamWidth: { min: 1, max: 10 },
+  leakyReluAlpha: { min: 0.01, max: 0.3 },
+  eluAlpha: { min: 0.1, max: 2.0 },
+  lrMin: { min: 1e-8, max: 0.01 },
+  lrDecayRate: { min: 0.8, max: 0.99 },
+  warmupEpochs: { min: 0, max: 50 },
+  weightDecay: { min: 0, max: 0.01 },
+  gradientClipNorm: { min: 1, max: 10 }
 } as const;
 
 /**

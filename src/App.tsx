@@ -9,6 +9,13 @@ import {
   MODEL_STORAGE_KEY
 } from './lib/ProNeuralLM';
 
+import {
+  AdvancedNeuralLM,
+  type ActivationFunction,
+  type LRSchedule,
+  type InitializationScheme
+} from './lib/AdvancedNeuralLM';
+
 import { StorageManager } from './lib/storage';
 import { buildVocab, parseTokenizerConfig, downloadBlob } from './lib/utils';
 import {
@@ -16,6 +23,7 @@ import {
   DEFAULT_TRAINING_TEXT,
   DEFAULT_HYPERPARAMETERS,
   DEFAULT_GENERATION,
+  DEFAULT_ADVANCED_CONFIG,
   DEFAULT_TOKENIZER_CONFIG,
   MIN_VOCAB_SIZE,
   TRAINING_UI_UPDATE_DELAY,
@@ -47,6 +55,21 @@ type UiSettings = {
   seed: number;
   resume: boolean;
   tokenizerConfig: TokenizerConfig;
+  // Advanced features
+  useAdvanced: boolean;
+  activation: ActivationFunction;
+  leakyReluAlpha: number;
+  eluAlpha: number;
+  initialization: InitializationScheme;
+  lrSchedule: LRSchedule;
+  lrMin: number;
+  lrDecayRate: number;
+  warmupEpochs: number;
+  weightDecay: number;
+  gradientClipNorm: number;
+  useLayerNorm: boolean;
+  useBeamSearch: boolean;
+  beamWidth: number;
 };
 
 type ModelMeta = { timestamp: number; vocab: number };
@@ -104,6 +127,24 @@ export default function NeuroLinguaDomesticaV324() {
   );
   const [seed, setSeed] = useState(DEFAULT_HYPERPARAMETERS.seed);
   const [resume, setResume] = useState(DEFAULT_HYPERPARAMETERS.resume);
+
+  // Advanced features
+  const [useAdvanced, setUseAdvanced] = useState(DEFAULT_ADVANCED_CONFIG.useAdvanced);
+  const [activation, setActivation] = useState<ActivationFunction>(DEFAULT_ADVANCED_CONFIG.activation);
+  const [leakyReluAlpha, setLeakyReluAlpha] = useState(DEFAULT_ADVANCED_CONFIG.leakyReluAlpha);
+  const [eluAlpha, setEluAlpha] = useState(DEFAULT_ADVANCED_CONFIG.eluAlpha);
+  const [initialization, setInitialization] = useState<InitializationScheme>(
+    DEFAULT_ADVANCED_CONFIG.initialization
+  );
+  const [lrSchedule, setLrSchedule] = useState<LRSchedule>(DEFAULT_ADVANCED_CONFIG.lrSchedule);
+  const [lrMin, setLrMin] = useState(DEFAULT_ADVANCED_CONFIG.lrMin);
+  const [lrDecayRate, setLrDecayRate] = useState(DEFAULT_ADVANCED_CONFIG.lrDecayRate);
+  const [warmupEpochs, setWarmupEpochs] = useState(DEFAULT_ADVANCED_CONFIG.warmupEpochs);
+  const [weightDecay, setWeightDecay] = useState(DEFAULT_ADVANCED_CONFIG.weightDecay);
+  const [gradientClipNorm, setGradientClipNorm] = useState(DEFAULT_ADVANCED_CONFIG.gradientClipNorm);
+  const [useLayerNorm, setUseLayerNorm] = useState(DEFAULT_ADVANCED_CONFIG.useLayerNorm);
+  const [useBeamSearch, setUseBeamSearch] = useState(DEFAULT_GENERATION.useBeamSearch);
+  const [beamWidth, setBeamWidth] = useState(DEFAULT_GENERATION.beamWidth);
 
   // Tokenizer
   const [tokenizerConfig, setTokenizerConfig] = useState<TokenizerConfig>(DEFAULT_TOKENIZER_CONFIG);
@@ -241,6 +282,22 @@ export default function NeuroLinguaDomesticaV324() {
       if (parsed.mode === 'custom') setCustomTokenizerPattern(parsed.pattern ?? '');
     }
 
+    // Load advanced features
+    if (typeof saved.useAdvanced === 'boolean') setUseAdvanced(saved.useAdvanced);
+    if (saved.activation) setActivation(saved.activation);
+    if (typeof saved.leakyReluAlpha === 'number') setLeakyReluAlpha(saved.leakyReluAlpha);
+    if (typeof saved.eluAlpha === 'number') setEluAlpha(saved.eluAlpha);
+    if (saved.initialization) setInitialization(saved.initialization);
+    if (saved.lrSchedule) setLrSchedule(saved.lrSchedule);
+    if (typeof saved.lrMin === 'number') setLrMin(saved.lrMin);
+    if (typeof saved.lrDecayRate === 'number') setLrDecayRate(saved.lrDecayRate);
+    if (typeof saved.warmupEpochs === 'number') setWarmupEpochs(saved.warmupEpochs);
+    if (typeof saved.weightDecay === 'number') setWeightDecay(saved.weightDecay);
+    if (typeof saved.gradientClipNorm === 'number') setGradientClipNorm(saved.gradientClipNorm);
+    if (typeof saved.useLayerNorm === 'boolean') setUseLayerNorm(saved.useLayerNorm);
+    if (typeof saved.useBeamSearch === 'boolean') setUseBeamSearch(saved.useBeamSearch);
+    if (typeof saved.beamWidth === 'number') setBeamWidth(saved.beamWidth);
+
     const tokenizerRaw = StorageManager.get<unknown>(STORAGE_KEYS.TOKENIZER_CONFIG, null);
     if (tokenizerRaw) {
       const parsed = parseTokenizerConfig(tokenizerRaw);
@@ -324,7 +381,21 @@ export default function NeuroLinguaDomesticaV324() {
       samplingMode,
       seed,
       resume,
-      tokenizerConfig
+      tokenizerConfig,
+      useAdvanced,
+      activation,
+      leakyReluAlpha,
+      eluAlpha,
+      initialization,
+      lrSchedule,
+      lrMin,
+      lrDecayRate,
+      warmupEpochs,
+      weightDecay,
+      gradientClipNorm,
+      useLayerNorm,
+      useBeamSearch,
+      beamWidth
     };
     StorageManager.set(STORAGE_KEYS.UI_SETTINGS, settings);
   }, [
@@ -342,7 +413,21 @@ export default function NeuroLinguaDomesticaV324() {
     samplingMode,
     seed,
     resume,
-    tokenizerConfig
+    tokenizerConfig,
+    useAdvanced,
+    activation,
+    leakyReluAlpha,
+    eluAlpha,
+    initialization,
+    lrSchedule,
+    lrMin,
+    lrDecayRate,
+    warmupEpochs,
+    weightDecay,
+    gradientClipNorm,
+    useLayerNorm,
+    useBeamSearch,
+    beamWidth
   ]);
 
   // Persist tokenizer config separately
@@ -379,18 +464,49 @@ export default function NeuroLinguaDomesticaV324() {
     const shouldReinit = !resume || !modelRef.current || sigNew !== sigOld;
 
     if (shouldReinit) {
-      modelRef.current = new ProNeuralLM(
-        vocab,
-        hiddenSize,
-        lr,
-        clamp(contextSize, 2, 6),
-        optimizer,
-        momentum,
-        clamp(dropout, 0, 0.5),
-        seed,
-        tokenizerConfig
-      );
-      addSystemMessage(`🎯 Starting fresh training with ${vocab.length} vocabulary tokens…`);
+      if (useAdvanced) {
+        // Use AdvancedNeuralLM with advanced configuration
+        modelRef.current = new AdvancedNeuralLM(
+          vocab,
+          hiddenSize,
+          lr,
+          clamp(contextSize, 2, 6),
+          optimizer,
+          momentum,
+          clamp(dropout, 0, 0.5),
+          seed,
+          tokenizerConfig,
+          {
+            activation,
+            leakyReluAlpha,
+            eluAlpha,
+            initialization,
+            lrSchedule,
+            lrMin,
+            lrDecayRate,
+            warmupEpochs,
+            weightDecay,
+            gradientClipNorm,
+            useLayerNorm,
+            beamWidth
+          }
+        );
+        addSystemMessage(`🚀 Starting fresh training with AdvancedNeuralLM (${vocab.length} vocabulary tokens)…`);
+      } else {
+        // Use standard ProNeuralLM
+        modelRef.current = new ProNeuralLM(
+          vocab,
+          hiddenSize,
+          lr,
+          clamp(contextSize, 2, 6),
+          optimizer,
+          momentum,
+          clamp(dropout, 0, 0.5),
+          seed,
+          tokenizerConfig
+        );
+        addSystemMessage(`🎯 Starting fresh training with ${vocab.length} vocabulary tokens…`);
+      }
     } else {
       modelRef.current!.importTokenizerConfig(tokenizerConfig);
       addSystemMessage('🔁 Continuing training on the current model…');
@@ -535,9 +651,24 @@ export default function NeuroLinguaDomesticaV324() {
       return;
     }
     setMessages((m) => [...m, { type: 'user', content: input, timestamp: Date.now() }]);
-    const k = samplingMode === 'topk' ? topK : 0;
-    const p = samplingMode === 'topp' ? topP : 0;
-    const txt = modelRef.current.generate(input, DEFAULT_GENERATION.maxTokens, temperature, k, p);
+
+    let txt: string;
+    if (useBeamSearch && modelRef.current instanceof AdvancedNeuralLM) {
+      // Use beam search generation
+      const result = modelRef.current.generateBeamSearch(
+        input,
+        DEFAULT_GENERATION.maxTokens,
+        beamWidth,
+        temperature
+      );
+      txt = result.text;
+    } else {
+      // Use standard generation
+      const k = samplingMode === 'topk' ? topK : 0;
+      const p = samplingMode === 'topp' ? topP : 0;
+      txt = modelRef.current.generate(input, DEFAULT_GENERATION.maxTokens, temperature, k, p);
+    }
+
     setMessages((m) => [...m, { type: 'assistant', content: txt, timestamp: Date.now() }]);
     setInput('');
   }
@@ -607,6 +738,22 @@ export default function NeuroLinguaDomesticaV324() {
               isTraining={isTraining}
               progress={progress}
               currentEpoch={trainingRef.current.currentEpoch}
+              // Advanced features
+              useAdvanced={useAdvanced}
+              activation={activation}
+              leakyReluAlpha={leakyReluAlpha}
+              eluAlpha={eluAlpha}
+              initialization={initialization}
+              lrSchedule={lrSchedule}
+              lrMin={lrMin}
+              lrDecayRate={lrDecayRate}
+              warmupEpochs={warmupEpochs}
+              weightDecay={weightDecay}
+              gradientClipNorm={gradientClipNorm}
+              useLayerNorm={useLayerNorm}
+              useBeamSearch={useBeamSearch}
+              beamWidth={beamWidth}
+              // Callbacks
               onHiddenSizeChange={setHiddenSize}
               onEpochsChange={setEpochs}
               onLrChange={setLr}
@@ -620,6 +767,21 @@ export default function NeuroLinguaDomesticaV324() {
               onSamplingModeChange={setSamplingMode}
               onSeedChange={setSeed}
               onResumeChange={setResume}
+              // Advanced callbacks
+              onUseAdvancedChange={setUseAdvanced}
+              onActivationChange={setActivation}
+              onLeakyReluAlphaChange={setLeakyReluAlpha}
+              onEluAlphaChange={setEluAlpha}
+              onInitializationChange={setInitialization}
+              onLrScheduleChange={setLrSchedule}
+              onLrMinChange={setLrMin}
+              onLrDecayRateChange={setLrDecayRate}
+              onWarmupEpochsChange={setWarmupEpochs}
+              onWeightDecayChange={setWeightDecay}
+              onGradientClipNormChange={setGradientClipNorm}
+              onUseLayerNormChange={setUseLayerNorm}
+              onUseBeamSearchChange={setUseBeamSearch}
+              onBeamWidthChange={setBeamWidth}
               onTokenizerConfigChange={setTokenizerConfig}
               onCustomPatternChange={setCustomTokenizerPattern}
               onTokenizerError={setTokenizerError}

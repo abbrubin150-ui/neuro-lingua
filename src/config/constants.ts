@@ -1,9 +1,5 @@
 import type { Optimizer, TokenizerConfig } from '../lib/ProNeuralLM';
-import type {
-  ActivationFunction,
-  LRSchedule,
-  InitializationScheme
-} from '../lib/AdvancedNeuralLM';
+import type { ActivationFunction, LRSchedule, InitializationScheme } from '../lib/AdvancedNeuralLM';
 
 /**
  * Storage keys for localStorage

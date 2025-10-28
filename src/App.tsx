@@ -130,7 +130,9 @@ export default function NeuroLinguaDomesticaV324() {
 
   // Advanced features
   const [useAdvanced, setUseAdvanced] = useState(DEFAULT_ADVANCED_CONFIG.useAdvanced);
-  const [activation, setActivation] = useState<ActivationFunction>(DEFAULT_ADVANCED_CONFIG.activation);
+  const [activation, setActivation] = useState<ActivationFunction>(
+    DEFAULT_ADVANCED_CONFIG.activation
+  );
   const [leakyReluAlpha, setLeakyReluAlpha] = useState(DEFAULT_ADVANCED_CONFIG.leakyReluAlpha);
   const [eluAlpha, setEluAlpha] = useState(DEFAULT_ADVANCED_CONFIG.eluAlpha);
   const [initialization, setInitialization] = useState<InitializationScheme>(
@@ -141,7 +143,9 @@ export default function NeuroLinguaDomesticaV324() {
   const [lrDecayRate, setLrDecayRate] = useState(DEFAULT_ADVANCED_CONFIG.lrDecayRate);
   const [warmupEpochs, setWarmupEpochs] = useState(DEFAULT_ADVANCED_CONFIG.warmupEpochs);
   const [weightDecay, setWeightDecay] = useState(DEFAULT_ADVANCED_CONFIG.weightDecay);
-  const [gradientClipNorm, setGradientClipNorm] = useState(DEFAULT_ADVANCED_CONFIG.gradientClipNorm);
+  const [gradientClipNorm, setGradientClipNorm] = useState(
+    DEFAULT_ADVANCED_CONFIG.gradientClipNorm
+  );
   const [useLayerNorm, setUseLayerNorm] = useState(DEFAULT_ADVANCED_CONFIG.useLayerNorm);
   const [useBeamSearch, setUseBeamSearch] = useState(DEFAULT_GENERATION.useBeamSearch);
   const [beamWidth, setBeamWidth] = useState(DEFAULT_GENERATION.beamWidth);
@@ -491,7 +495,9 @@ export default function NeuroLinguaDomesticaV324() {
             beamWidth
           }
         );
-        addSystemMessage(`🚀 Starting fresh training with AdvancedNeuralLM (${vocab.length} vocabulary tokens)…`);
+        addSystemMessage(
+          `🚀 Starting fresh training with AdvancedNeuralLM (${vocab.length} vocabulary tokens)…`
+        );
       } else {
         // Use standard ProNeuralLM
         modelRef.current = new ProNeuralLM(

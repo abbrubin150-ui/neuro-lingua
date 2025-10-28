@@ -575,7 +575,9 @@ export function TrainingPanel(props: TrainingPanelProps) {
               <select
                 aria-label="Weight initialization"
                 value={props.initialization}
-                onChange={(e) => props.onInitializationChange(e.target.value as InitializationScheme)}
+                onChange={(e) =>
+                  props.onInitializationChange(e.target.value as InitializationScheme)
+                }
                 style={{
                   width: '100%',
                   background: '#1e293b',

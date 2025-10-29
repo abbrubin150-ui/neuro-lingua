@@ -52,7 +52,10 @@ class RecursiveOptimizer:
             return False
         latest = self.J_val_history[-1]
         if self.weights:
-            total_weight = sum(self.weights) or 1.0
-            weighted = sum(value * weight for value, weight in zip(latest, self.weights)) / total_weight
-            return weighted <= 0.0
+            paired = [(value, weight) for value, weight in zip(latest, self.weights)]
+            if paired:
+                total_weight = sum(weight for _, weight in paired)
+                if total_weight > 0.0:
+                    weighted = sum(value * weight for value, weight in paired) / total_weight
+                    return weighted <= 0.0
         return all(value <= 0.0 for value in latest)

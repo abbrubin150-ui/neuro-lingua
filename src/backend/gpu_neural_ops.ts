@@ -5,7 +5,7 @@
  * Includes automatic fallback to CPU for unsupported environments.
  */
 
-import { WebGPUBackend, WebGPUTensor } from './webgpu';
+import { WebGPUBackend } from './webgpu';
 
 export interface GPUMetrics {
   enabled: boolean;

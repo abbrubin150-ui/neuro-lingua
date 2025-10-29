@@ -20,7 +20,13 @@ interface BenchmarkResult {
 /**
  * CPU matrix multiplication (naive implementation)
  */
-function cpuMatMul(A: Float32Array, B: Float32Array, m: number, k: number, n: number): Float32Array {
+function cpuMatMul(
+  A: Float32Array,
+  B: Float32Array,
+  m: number,
+  k: number,
+  n: number
+): Float32Array {
   const C = new Float32Array(m * n);
   for (let i = 0; i < m; i++) {
     for (let j = 0; j < n; j++) {
@@ -79,7 +85,9 @@ async function benchmarkMatMul(
 
   const speedup = cpuTimeMs / gpuTimeMs;
 
-  console.log(`  ✅ CPU: ${cpuTimeMs.toFixed(2)}ms, GPU: ${gpuTimeMs.toFixed(2)}ms, Speedup: ${speedup.toFixed(2)}x`);
+  console.log(
+    `  ✅ CPU: ${cpuTimeMs.toFixed(2)}ms, GPU: ${gpuTimeMs.toFixed(2)}ms, Speedup: ${speedup.toFixed(2)}x`
+  );
 
   return {
     operation: 'matmul',
@@ -139,7 +147,9 @@ async function benchmarkElementwise(
 
   const speedup = cpuTimeMs / gpuTimeMs;
 
-  console.log(`  ✅ CPU: ${cpuTimeMs.toFixed(2)}ms, GPU: ${gpuTimeMs.toFixed(2)}ms, Speedup: ${speedup.toFixed(2)}x`);
+  console.log(
+    `  ✅ CPU: ${cpuTimeMs.toFixed(2)}ms, GPU: ${gpuTimeMs.toFixed(2)}ms, Speedup: ${speedup.toFixed(2)}x`
+  );
 
   return {
     operation: 'elementwise_add',
@@ -159,16 +169,22 @@ function printSummary(results: BenchmarkResult[]) {
   console.log('📈 BENCHMARK SUMMARY');
   console.log('='.repeat(80));
   console.log();
-  console.log('Operation'.padEnd(20) + 'Size'.padEnd(20) + 'CPU (ms)'.padEnd(12) + 'GPU (ms)'.padEnd(12) + 'Speedup');
+  console.log(
+    'Operation'.padEnd(20) +
+      'Size'.padEnd(20) +
+      'CPU (ms)'.padEnd(12) +
+      'GPU (ms)'.padEnd(12) +
+      'Speedup'
+  );
   console.log('-'.repeat(80));
 
   for (const result of results) {
     console.log(
       result.operation.padEnd(20) +
-      result.size.padEnd(20) +
-      result.cpuTimeMs.toFixed(2).padEnd(12) +
-      result.gpuTimeMs.toFixed(2).padEnd(12) +
-      `${result.speedup.toFixed(2)}x`
+        result.size.padEnd(20) +
+        result.cpuTimeMs.toFixed(2).padEnd(12) +
+        result.gpuTimeMs.toFixed(2).padEnd(12) +
+        `${result.speedup.toFixed(2)}x`
     );
   }
 
@@ -217,15 +233,18 @@ async function main() {
     console.log('💡 RECOMMENDATIONS:');
     console.log();
 
-    const matmulResults = results.filter(r => r.operation === 'matmul');
-    const avgMatmulSpeedup = matmulResults.reduce((sum, r) => sum + r.speedup, 0) / matmulResults.length;
+    const matmulResults = results.filter((r) => r.operation === 'matmul');
+    const avgMatmulSpeedup =
+      matmulResults.reduce((sum, r) => sum + r.speedup, 0) / matmulResults.length;
 
     if (avgMatmulSpeedup > 2) {
       console.log('✅ GPU acceleration shows significant speedup (>2x) for matrix operations.');
       console.log('   Recommendation: Enable GPU acceleration by default for training.');
     } else if (avgMatmulSpeedup > 1.2) {
       console.log('⚠️  GPU acceleration shows moderate speedup (1.2-2x) for matrix operations.');
-      console.log('   Recommendation: Offer GPU as optional feature with clear performance expectations.');
+      console.log(
+        '   Recommendation: Offer GPU as optional feature with clear performance expectations.'
+      );
     } else {
       console.log('❌ GPU acceleration shows minimal speedup (<1.2x) for matrix operations.');
       console.log('   Recommendation: WebGPU overhead may exceed benefits for small models.');
@@ -234,14 +253,17 @@ async function main() {
 
     console.log();
     console.log('📝 Note: These benchmarks include data transfer overhead between CPU and GPU.');
-    console.log('   In practice, keeping data on GPU throughout training will yield better performance.');
+    console.log(
+      '   In practice, keeping data on GPU throughout training will yield better performance.'
+    );
     console.log();
-
   } catch (error) {
     console.error('❌ Failed to initialize WebGPU:', error);
     console.log();
     console.log('💡 WebGPU is not available. Possible reasons:');
-    console.log('   - Running in Node.js without @webgpu/dawn (install with: npm install @webgpu/dawn)');
+    console.log(
+      '   - Running in Node.js without @webgpu/dawn (install with: npm install @webgpu/dawn)'
+    );
     console.log('   - Browser does not support WebGPU (try Chrome/Edge 113+)');
     console.log('   - GPU drivers need updating');
     console.log();

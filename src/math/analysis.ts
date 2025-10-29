@@ -54,7 +54,9 @@ export interface LyapunovAnalysisResult extends SpectralRadiusResult {
   assumptions: string[];
 }
 
-const DEFAULT_SPECTRAL_RADIUS_OPTIONS: Required<Pick<SpectralRadiusOptions, 'maxIterations' | 'tolerance'>> = {
+const DEFAULT_SPECTRAL_RADIUS_OPTIONS: Required<
+  Pick<SpectralRadiusOptions, 'maxIterations' | 'tolerance'>
+> = {
   maxIterations: 1024,
   tolerance: 1e-9
 };
@@ -171,7 +173,11 @@ export function analyzeLyapunov(
   const steps = merged.steps > 0 ? merged.steps : maxIterations * matrix.length;
   const perturbation = merged.perturbation;
 
-  const spectral = spectralRadius(matrix, { maxIterations, tolerance, initialVector: options.initialVector });
+  const spectral = spectralRadius(matrix, {
+    maxIterations,
+    tolerance,
+    initialVector: options.initialVector
+  });
   const assumptions = [
     'Linearization is performed around a fixed point of the dynamics.',
     merged.discreteTime

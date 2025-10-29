@@ -101,7 +101,9 @@ export function flattenGradients(structure: ParameterStructure, meta: SegmentMet
       for (let i = 0; i < segment.rows!; i++) {
         const row = matrix[i];
         if (row.length !== segment.cols) {
-          throw new Error(`flattenGradients: gradient for ${segment.key} has inconsistent columns.`);
+          throw new Error(
+            `flattenGradients: gradient for ${segment.key} has inconsistent columns.`
+          );
         }
         for (const cell of row) values.push(cell);
       }
@@ -225,7 +227,7 @@ function twoLoopRecursion(state: SecondOrderState, grad: Float64Array): Float64A
     }
   }
 
-  let z = scale(q, scaleFactor);
+  const z = scale(q, scaleFactor);
   for (let i = 0; i < state.history.length; i++) {
     const { s, y, rho } = state.history[i];
     const alpha = alphas[alphas.length - 1 - i];

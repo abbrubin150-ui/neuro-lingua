@@ -14,7 +14,9 @@ const CORPUS_URL = new URL('../data/corpus.txt', import.meta.url);
 const OUTPUT_URL = new URL(`../models/${MODEL_EXPORT_FILENAME}`, import.meta.url);
 const METRICS_OVERRIDE = process.env.METRICS_PATH ? path.resolve(process.env.METRICS_PATH) : null;
 const CORPUS_OVERRIDE = process.env.CORPUS_PATH ? path.resolve(process.env.CORPUS_PATH) : null;
-const MODEL_OVERRIDE = process.env.MODEL_EXPORT_PATH ? path.resolve(process.env.MODEL_EXPORT_PATH) : null;
+const MODEL_OVERRIDE = process.env.MODEL_EXPORT_PATH
+  ? path.resolve(process.env.MODEL_EXPORT_PATH)
+  : null;
 const EXPERIMENT_NAME = process.env.EXPERIMENT_NAME ?? null;
 
 const DEFAULTS = {

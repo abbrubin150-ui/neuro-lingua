@@ -1,7 +1,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { compareProjections, NormalisationMode, ProjectionResult } from '../src/visualization/embeddings';
+import {
+  compareProjections,
+  NormalisationMode,
+  ProjectionResult
+} from '../src/visualization/embeddings';
 
 type VisualizeArgs = {
   model: string;
@@ -32,7 +36,11 @@ function summarise(result: ProjectionResult, vocab: string[]) {
 
 async function visualizeEmbedding({ model, outputDir, normalise = 'zscore' }: VisualizeArgs) {
   const { vocab, embedding } = await readModel(model);
-  const projections = compareProjections(embedding, { normalise, iterations: 500 }, { normalise, nNeighbors: 8 });
+  const projections = compareProjections(
+    embedding,
+    { normalise, iterations: 500 },
+    { normalise, nNeighbors: 8 }
+  );
 
   const baseName = path.basename(model, path.extname(model));
   const tsnePath = path.join(outputDir, `${baseName}-tsne.json`);

@@ -92,7 +92,9 @@ export function projectWithTSNE(
   embeddings: ReadonlyArray<ReadonlyArray<number>>,
   options: TSNEProjectionOptions = {}
 ): ProjectionResult {
-  const normalised = options.normalise ? normaliseEmbeddings(embeddings, options.normalise) : clone2d(embeddings);
+  const normalised = options.normalise
+    ? normaliseEmbeddings(embeddings, options.normalise)
+    : clone2d(embeddings);
   const perplexity = options.perplexity ?? Math.min(30, Math.max(5, normalised.length - 1));
   const iterations = options.iterations ?? 750;
   const learningRate = options.epsilon ?? 100;
@@ -124,7 +126,9 @@ export function projectWithUMAP(
   embeddings: ReadonlyArray<ReadonlyArray<number>>,
   options: UMAPProjectionOptions = {}
 ): ProjectionResult {
-  const normalised = options.normalise ? normaliseEmbeddings(embeddings, options.normalise) : clone2d(embeddings);
+  const normalised = options.normalise
+    ? normaliseEmbeddings(embeddings, options.normalise)
+    : clone2d(embeddings);
   const umap = new UMAP({
     nComponents: 2,
     nNeighbors: options.nNeighbors ?? Math.min(15, Math.max(2, normalised.length - 1)),

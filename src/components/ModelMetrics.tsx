@@ -1,12 +1,14 @@
 import React from 'react';
 import { formatTimestamp, createTrainingHistoryCsv, downloadBlob } from '../lib/utils';
 import { EXPORT_FILENAMES } from '../config/constants';
+import type { GPUMetrics } from '../backend/gpu_neural_ops';
 
 interface ModelMetricsProps {
   stats: { loss: number; acc: number; ppl: number; lossEMA: number; tokensPerSec: number };
   info: { V: number; P: number };
   lastModelUpdate: { timestamp: number; vocab: number } | null;
   trainingHistory: { loss: number; accuracy: number; timestamp: number }[];
+  gpuMetrics?: GPUMetrics | null;
   onMessage: (message: string) => void;
 }
 
@@ -94,6 +96,89 @@ function TrainingChart({
 }
 
 /**
+ * GPUMetricsPanel displays GPU acceleration metrics
+ */
+function GPUMetricsPanel({ metrics }: { metrics: GPUMetrics }) {
+  if (!metrics.available) {
+    return null;
+  }
+
+  return (
+    <div
+      style={{
+        background: 'rgba(59, 130, 246, 0.1)',
+        border: '1px solid rgba(59, 130, 246, 0.3)',
+        borderRadius: 12,
+        padding: 16,
+        marginTop: 16
+      }}
+    >
+      <h4
+        style={{
+          color: '#60a5fa',
+          margin: '0 0 12px 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8
+        }}
+      >
+        ⚡ GPU Acceleration
+        {metrics.enabled ? (
+          <span
+            style={{
+              fontSize: 11,
+              padding: '2px 8px',
+              background: '#10b981',
+              borderRadius: 12,
+              color: 'white'
+            }}
+          >
+            ACTIVE
+          </span>
+        ) : (
+          <span
+            style={{
+              fontSize: 11,
+              padding: '2px 8px',
+              background: '#64748b',
+              borderRadius: 12,
+              color: 'white'
+            }}
+          >
+            DISABLED
+          </span>
+        )}
+      </h4>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Total Operations</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#60a5fa' }}>
+            {metrics.totalOperations.toLocaleString()}
+          </div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Total Time</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#3b82f6' }}>
+            {metrics.totalTimeMs.toFixed(1)}ms
+          </div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Avg Time/Op</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#2563eb' }}>
+            {metrics.averageTimeMs.toFixed(2)}ms
+          </div>
+        </div>
+      </div>
+      {metrics.deviceInfo && (
+        <div style={{ marginTop: 8, fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
+          Device: {metrics.deviceInfo}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * ModelMetrics displays training statistics, model info, and training history chart
  */
 export function ModelMetrics({
@@ -101,6 +186,7 @@ export function ModelMetrics({
   info,
   lastModelUpdate,
   trainingHistory,
+  gpuMetrics,
   onMessage
 }: ModelMetricsProps) {
   const handleDownloadCsv = () => {
@@ -172,6 +258,7 @@ export function ModelMetrics({
           : 'Last update: No trained model yet.'}
       </div>
       <TrainingChart history={trainingHistory} />
+      {gpuMetrics && gpuMetrics.available && <GPUMetricsPanel metrics={gpuMetrics} />}
       <button
         onClick={handleDownloadCsv}
         style={{

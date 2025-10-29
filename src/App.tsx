@@ -154,6 +154,14 @@ export default function NeuroLinguaDomesticaV324() {
   // GPU acceleration
   const [useGPU, setUseGPU] = useState(false);
   const [gpuAvailable, setGpuAvailable] = useState(false);
+  const [gpuMetrics, setGpuMetrics] = useState<{
+    enabled: boolean;
+    available: boolean;
+    totalOperations: number;
+    totalTimeMs: number;
+    averageTimeMs: number;
+    deviceInfo?: string;
+  } | null>(null);
 
   // Tokenizer
   const [tokenizerConfig, setTokenizerConfig] = useState<TokenizerConfig>(DEFAULT_TOKENIZER_CONFIG);
@@ -346,7 +354,7 @@ export default function NeuroLinguaDomesticaV324() {
     }
   }, [applyModelMeta, syncTokenizerFromModel, addSystemMessage]);
 
-  // Check WebGPU availability
+  // Check WebGPU availability and initialize GPU metrics
   useEffect(() => {
     const checkGPU = async () => {
       try {
@@ -355,17 +363,46 @@ export default function NeuroLinguaDomesticaV324() {
           const adapter = await (navigator as Navigator & { gpu: GPU }).gpu.requestAdapter();
           if (adapter) {
             setGpuAvailable(true);
+            setGpuMetrics({
+              enabled: false,
+              available: true,
+              totalOperations: 0,
+              totalTimeMs: 0,
+              averageTimeMs: 0,
+              deviceInfo: 'WebGPU Device'
+            });
             console.log('✅ WebGPU is available');
           } else {
             setGpuAvailable(false);
+            setGpuMetrics({
+              enabled: false,
+              available: false,
+              totalOperations: 0,
+              totalTimeMs: 0,
+              averageTimeMs: 0
+            });
             console.log('⚠️ WebGPU adapter not available');
           }
         } else {
           setGpuAvailable(false);
+          setGpuMetrics({
+            enabled: false,
+            available: false,
+            totalOperations: 0,
+            totalTimeMs: 0,
+            averageTimeMs: 0
+          });
           console.log('⚠️ WebGPU is not supported in this browser');
         }
       } catch (error) {
         setGpuAvailable(false);
+        setGpuMetrics({
+          enabled: false,
+          available: false,
+          totalOperations: 0,
+          totalTimeMs: 0,
+          averageTimeMs: 0
+        });
         console.warn('⚠️ Error checking WebGPU availability:', error);
       }
     };
@@ -850,6 +887,7 @@ export default function NeuroLinguaDomesticaV324() {
               info={info}
               lastModelUpdate={lastModelUpdate}
               trainingHistory={trainingHistory}
+              gpuMetrics={gpuMetrics}
               onMessage={addSystemMessage}
             />
           </div>

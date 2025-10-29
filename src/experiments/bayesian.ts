@@ -57,7 +57,10 @@ function describeSnapshot(snapshot: WeightSnapshot): WeightStructureEntry[] {
   });
 }
 
-function flattenSnapshot(snapshot: WeightSnapshot, structure: WeightStructureEntry[]): Float32Array {
+function flattenSnapshot(
+  snapshot: WeightSnapshot,
+  structure: WeightStructureEntry[]
+): Float32Array {
   const values: number[] = [];
   for (const entry of structure) {
     const data = snapshot[entry.key];
@@ -129,7 +132,10 @@ function gaussianLogPdf(x: number, mean: number, std: number): number {
   return -0.5 * Math.log(2 * Math.PI) - Math.log(std) - (diff * diff) / (2 * std * std);
 }
 
-export function bootstrapWeightSamples(snapshot: WeightSnapshot, config: BootstrapConfig): WeightSample[] {
+export function bootstrapWeightSamples(
+  snapshot: WeightSnapshot,
+  config: BootstrapConfig
+): WeightSample[] {
   const { numSamples, rng = defaultRng } = config;
   if (numSamples <= 0) {
     throw new Error('numSamples must be positive for bootstrap sampling.');
@@ -151,7 +157,10 @@ export function bootstrapWeightSamples(snapshot: WeightSnapshot, config: Bootstr
   return samples;
 }
 
-export function bayesianWeightSamples(snapshot: WeightSnapshot, config: BayesianSamplingConfig): WeightSample[] {
+export function bayesianWeightSamples(
+  snapshot: WeightSnapshot,
+  config: BayesianSamplingConfig
+): WeightSample[] {
   const { numSamples, priorMean, priorStd = 1, likelihoodStd = 1, rng = defaultRng } = config;
   if (numSamples <= 0) {
     throw new Error('numSamples must be positive for Bayesian sampling.');
@@ -174,7 +183,9 @@ export function bayesianWeightSamples(snapshot: WeightSnapshot, config: Bayesian
     let logProb = 0;
     for (let j = 0; j < flat.length; j++) {
       const weight = flat[j];
-      const postMean = posteriorVar * (weight / Math.max(likelihoodVar, 1e-12) + prior[j] / Math.max(priorVar, 1e-12));
+      const postMean =
+        posteriorVar *
+        (weight / Math.max(likelihoodVar, 1e-12) + prior[j] / Math.max(priorVar, 1e-12));
       const draw = postMean + posteriorStd * gaussianRandom(rng);
       flatSample[j] = draw;
       logProb += gaussianLogPdf(draw, postMean, posteriorStd);
@@ -216,7 +227,9 @@ export function posteriorMonteCarlo(
   const { bootstrapSamples = 0, ...bayesianConfig } = config;
   const allSamples: WeightSample[] = [];
   if (bootstrapSamples > 0) {
-    allSamples.push(...bootstrapWeightSamples(snapshot, { numSamples: bootstrapSamples, rng: bayesianConfig.rng }));
+    allSamples.push(
+      ...bootstrapWeightSamples(snapshot, { numSamples: bootstrapSamples, rng: bayesianConfig.rng })
+    );
   }
   if (bayesianConfig.numSamples > 0) {
     allSamples.push(...bayesianWeightSamples(snapshot, bayesianConfig));

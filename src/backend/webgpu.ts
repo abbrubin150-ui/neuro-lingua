@@ -2,13 +2,41 @@ import { logSumExp } from '../lib/MathUtils';
 
 type TypedArray = Float32Array | Float64Array | Int32Array | Uint32Array;
 
+type GPUBufferUsageDictionary = {
+  MAP_READ: number;
+  MAP_WRITE: number;
+  COPY_SRC: number;
+  COPY_DST: number;
+  INDEX: number;
+  VERTEX: number;
+  UNIFORM: number;
+  STORAGE: number;
+  INDIRECT: number;
+  QUERY_RESOLVE: number;
+};
+
+type GPUMapModeDictionary = {
+  READ: number;
+  WRITE: number;
+};
+
+type GlobalWithGPUConstants = typeof globalThis & {
+  GPUBufferUsage?: GPUBufferUsageDictionary;
+  GPUMapMode?: GPUMapModeDictionary;
+};
+
+type NavigatorWithGPU = Navigator & { gpu?: GPU };
+
+type GlobalWithNavigator = typeof globalThis & { navigator?: NavigatorWithGPU };
+
 export type TensorShape = number[];
 
 defineGPUConstants();
 
-function defineGPUConstants() {
-  if (typeof (globalThis as any).GPUBufferUsage === 'undefined') {
-    (globalThis as any).GPUBufferUsage = {
+function defineGPUConstants(): void {
+  const globalScope = globalThis as GlobalWithGPUConstants;
+  if (typeof globalScope.GPUBufferUsage === 'undefined') {
+    globalScope.GPUBufferUsage = {
       MAP_READ: 0x0001,
       MAP_WRITE: 0x0002,
       COPY_SRC: 0x0004,
@@ -21,8 +49,8 @@ function defineGPUConstants() {
       QUERY_RESOLVE: 0x0200
     };
   }
-  if (typeof (globalThis as any).GPUMapMode === 'undefined') {
-    (globalThis as any).GPUMapMode = {
+  if (typeof globalScope.GPUMapMode === 'undefined') {
+    globalScope.GPUMapMode = {
       READ: 0x0001,
       WRITE: 0x0002
     };
@@ -81,7 +109,7 @@ export class WebGPUBackend {
   ) {}
 
   static async create(): Promise<WebGPUBackend> {
-    const nav = (globalThis as any).navigator as (Navigator & { gpu?: GPU }) | undefined;
+    const nav = (globalThis as GlobalWithNavigator).navigator;
     if (!nav?.gpu) {
       throw new Error('WebGPU is not available in this environment.');
     }
@@ -254,7 +282,13 @@ export class WebGPUBackend {
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
     const dimsArray = new Uint32Array([m, kA, n]);
-    this.queue.writeBuffer(dimsBuffer, 0, dimsArray.buffer, dimsArray.byteOffset, dimsArray.byteLength);
+    this.queue.writeBuffer(
+      dimsBuffer,
+      0,
+      dimsArray.buffer,
+      dimsArray.byteOffset,
+      dimsArray.byteLength
+    );
 
     await this.dispatchCompute(
       shader,

@@ -108,7 +108,11 @@ export function sampleCategorical(probs: number[], rng: SamplingRng = defaultRng
   return probs.length - 1;
 }
 
-export function temperatureSample(logits: number[], temperature = 1, rng: SamplingRng = defaultRng): number {
+export function temperatureSample(
+  logits: number[],
+  temperature = 1,
+  rng: SamplingRng = defaultRng
+): number {
   return sampleFromLogits(logits, { temperature, rng });
 }
 
@@ -116,7 +120,11 @@ export function topKSample(logits: number[], topK: number, options: SamplingOpti
   return sampleFromLogits(logits, { ...options, topK });
 }
 
-export function nucleusSample(logits: number[], topP: number, options: SamplingOptions = {}): number {
+export function nucleusSample(
+  logits: number[],
+  topP: number,
+  options: SamplingOptions = {}
+): number {
   return sampleFromLogits(logits, { ...options, topP });
 }
 
@@ -125,13 +133,7 @@ export function sampleFromLogits(logits: number[], options: SamplingOptions = {}
     throw new Error('Cannot sample from empty logits.');
   }
 
-  const {
-    temperature = 1,
-    topK = 0,
-    topP = 0,
-    minProbability = 0,
-    rng = defaultRng
-  } = options;
+  const { temperature = 1, topK = 0, topP = 0, minProbability = 0, rng = defaultRng } = options;
 
   const scaled = logits.map((value) => value / clip(temperature, 0.05, 5));
   let probs = stableSoftmax(scaled);
@@ -147,7 +149,11 @@ export function sampleFromLogits(logits: number[], options: SamplingOptions = {}
   return sampleCategorical(probs, rng);
 }
 
-export function beamSearch(step: LogitsFn, startTokens: number[], options: BeamSearchOptions): BeamSearchResult[] {
+export function beamSearch(
+  step: LogitsFn,
+  startTokens: number[],
+  options: BeamSearchOptions
+): BeamSearchResult[] {
   const {
     beamWidth,
     maxLength,

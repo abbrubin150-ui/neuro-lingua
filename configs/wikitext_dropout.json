@@ -1,0 +1,19 @@
+{
+  "name": "wikitext_dropout",
+  "description": "Higher dropout and Adam optimizer to test regularisation on WikiText.",
+  "corpus_path": "data/processed/wikitext/train.txt",
+  "metrics_filename": "wikitext_dropout.json",
+  "hyperparameters": {
+    "epochs": 12,
+    "hidden_size": 64,
+    "learning_rate": 0.05,
+    "context_size": 4,
+    "optimizer": "adam",
+    "momentum": 0.0,
+    "dropout": 0.25,
+    "seed": 3407
+  },
+  "tokenizer": {
+    "mode": "unicode"
+  }
+}

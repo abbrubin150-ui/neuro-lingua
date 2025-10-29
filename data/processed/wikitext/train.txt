@@ -1,0 +1,8 @@
+= Natural Language Processing =
+Natural language processing is a subfield of linguistics, computer science, and artificial intelligence concerned with the interactions between computers and human language.
+
+= Albert Einstein =
+Albert Einstein was a German-born theoretical physicist who developed the theory of relativity, one of the two pillars of modern physics.
+
+= Quantum Field Theory =
+Quantum field theory provides a theoretical framework for constructing quantum mechanical models of subatomic particles in particle physics.

@@ -1,0 +1,98 @@
+--- Neuro-Lingua Training v3.2.4 ---
+Corpus path: /workspace/neuro-lingua/data/processed/wikitext/train.txt
+Model artifact: /workspace/neuro-lingua/models/experiments/wikitext_baseline.json
+Experiment: wikitext_baseline
+Tokens: 69
+Vocab size: 51
+Tokenizer: unicode
+Hyperparameters → epochs: 12, hiddenSize: 48, contextSize: 3, learningRate: 0.0800, optimizer: momentum, momentum: 0.9, dropout: 0.1, seed: 3407
+Training complete. Avg loss: 4.0394, accuracy: 3.10%, last epoch loss: 4.0139, last epoch accuracy: 1.43%
+Metrics saved to /workspace/neuro-lingua/docs/experiments/runs/wikitext_baseline.json
+{
+  "modelVersion": "3.2.4",
+  "experiment": "wikitext_baseline",
+  "dataset": "/workspace/neuro-lingua/data/processed/wikitext/train.txt",
+  "modelPath": "/workspace/neuro-lingua/models/experiments/wikitext_baseline.json",
+  "hyperparameters": {
+    "epochs": 12,
+    "hiddenSize": 48,
+    "contextSize": 3,
+    "learningRate": 0.08,
+    "optimizer": "momentum",
+    "momentum": 0.9,
+    "dropout": 0.1,
+    "seed": 3407
+  },
+  "tokenizer": {
+    "mode": "unicode"
+  },
+  "metrics": {
+    "loss": 4.039424140111599,
+    "accuracy": 0.030952380952380953,
+    "history": [
+      {
+        "loss": 4.108763231198839,
+        "accuracy": 0.02857142857142857,
+        "timestamp": 1761736678829
+      },
+      {
+        "loss": 4.054070716069238,
+        "accuracy": 0.02857142857142857,
+        "timestamp": 1761736678870
+      },
+      {
+        "loss": 4.047126908581205,
+        "accuracy": 0.05714285714285714,
+        "timestamp": 1761736678905
+      },
+      {
+        "loss": 4.017642322629695,
+        "accuracy": 0.02857142857142857,
+        "timestamp": 1761736678940
+      },
+      {
+        "loss": 4.0398423097668354,
+        "accuracy": 0.014285714285714285,
+        "timestamp": 1761736678949
+      },
+      {
+        "loss": 4.045832897435463,
+        "accuracy": 0.05714285714285714,
+        "timestamp": 1761736678957
+      },
+      {
+        "loss": 4.024454790501824,
+        "accuracy": 0.04285714285714286,
+        "timestamp": 1761736678967
+      },
+      {
+        "loss": 4.029726880464156,
+        "accuracy": 0.02857142857142857,
+        "timestamp": 1761736678974
+      },
+      {
+        "loss": 4.0420540217356065,
+        "accuracy": 0.02857142857142857,
+        "timestamp": 1761736678982
+      },
+      {
+        "loss": 4.024151459549405,
+        "accuracy": 0.014285714285714285,
+        "timestamp": 1761736678990
+      },
+      {
+        "loss": 4.025564542113742,
+        "accuracy": 0.02857142857142857,
+        "timestamp": 1761736678998
+      },
+      {
+        "loss": 4.013859601293151,
+        "accuracy": 0.014285714285714285,
+        "timestamp": 1761736679006
+      }
+    ]
+  }
+}
+Model artifact (neuro-lingua-v324.json) saved to /workspace/neuro-lingua/models/experiments/wikitext_baseline.json
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.

@@ -1,0 +1,20 @@
+{
+  "name": "hebrew_news_baseline",
+  "description": "Custom regex tokenizer tailored for Hebrew scripts with moderate hidden size.",
+  "corpus_path": "data/processed/hebrew_news/train.txt",
+  "metrics_filename": "hebrew_news_baseline.json",
+  "hyperparameters": {
+    "epochs": 15,
+    "hidden_size": 56,
+    "learning_rate": 0.07,
+    "context_size": 2,
+    "optimizer": "momentum",
+    "momentum": 0.85,
+    "dropout": 0.15,
+    "seed": 2024
+  },
+  "tokenizer": {
+    "mode": "custom",
+    "pattern": "[\\u0590-\\u05FF]+|[A-Za-z]+"
+  }
+}

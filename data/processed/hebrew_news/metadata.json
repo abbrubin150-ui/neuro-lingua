@@ -1,0 +1,20 @@
+{
+  "dataset": "hebrew_news",
+  "mode": "sample",
+  "seed": 2024,
+  "source": "/workspace/neuro-lingua/data/raw/hebrew_news/sample.jsonl",
+  "splits": {
+    "train": {
+      "documents": 5,
+      "tokens": 183
+    },
+    "validation": {
+      "documents": 0,
+      "tokens": 0
+    },
+    "test": {
+      "documents": 0,
+      "tokens": 0
+    }
+  }
+}

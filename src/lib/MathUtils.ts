@@ -328,14 +328,8 @@ export function stableSoftmax(logits: number[], temperature = 1.0): number[] {
 
   const T = Math.max(temperature, 1e-8); // Prevent division by zero
   const scaled = logits.map((x) => x / T);
-
-  const maxLogit = Math.max(...scaled);
-  const exps = scaled.map((x) => Math.exp(x - maxLogit));
-  const sumExps = exps.reduce((a, b) => a + b, 0);
-
-  // Extra safety: handle numerical errors
-  const sum = sumExps > 0 ? sumExps : 1;
-  return exps.map((x) => x / sum);
+  const normalization = logSumExp(scaled);
+  return scaled.map((x) => Math.exp(x - normalization));
 }
 
 /**

@@ -4,6 +4,8 @@
  * implementation to a specific tensor backend.
  */
 
+import { stableSoftmax } from '../lib/MathUtils';
+
 export function focalLoss(
   logits: number[],
   targets: number[],
@@ -30,7 +32,7 @@ export function labelSmoothingCrossEntropy(
   classes: number,
   smoothing = 0.1
 ): number {
-  const logProbs = softmax(logits).map((p) => Math.log(Math.max(p, Number.EPSILON)));
+  const logProbs = stableSoftmax(logits).map((p) => Math.log(Math.max(p, Number.EPSILON)));
   const smoothTarget = smoothing / classes;
   let loss = 0;
   for (let i = 0; i < classes; i++) {
@@ -46,7 +48,7 @@ export function symmetricCrossEntropy(
   alpha = 1,
   beta = 1
 ): number {
-  const probs = softmax(logits);
+  const probs = stableSoftmax(logits);
   const eps = 1e-12;
   let forward = 0;
   let reverse = 0;
@@ -70,9 +72,4 @@ export function cosineEmbeddingLoss(x: number[], y: number[], label: 1 | -1, mar
   return label === 1 ? 1 - cosine : Math.max(0, cosine - margin);
 }
 
-function softmax(vector: number[]): number[] {
-  const maxVal = Math.max(...vector);
-  const exps = vector.map((v) => Math.exp(v - maxVal));
-  const sum = exps.reduce((acc, val) => acc + val, 0) || Number.EPSILON;
-  return exps.map((v) => v / sum);
-}
+// stableSoftmax imported above ensures numerical stability for probability calculations

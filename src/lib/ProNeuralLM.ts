@@ -9,6 +9,8 @@ import {
   type SecondOrderConfig,
   type SecondOrderState
 } from '../training/optimizer';
+import { stableSoftmax } from './MathUtils';
+import { sampleFromLogits as drawToken } from '../generation/sampling';
 
 export type Optimizer = 'momentum' | 'adam' | 'newton' | 'bfgs';
 export type TokenizerMode = 'unicode' | 'ascii' | 'custom';
@@ -48,19 +50,6 @@ function makeRng(seed: number, state?: number): Rng {
 
 export function clamp(x: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, x));
-}
-
-function argTopK(arr: number[], k: number): number[] {
-  const idx = arr.map((_, i) => i);
-  idx.sort((a, b) => arr[b] - arr[a]);
-  return idx.slice(0, Math.max(1, k));
-}
-
-function softmax(logits: number[]): number[] {
-  const m = Math.max(...logits);
-  const ex = logits.map((x) => Math.exp(x - m));
-  const s = ex.reduce((a, b) => a + b, 0);
-  return ex.map((x) => x / (s || 1));
 }
 
 function vectorDot(a: number[], b: number[]) {
@@ -349,7 +338,7 @@ export class ProNeuralLM {
     const logits = this.matrixVectorMulTranspose(this.wOutput, h).map(
       (v, i) => v + this.bOutput[i]
     );
-    const probs = softmax(logits);
+    const probs = stableSoftmax(logits);
     return { h, logits, probs, avgEmb: emb, dropMask, preAct };
   }
 
@@ -650,34 +639,12 @@ export class ProNeuralLM {
   }
 
   private sampleFromLogits(logits: number[], temperature = 1.0, topK = 0, topP = 0): number {
-    const T = clamp(temperature, 0.05, 5);
-    const scaled = logits.map((z) => z / T);
-    let p = softmax(scaled);
-
-    if (topP && topP > 0 && topP < 1) {
-      const idx = p.map((v, i) => i).sort((a, b) => p[b] - p[a]);
-      let c = 0;
-      const keep: number[] = [];
-      for (const i of idx) {
-        keep.push(i);
-        c += p[i];
-        if (c >= topP) break;
-      }
-      const set = new Set(keep);
-      const sum = keep.reduce((acc, i) => acc + p[i], 0);
-      p = p.map((v, i) => (set.has(i) ? v / (sum || 1) : 0));
-    } else if (topK && topK > 0 && topK < p.length) {
-      const keep = new Set(argTopK(p, topK));
-      const sum = p.reduce((acc, v, i) => acc + (keep.has(i) ? v : 0), 0);
-      p = p.map((v, i) => (keep.has(i) ? v / (sum || 1) : 0));
-    }
-
-    let r = Math.max(0, Math.min(0.999999, this.nextRandom()));
-    for (let i = 0; i < p.length; i++) {
-      r -= p[i];
-      if (r <= 0) return i;
-    }
-    return p.length - 1;
+    return drawToken(logits, {
+      temperature,
+      topK,
+      topP,
+      rng: () => this.nextRandom()
+    });
   }
 
   generate(seedText: string, maxLen = 25, temperature = 0.9, topK = 0, topP = 0): string {

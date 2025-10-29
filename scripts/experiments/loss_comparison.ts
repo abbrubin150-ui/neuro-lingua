@@ -14,7 +14,10 @@ function demoFocalLoss() {
 
 function demoLabelSmoothing() {
   const logits = [0.1, 1.4, -0.2, 0.7];
-  console.log('Label smoothing cross-entropy:', labelSmoothingCrossEntropy(logits, 1, 4, 0.1).toFixed(4));
+  console.log(
+    'Label smoothing cross-entropy:',
+    labelSmoothingCrossEntropy(logits, 1, 4, 0.1).toFixed(4)
+  );
 }
 
 function demoSymmetricCE() {

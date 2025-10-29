@@ -59,13 +59,10 @@ export function symmetricCrossEntropy(
   return alpha * forward + beta * reverse;
 }
 
-export function cosineEmbeddingLoss(
-  x: number[],
-  y: number[],
-  label: 1 | -1,
-  margin = 0.0
-): number {
-  if (x.length !== y.length) throw new Error('cosineEmbeddingLoss expects vectors of equal length.');
+export function cosineEmbeddingLoss(x: number[], y: number[], label: 1 | -1, margin = 0.0): number {
+  if (x.length !== y.length) {
+    throw new Error('cosineEmbeddingLoss expects vectors of equal length.');
+  }
   const dot = x.reduce((sum, value, idx) => sum + value * y[idx], 0);
   const normX = Math.sqrt(x.reduce((sum, value) => sum + value * value, 0));
   const normY = Math.sqrt(y.reduce((sum, value) => sum + value * value, 0));

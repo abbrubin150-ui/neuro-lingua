@@ -10,7 +10,10 @@ export class Variable {
   public grad = 0;
   public children: Array<{ node: Variable; backward: BackwardFn }> = [];
 
-  constructor(public value: number, public name?: string) {}
+  constructor(
+    public value: number,
+    public name?: string
+  ) {}
 
   add(other: Variable | number): Variable {
     const rhs = ensureVariable(other);

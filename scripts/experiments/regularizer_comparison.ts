@@ -1,6 +1,10 @@
 #!/usr/bin/env tsx
 import { MiniTransformerBlock } from '../../src/models/mini_transformer';
-import { batchRenormalize, BatchRenormState, applyDropConnect } from '../../src/models/regularizers';
+import {
+  batchRenormalize,
+  BatchRenormState,
+  applyDropConnect
+} from '../../src/models/regularizers';
 
 function randomMatrix(rows: number, cols: number): number[][] {
   return Array.from({ length: rows }, () =>
@@ -35,7 +39,11 @@ function runBatchRenormDemo() {
     r: r.map((v) => Number(v.toFixed(3))),
     d: d.map((v) => Number(v.toFixed(3)))
   });
-  console.log('First row before/after:', inputs[0], normalized[0].map((v) => Number(v.toFixed(3))));
+  console.log(
+    'First row before/after:',
+    inputs[0],
+    normalized[0].map((v) => Number(v.toFixed(3)))
+  );
 }
 
 function runTransformerDemo() {
@@ -58,7 +66,10 @@ function runTransformerDemo() {
   const ff1 = randomMatrix(8, 16);
   const ff2 = randomMatrix(16, 8);
   const outputs = block.forward(inputs, attentionWeights, ff1, ff2);
-  console.log('MiniTransformer output sample:', outputs[0].map((v) => Number(v.toFixed(3))));
+  console.log(
+    'MiniTransformer output sample:',
+    outputs[0].map((v) => Number(v.toFixed(3)))
+  );
 }
 
 runDropConnectDemo(0.1);

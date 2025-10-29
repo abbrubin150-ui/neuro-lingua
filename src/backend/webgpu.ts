@@ -346,7 +346,7 @@ export class WebGPUBackend {
   async softmax(tensor: WebGPUTensor, temperature = 1): Promise<WebGPUTensor> {
     const data = await tensor.toArray();
     const scaled = data.map((value) => value / Math.max(temperature, 1e-6));
-    const norm = logSumExp(scaled);
+    const norm = logSumExp(Array.from(scaled));
     const probs = new Float32Array(scaled.map((v) => Math.exp(v - norm)));
     return this.createTensor(probs, [...tensor.shape]);
   }

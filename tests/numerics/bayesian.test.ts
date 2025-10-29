@@ -37,14 +37,16 @@ describe('bayesian experiments', () => {
     expect(samples).toHaveLength(4);
     for (const sample of samples) {
       expect(sample.source).toBe('bayesian');
-      expect(sample.weights.embedding[0].length).toBe(snapshot.embedding[0].length);
+      expect((sample.weights.embedding as number[][])[0].length).toBe(
+        (snapshot.embedding as number[][])[0].length
+      );
     }
   });
 
   it('estimates Monte Carlo expectations with normalized weights', () => {
     const samples = bayesianWeightSamples(snapshot, { numSamples: 3, rng: () => 0.5 });
     const result = monteCarloExperiment(samples, (weights) =>
-      weights.bias.reduce((a, b) => a + b, 0)
+      (weights.bias as number[]).reduce((a, b) => a + b, 0)
     );
     expect(result.weights.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
     expect(result.effectiveSampleSize).toBeGreaterThan(0);

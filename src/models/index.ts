@@ -1,3 +1,9 @@
 export * from './attention';
-export * from './regularizers';
+export {
+  applyDropConnect,
+  batchRenormalize,
+  type DropConnectConfig,
+  type BatchRenormState,
+  type BatchRenormResult
+} from './regularizers';
 export * from './mini_transformer';

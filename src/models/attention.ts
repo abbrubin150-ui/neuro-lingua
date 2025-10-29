@@ -5,6 +5,8 @@
  * newer attention-driven layers.
  */
 
+import { stableSoftmax } from '../lib/MathUtils';
+
 export type Matrix = number[][];
 
 export interface AttentionWeights {
@@ -18,13 +20,6 @@ export interface ScaledDotProductAttentionOptions {
   temperature?: number;
   /** Enables causal masking for autoregressive decoding. */
   causal?: boolean;
-}
-
-function softmax(vector: number[]): number[] {
-  const maxVal = Math.max(...vector);
-  const exps = vector.map((v) => Math.exp(v - maxVal));
-  const sum = exps.reduce((acc, val) => acc + val, 0) || Number.EPSILON;
-  return exps.map((v) => v / sum);
 }
 
 function matmul(a: Matrix, b: Matrix): Matrix {
@@ -67,7 +62,7 @@ export function scaledDotProductAttention(
     scores = applyMask(scores, mask);
   }
 
-  const attention = scores.map((row) => softmax(row));
+  const attention = scores.map((row) => stableSoftmax(row));
   const output = matmul(attention, values);
   return { output, attention };
 }

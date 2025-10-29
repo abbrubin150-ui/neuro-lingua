@@ -264,7 +264,14 @@ export default function NeuroLinguaDomesticaV324() {
     if (typeof saved.hiddenSize === 'number') setHiddenSize(saved.hiddenSize);
     if (typeof saved.epochs === 'number') setEpochs(saved.epochs);
     if (typeof saved.lr === 'number') setLr(saved.lr);
-    if (saved.optimizer === 'adam' || saved.optimizer === 'momentum') setOptimizer(saved.optimizer);
+    if (
+      saved.optimizer === 'adam' ||
+      saved.optimizer === 'momentum' ||
+      saved.optimizer === 'newton' ||
+      saved.optimizer === 'bfgs'
+    ) {
+      setOptimizer(saved.optimizer);
+    }
     if (typeof saved.momentum === 'number') setMomentum(saved.momentum);
     if (typeof saved.dropout === 'number') setDropout(saved.dropout);
     if (typeof saved.contextSize === 'number') setContextSize(saved.contextSize);

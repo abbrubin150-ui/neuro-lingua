@@ -1,4 +1,16 @@
-export type Optimizer = 'momentum' | 'adam';
+import {
+  applyUpdateVector,
+  computeDiagonalHessian,
+  createSecondOrderState,
+  dampedNewtonStep,
+  flattenGradients,
+  flattenStructure,
+  quasiNewtonStep,
+  type SecondOrderConfig,
+  type SecondOrderState
+} from '../training/optimizer';
+
+export type Optimizer = 'momentum' | 'adam' | 'newton' | 'bfgs';
 export type TokenizerMode = 'unicode' | 'ascii' | 'custom';
 
 export type TokenizerConfig = {
@@ -114,6 +126,13 @@ export class ProNeuralLM {
 
   private tokenizerConfig: TokenizerConfig = DEFAULT_TOKENIZER_CONFIG;
   private lastUpdatedAt: number | null = null;
+
+  private secondOrderConfig: SecondOrderConfig = {
+    damping: 1e-4,
+    epsilon: 1e-9,
+    maxHistory: 7
+  };
+  private secondOrderState: SecondOrderState = createSecondOrderState();
 
   private bos = '<BOS>';
   private eos = '<EOS>';
@@ -266,6 +285,13 @@ export class ProNeuralLM {
     this.aWOutput = { m: this.zerosMat(H, V), v: this.zerosMat(H, V) };
     this.aBHidden = { m: this.zerosVec(H), v: this.zerosVec(H) };
     this.aBOutput = { m: this.zerosVec(V), v: this.zerosVec(V) };
+
+    this.resetSecondOrderState();
+  }
+
+  private resetSecondOrderState() {
+    const maxHistory = this.secondOrderConfig.maxHistory ?? 7;
+    this.secondOrderState = createSecondOrderState(maxHistory);
   }
 
   private relu(x: number) {
@@ -481,14 +507,54 @@ export class ProNeuralLM {
       for (let k = 0; k < H; k++) s += wHiddenSnap[k][i] * dHidden[k];
       dEmb[i] = s * scale;
     }
-    if (this.optimizer === 'adam') {
+    let adamB1t: number | null = null;
+    let adamB2t: number | null = null;
+
+    if (this.optimizer === 'newton' || this.optimizer === 'bfgs') {
+      const paramStruct = {
+        wOutput: this.wOutput,
+        bOutput: this.bOutput,
+        wHidden: this.wHidden,
+        bHidden: this.bHidden
+      };
+      const gradStruct = {
+        wOutput: dWout,
+        bOutput: dBout,
+        wHidden: dWh,
+        bHidden: dBh
+      };
+      const { vector: paramVec, meta } = flattenStructure(paramStruct);
+      const gradVec = flattenGradients(gradStruct, meta);
+      if (this.optimizer === 'newton') {
+        const diag = computeDiagonalHessian(gradVec, this.secondOrderConfig.epsilon ?? 1e-9);
+        const step = dampedNewtonStep(gradVec, diag, {
+          ...this.secondOrderConfig,
+          learningRate: this.learningRate
+        });
+        applyUpdateVector(paramStruct, step, meta);
+      } else {
+        const step = quasiNewtonStep(paramVec, gradVec, this.secondOrderState, {
+          ...this.secondOrderConfig,
+          learningRate: this.learningRate
+        });
+        applyUpdateVector(paramStruct, step, meta);
+      }
+    } else if (this.optimizer === 'adam') {
       this.adamT += 1;
-      const b1t = 1 - Math.pow(this.adamBeta1, this.adamT);
-      const b2t = 1 - Math.pow(this.adamBeta2, this.adamT);
-      this.applyAdamMatrix(this.wOutput, dWout, this.aWOutput.m, this.aWOutput.v, b1t, b2t);
-      this.applyAdamVector(this.bOutput, dBout, this.aBOutput.m, this.aBOutput.v, b1t, b2t);
-      this.applyAdamMatrix(this.wHidden, dWh, this.aWHidden.m, this.aWHidden.v, b1t, b2t);
-      this.applyAdamVector(this.bHidden, dBh, this.aBHidden.m, this.aBHidden.v, b1t, b2t);
+      adamB1t = 1 - Math.pow(this.adamBeta1, this.adamT);
+      adamB2t = 1 - Math.pow(this.adamBeta2, this.adamT);
+      this.applyAdamMatrix(this.wOutput, dWout, this.aWOutput.m, this.aWOutput.v, adamB1t, adamB2t);
+      this.applyAdamVector(this.bOutput, dBout, this.aBOutput.m, this.aBOutput.v, adamB1t, adamB2t);
+      this.applyAdamMatrix(this.wHidden, dWh, this.aWHidden.m, this.aWHidden.v, adamB1t, adamB2t);
+      this.applyAdamVector(this.bHidden, dBh, this.aBHidden.m, this.aBHidden.v, adamB1t, adamB2t);
+    } else {
+      this.applyMomentumMatrix(this.wOutput, dWout, this.mWOutput);
+      this.applyMomentumVector(this.bOutput, dBout, this.mBOutput);
+      this.applyMomentumMatrix(this.wHidden, dWh, this.mWHidden);
+      this.applyMomentumVector(this.bHidden, dBh, this.mBHidden);
+    }
+
+    if (this.optimizer === 'adam' && adamB1t !== null && adamB2t !== null) {
       for (const idx of inputs) {
         this.applyAdamRow(
           this.embedding,
@@ -496,20 +562,22 @@ export class ProNeuralLM {
           dEmb,
           this.aEmbedding.m,
           this.aEmbedding.v,
-          b1t,
-          b2t
+          adamB1t,
+          adamB2t
         );
       }
-    } else {
-      this.applyMomentumMatrix(this.wOutput, dWout, this.mWOutput);
-      this.applyMomentumVector(this.bOutput, dBout, this.mBOutput);
-      this.applyMomentumMatrix(this.wHidden, dWh, this.mWHidden);
-      this.applyMomentumVector(this.bHidden, dBh, this.mBHidden);
+    } else if (this.optimizer === 'momentum') {
       for (const idx of inputs) {
         for (let i = 0; i < H; i++) {
           this.mEmbedding[idx][i] =
             this.momentum * this.mEmbedding[idx][i] + this.learningRate * dEmb[i];
           this.embedding[idx][i] -= this.mEmbedding[idx][i];
+        }
+      }
+    } else if (this.optimizer === 'newton' || this.optimizer === 'bfgs') {
+      for (const idx of inputs) {
+        for (let i = 0; i < H; i++) {
+          this.embedding[idx][i] -= this.learningRate * dEmb[i];
         }
       }
     }
@@ -742,6 +810,7 @@ export class ProNeuralLM {
       }
       m.rng = makeRng(m.rngSeed, hasState ? state! >>> 0 : undefined);
       m.rngState = m.rng.getState();
+      m.resetSecondOrderState();
       return m;
     } catch (e) {
       console.warn('Failed to load model', e);

@@ -1,6 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { formatTimestamp, createTrainingHistoryCsv, downloadBlob } from '../lib/utils';
 import { EXPORT_FILENAMES } from '../config/constants';
+import {
+  computeEdgeDiagnostics,
+  interpretEdgeDiagnostics,
+  isEdgeDiagnosticsAvailable,
+  type EdgeDiagnostics
+} from '../lib/edgeDiagnostics';
 
 interface ModelMetricsProps {
   stats: { loss: number; acc: number; ppl: number; lossEMA: number; tokensPerSec: number };
@@ -103,6 +109,10 @@ export function ModelMetrics({
   trainingHistory,
   onMessage
 }: ModelMetricsProps) {
+  const [edgeDiagnostics, setEdgeDiagnostics] = useState<EdgeDiagnostics | null>(null);
+  const [isComputingEdge, setIsComputingEdge] = useState(false);
+  const [edgeAvailable, setEdgeAvailable] = useState<boolean | null>(null);
+
   const handleDownloadCsv = () => {
     if (trainingHistory.length === 0) {
       onMessage('ℹ️ Train the model to generate history before exporting CSV.');
@@ -110,6 +120,40 @@ export function ModelMetrics({
     }
     const blob = createTrainingHistoryCsv(trainingHistory);
     downloadBlob(blob, EXPORT_FILENAMES.TRAINING_HISTORY);
+  };
+
+  const handleComputeEdgeDiagnostics = async () => {
+    if (edgeAvailable === null) {
+      const available = await isEdgeDiagnosticsAvailable();
+      setEdgeAvailable(available);
+      if (!available) {
+        onMessage('⚠️ Edge diagnostics require Python 3. Please ensure Python 3 is installed.');
+        return;
+      }
+    }
+
+    if (trainingHistory.length === 0) {
+      onMessage('ℹ️ Train the model first to compute edge learning diagnostics.');
+      return;
+    }
+
+    setIsComputingEdge(true);
+    onMessage('🔬 Computing edge learning diagnostics...');
+
+    try {
+      const diagnostics = await computeEdgeDiagnostics({
+        nGrid: 30,
+        mGrid: 20
+      });
+      setEdgeDiagnostics(diagnostics);
+      onMessage('✅ Edge diagnostics computed successfully!');
+    } catch (error) {
+      onMessage(
+        `❌ Failed to compute edge diagnostics: ${error instanceof Error ? error.message : String(error)}`
+      );
+    } finally {
+      setIsComputingEdge(false);
+    }
   };
 
   return (
@@ -172,6 +216,133 @@ export function ModelMetrics({
           : 'Last update: No trained model yet.'}
       </div>
       <TrainingChart history={trainingHistory} />
+
+      {/* Edge Learning Diagnostics Section */}
+      <div
+        style={{
+          background: 'rgba(30,41,59,0.9)',
+          borderRadius: 12,
+          padding: 16,
+          marginTop: 16,
+          border: '1px solid #334155'
+        }}
+      >
+        <h4 style={{ color: '#a78bfa', margin: '0 0 12px 0' }}>
+          🔬 Edge Learning Diagnostics{' '}
+          <span
+            style={{ fontSize: 11, color: '#94a3b8', fontWeight: 'normal' }}
+            title="Information-theoretic metrics assessing if the model operates at the 'edge of efficiency'"
+          >
+            ⓘ
+          </span>
+        </h4>
+
+        {!edgeDiagnostics ? (
+          <button
+            onClick={handleComputeEdgeDiagnostics}
+            disabled={isComputingEdge}
+            style={{
+              padding: '8px 12px',
+              background: isComputingEdge
+                ? 'rgba(107, 114, 128, 0.5)'
+                : 'linear-gradient(90deg, #7c3aed, #a78bfa)',
+              border: 'none',
+              borderRadius: 8,
+              color: 'white',
+              fontWeight: 600,
+              cursor: isComputingEdge ? 'wait' : 'pointer',
+              fontSize: 13
+            }}
+          >
+            {isComputingEdge ? '⏳ Computing...' : '▶️ Compute Edge Diagnostics'}
+          </button>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  Average Efficiency
+                </div>
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color:
+                      Math.abs(edgeDiagnostics.averageEfficiency - 1.0) < 0.05
+                        ? '#10b981'
+                        : '#f59e0b'
+                  }}
+                >
+                  {edgeDiagnostics.averageEfficiency.toFixed(3)}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  Edge Band Coverage
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#a78bfa' }}>
+                  {edgeDiagnostics.edgeBandPercentage.toFixed(1)}%
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  Fisher Information
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#06b6d4' }}>
+                  [{edgeDiagnostics.fisherInformationRange[0].toFixed(2)},{' '}
+                  {edgeDiagnostics.fisherInformationRange[1].toFixed(2)}]
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>Flat Region</div>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>
+                  {edgeDiagnostics.inFlatRegion ? (
+                    <span style={{ color: '#10b981' }}>✓ Yes</span>
+                  ) : (
+                    <span style={{ color: '#94a3b8' }}>○ No</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                fontSize: 12,
+                color: '#cbd5e1',
+                background: 'rgba(15,23,42,0.5)',
+                padding: 10,
+                borderRadius: 8,
+                lineHeight: 1.6,
+                whiteSpace: 'pre-line'
+              }}
+            >
+              {interpretEdgeDiagnostics(edgeDiagnostics)}
+            </div>
+
+            <button
+              onClick={handleComputeEdgeDiagnostics}
+              disabled={isComputingEdge}
+              style={{
+                padding: '6px 10px',
+                background: 'rgba(107, 114, 128, 0.3)',
+                border: '1px solid #475569',
+                borderRadius: 6,
+                color: '#cbd5e1',
+                fontWeight: 500,
+                cursor: 'pointer',
+                fontSize: 11,
+                alignSelf: 'flex-start'
+              }}
+            >
+              🔄 Recompute
+            </button>
+          </div>
+        )}
+      </div>
+
       <button
         onClick={handleDownloadCsv}
         style={{

@@ -1,0 +1,20 @@
+{
+  "dataset": "wikitext",
+  "mode": "sample",
+  "seed": 2024,
+  "source": "/workspace/neuro-lingua/data/raw/wikitext/sample.txt",
+  "splits": {
+    "train": {
+      "documents": 3,
+      "tokens": 75
+    },
+    "validation": {
+      "documents": 0,
+      "tokens": 0
+    },
+    "test": {
+      "documents": 0,
+      "tokens": 0
+    }
+  }
+}

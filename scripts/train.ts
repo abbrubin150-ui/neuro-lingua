@@ -12,6 +12,10 @@ import {
 
 const CORPUS_URL = new URL('../data/corpus.txt', import.meta.url);
 const OUTPUT_URL = new URL(`../models/${MODEL_EXPORT_FILENAME}`, import.meta.url);
+const METRICS_OVERRIDE = process.env.METRICS_PATH ? path.resolve(process.env.METRICS_PATH) : null;
+const CORPUS_OVERRIDE = process.env.CORPUS_PATH ? path.resolve(process.env.CORPUS_PATH) : null;
+const MODEL_OVERRIDE = process.env.MODEL_EXPORT_PATH ? path.resolve(process.env.MODEL_EXPORT_PATH) : null;
+const EXPERIMENT_NAME = process.env.EXPERIMENT_NAME ?? null;
 
 const DEFAULTS = {
   epochs: 30,
@@ -57,8 +61,8 @@ function buildVocabulary(tokens: string[]) {
 async function main() {
   const tokenizerConfig = parseTokenizerConfig();
 
-  const corpusPath = fileURLToPath(CORPUS_URL);
-  const outputPath = fileURLToPath(OUTPUT_URL);
+  const corpusPath = CORPUS_OVERRIDE ?? fileURLToPath(CORPUS_URL);
+  const outputPath = MODEL_OVERRIDE ?? fileURLToPath(OUTPUT_URL);
   const corpus = await fs.readFile(corpusPath, 'utf8');
 
   const tokens = ProNeuralLM.tokenizeText(corpus, tokenizerConfig);
@@ -88,6 +92,10 @@ async function main() {
 
   console.log(`--- Neuro-Lingua Training v${MODEL_VERSION} ---`);
   console.log(`Corpus path: ${corpusPath}`);
+  console.log(`Model artifact: ${outputPath}`);
+  if (EXPERIMENT_NAME) {
+    console.log(`Experiment: ${EXPERIMENT_NAME}`);
+  }
   console.log(`Tokens: ${tokens.length}`);
   console.log(`Vocab size: ${vocab.length}`);
   console.log(
@@ -122,6 +130,37 @@ async function main() {
       lastEpoch ? lastEpoch.loss.toFixed(4) : 'n/a'
     }, last epoch accuracy: ${lastEpoch ? (lastEpoch.accuracy * 100).toFixed(2) : 'n/a'}%`
   );
+
+  const summary = {
+    modelVersion: MODEL_VERSION,
+    experiment: EXPERIMENT_NAME,
+    dataset: corpusPath,
+    modelPath: outputPath,
+    hyperparameters: {
+      epochs,
+      hiddenSize,
+      contextSize,
+      learningRate,
+      optimizer,
+      momentum,
+      dropout,
+      seed
+    },
+    tokenizer: tokenizerConfig,
+    metrics: {
+      loss,
+      accuracy,
+      history
+    }
+  };
+
+  if (METRICS_OVERRIDE) {
+    await fs.mkdir(path.dirname(METRICS_OVERRIDE), { recursive: true });
+    await fs.writeFile(METRICS_OVERRIDE, JSON.stringify(summary, null, 2), 'utf8');
+    console.log(`Metrics saved to ${METRICS_OVERRIDE}`);
+  }
+
+  console.log(JSON.stringify(summary, null, 2));
 
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
   await fs.writeFile(outputPath, JSON.stringify(model.toJSON(), null, 2), 'utf8');

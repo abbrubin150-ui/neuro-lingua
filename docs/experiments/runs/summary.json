@@ -1,0 +1,35 @@
+{
+  "generated_at": "2025-10-29T11:18:00+00:00",
+  "runs": [
+    {
+      "name": "hebrew_news_baseline",
+      "description": "Custom regex tokenizer tailored for Hebrew scripts with moderate hidden size.",
+      "metrics_path": "docs/experiments/runs/hebrew_news_baseline.json",
+      "model_path": "models/experiments/hebrew_news_baseline.json",
+      "loss": 1.3954510164549616,
+      "accuracy": 0.6196078431372549,
+      "epochs": 15,
+      "hiddenSize": 56
+    },
+    {
+      "name": "wikitext_baseline",
+      "description": "Baseline Unicode tokenizer on the WikiText sample with a compact hidden state.",
+      "metrics_path": "docs/experiments/runs/wikitext_baseline.json",
+      "model_path": "models/experiments/wikitext_baseline.json",
+      "loss": 4.039424140111599,
+      "accuracy": 0.030952380952380953,
+      "epochs": 12,
+      "hiddenSize": 48
+    },
+    {
+      "name": "wikitext_dropout",
+      "description": "Higher dropout and Adam optimizer to test regularisation on WikiText.",
+      "metrics_path": "docs/experiments/runs/wikitext_dropout.json",
+      "model_path": "models/experiments/wikitext_dropout.json",
+      "loss": 4.012871052293622,
+      "accuracy": 0.05952380952380952,
+      "epochs": 12,
+      "hiddenSize": 64
+    }
+  ]
+}

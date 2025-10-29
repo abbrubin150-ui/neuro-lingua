@@ -1,0 +1,101 @@
+{
+  "modelVersion": "3.2.4",
+  "experiment": "hebrew_news_baseline",
+  "dataset": "/workspace/neuro-lingua/data/processed/hebrew_news/train.txt",
+  "modelPath": "/workspace/neuro-lingua/models/experiments/hebrew_news_baseline.json",
+  "hyperparameters": {
+    "epochs": 15,
+    "hiddenSize": 56,
+    "contextSize": 2,
+    "learningRate": 0.07,
+    "optimizer": "momentum",
+    "momentum": 0.85,
+    "dropout": 0.15,
+    "seed": 2024
+  },
+  "tokenizer": {
+    "mode": "custom",
+    "pattern": "[\\u0590-\\u05FF]+|[A-Za-z]+"
+  },
+  "metrics": {
+    "loss": 1.3954510164549616,
+    "accuracy": 0.6196078431372549,
+    "history": [
+      {
+        "loss": 1.9025088956998857,
+        "accuracy": 0.5294117647058824,
+        "timestamp": 1761736677637
+      },
+      {
+        "loss": 1.6242521178704796,
+        "accuracy": 0.5882352941176471,
+        "timestamp": 1761736677647
+      },
+      {
+        "loss": 1.555557379067722,
+        "accuracy": 0.5882352941176471,
+        "timestamp": 1761736677655
+      },
+      {
+        "loss": 1.5569066436708576,
+        "accuracy": 0.5882352941176471,
+        "timestamp": 1761736677665
+      },
+      {
+        "loss": 1.4990538099871131,
+        "accuracy": 0.5882352941176471,
+        "timestamp": 1761736677673
+      },
+      {
+        "loss": 1.4545485665219513,
+        "accuracy": 0.5882352941176471,
+        "timestamp": 1761736677681
+      },
+      {
+        "loss": 1.517902551859587,
+        "accuracy": 0.5882352941176471,
+        "timestamp": 1761736677686
+      },
+      {
+        "loss": 1.2919227410654501,
+        "accuracy": 0.5882352941176471,
+        "timestamp": 1761736677691
+      },
+      {
+        "loss": 1.4505276294288816,
+        "accuracy": 0.5294117647058824,
+        "timestamp": 1761736677696
+      },
+      {
+        "loss": 1.217732832975018,
+        "accuracy": 0.6470588235294118,
+        "timestamp": 1761736677700
+      },
+      {
+        "loss": 1.1525703388615314,
+        "accuracy": 0.7058823529411765,
+        "timestamp": 1761736677705
+      },
+      {
+        "loss": 1.1227337442788328,
+        "accuracy": 0.7058823529411765,
+        "timestamp": 1761736677721
+      },
+      {
+        "loss": 1.2750178688078784,
+        "accuracy": 0.6470588235294118,
+        "timestamp": 1761736677732
+      },
+      {
+        "loss": 1.1534488039121178,
+        "accuracy": 0.7058823529411765,
+        "timestamp": 1761736677738
+      },
+      {
+        "loss": 1.1570813228171235,
+        "accuracy": 0.7058823529411765,
+        "timestamp": 1761736677744
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "wikitext_baseline",
+  "description": "Baseline Unicode tokenizer on the WikiText sample with a compact hidden state.",
+  "corpus_path": "data/processed/wikitext/train.txt",
+  "metrics_filename": "wikitext_baseline.json",
+  "hyperparameters": {
+    "epochs": 12,
+    "hidden_size": 48,
+    "learning_rate": 0.08,
+    "context_size": 3,
+    "optimizer": "momentum",
+    "momentum": 0.9,
+    "dropout": 0.1,
+    "seed": 3407
+  },
+  "tokenizer": {
+    "mode": "unicode"
+  }
+}

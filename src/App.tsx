@@ -57,6 +57,7 @@ type UiSettings = {
   tokenizerConfig: TokenizerConfig;
   // Advanced features
   useAdvanced: boolean;
+  useGPU: boolean;
   activation: ActivationFunction;
   leakyReluAlpha: number;
   eluAlpha: number;
@@ -149,6 +150,18 @@ export default function NeuroLinguaDomesticaV324() {
   const [useLayerNorm, setUseLayerNorm] = useState(DEFAULT_ADVANCED_CONFIG.useLayerNorm);
   const [useBeamSearch, setUseBeamSearch] = useState(DEFAULT_GENERATION.useBeamSearch);
   const [beamWidth, setBeamWidth] = useState(DEFAULT_GENERATION.beamWidth);
+
+  // GPU acceleration
+  const [useGPU, setUseGPU] = useState(false);
+  const [gpuAvailable, setGpuAvailable] = useState(false);
+  const [gpuMetrics, setGpuMetrics] = useState<{
+    enabled: boolean;
+    available: boolean;
+    totalOperations: number;
+    totalTimeMs: number;
+    averageTimeMs: number;
+    deviceInfo?: string;
+  } | null>(null);
 
   // Tokenizer
   const [tokenizerConfig, setTokenizerConfig] = useState<TokenizerConfig>(DEFAULT_TOKENIZER_CONFIG);
@@ -295,6 +308,7 @@ export default function NeuroLinguaDomesticaV324() {
 
     // Load advanced features
     if (typeof saved.useAdvanced === 'boolean') setUseAdvanced(saved.useAdvanced);
+    if (typeof saved.useGPU === 'boolean') setUseGPU(saved.useGPU);
     if (saved.activation) setActivation(saved.activation);
     if (typeof saved.leakyReluAlpha === 'number') setLeakyReluAlpha(saved.leakyReluAlpha);
     if (typeof saved.eluAlpha === 'number') setEluAlpha(saved.eluAlpha);
@@ -339,6 +353,61 @@ export default function NeuroLinguaDomesticaV324() {
       addSystemMessage(`📀 Model v${MODEL_VERSION} loaded from local storage`);
     }
   }, [applyModelMeta, syncTokenizerFromModel, addSystemMessage]);
+
+  // Check WebGPU availability and initialize GPU metrics
+  useEffect(() => {
+    const checkGPU = async () => {
+      try {
+        // Check if WebGPU is available
+        if (typeof navigator !== 'undefined' && 'gpu' in navigator) {
+          const adapter = await (navigator as Navigator & { gpu: GPU }).gpu.requestAdapter();
+          if (adapter) {
+            setGpuAvailable(true);
+            setGpuMetrics({
+              enabled: false,
+              available: true,
+              totalOperations: 0,
+              totalTimeMs: 0,
+              averageTimeMs: 0,
+              deviceInfo: 'WebGPU Device'
+            });
+            console.log('✅ WebGPU is available');
+          } else {
+            setGpuAvailable(false);
+            setGpuMetrics({
+              enabled: false,
+              available: false,
+              totalOperations: 0,
+              totalTimeMs: 0,
+              averageTimeMs: 0
+            });
+            console.log('⚠️ WebGPU adapter not available');
+          }
+        } else {
+          setGpuAvailable(false);
+          setGpuMetrics({
+            enabled: false,
+            available: false,
+            totalOperations: 0,
+            totalTimeMs: 0,
+            averageTimeMs: 0
+          });
+          console.log('⚠️ WebGPU is not supported in this browser');
+        }
+      } catch (error) {
+        setGpuAvailable(false);
+        setGpuMetrics({
+          enabled: false,
+          available: false,
+          totalOperations: 0,
+          totalTimeMs: 0,
+          averageTimeMs: 0
+        });
+        console.warn('⚠️ Error checking WebGPU availability:', error);
+      }
+    };
+    checkGPU();
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -394,6 +463,7 @@ export default function NeuroLinguaDomesticaV324() {
       resume,
       tokenizerConfig,
       useAdvanced,
+      useGPU,
       activation,
       leakyReluAlpha,
       eluAlpha,
@@ -426,6 +496,7 @@ export default function NeuroLinguaDomesticaV324() {
     resume,
     tokenizerConfig,
     useAdvanced,
+    useGPU,
     activation,
     leakyReluAlpha,
     eluAlpha,
@@ -753,6 +824,8 @@ export default function NeuroLinguaDomesticaV324() {
               currentEpoch={trainingRef.current.currentEpoch}
               // Advanced features
               useAdvanced={useAdvanced}
+              useGPU={useGPU}
+              gpuAvailable={gpuAvailable}
               activation={activation}
               leakyReluAlpha={leakyReluAlpha}
               eluAlpha={eluAlpha}
@@ -782,6 +855,7 @@ export default function NeuroLinguaDomesticaV324() {
               onResumeChange={setResume}
               // Advanced callbacks
               onUseAdvancedChange={setUseAdvanced}
+              onUseGPUChange={setUseGPU}
               onActivationChange={setActivation}
               onLeakyReluAlphaChange={setLeakyReluAlpha}
               onEluAlphaChange={setEluAlpha}
@@ -813,6 +887,7 @@ export default function NeuroLinguaDomesticaV324() {
               info={info}
               lastModelUpdate={lastModelUpdate}
               trainingHistory={trainingHistory}
+              gpuMetrics={gpuMetrics}
               onMessage={addSystemMessage}
             />
           </div>

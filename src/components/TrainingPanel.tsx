@@ -23,6 +23,8 @@ interface TrainingPanelProps {
 
   // Advanced features
   useAdvanced: boolean;
+  useGPU: boolean;
+  gpuAvailable: boolean;
   activation: ActivationFunction;
   leakyReluAlpha: number;
   eluAlpha: number;
@@ -64,6 +66,7 @@ interface TrainingPanelProps {
 
   // Advanced callbacks
   onUseAdvancedChange: (value: boolean) => void;
+  onUseGPUChange: (value: boolean) => void;
   onActivationChange: (value: ActivationFunction) => void;
   onLeakyReluAlphaChange: (value: number) => void;
   onEluAlphaChange: (value: number) => void;
@@ -466,6 +469,49 @@ export function TrainingPanel(props: TrainingPanelProps) {
           />
           <span>🚀 Enable Advanced Features (AdvancedNeuralLM)</span>
         </label>
+      </div>
+
+      {/* GPU Acceleration Toggle */}
+      <div style={{ marginBottom: 12 }}>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: props.gpuAvailable ? 'pointer' : 'not-allowed',
+            opacity: props.gpuAvailable ? 1 : 0.5
+          }}
+          title={
+            props.gpuAvailable
+              ? 'Enable WebGPU acceleration for faster training'
+              : 'WebGPU is not available in your browser'
+          }
+        >
+          <input
+            type="checkbox"
+            checked={props.useGPU}
+            onChange={(e) => props.onUseGPUChange(e.target.checked)}
+            disabled={!props.gpuAvailable}
+          />
+          <span>
+            ⚡ GPU Acceleration (WebGPU)
+            {!props.gpuAvailable && ' - Not Available'}
+          </span>
+        </label>
+        {props.useGPU && props.gpuAvailable && (
+          <div
+            style={{
+              fontSize: 11,
+              color: '#94a3b8',
+              marginLeft: 24,
+              marginTop: 4
+            }}
+          >
+            WebGPU acceleration enabled. Training may be 2-5x faster on compatible hardware.
+          </div>
+        )}
       </div>
 
       {/* Advanced Features Panel */}

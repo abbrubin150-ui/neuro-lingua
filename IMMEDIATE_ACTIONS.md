@@ -1,11 +1,14 @@
 # Immediate Action Plan
+
 **Priority:** Start This Week
 **Updated:** 2025-10-29
 
 ## Quick Wins (Next 3-5 Days)
 
 ### 1. WebGPU Backend Prototype
+
 **Time:** 4-6 hours
+
 ```bash
 # Spike task: Validate WebGPU can accelerate training
 - Create simple matmul benchmark (CPU vs GPU)
@@ -14,17 +17,21 @@
 ```
 
 **Files to explore:**
+
 - `src/backend/webgpu.ts:1` (11K lines - identify key functions)
 - `src/lib/ProNeuralLM.ts:1` (integration points)
 
 **Success criteria:**
+
 - Proof of 2-5x speedup on compatible hardware
 - Clear path to integration identified
 
 ---
 
 ### 2. Transformer Quick Integration
+
 **Time:** 6-8 hours
+
 ```bash
 # Goal: Make transformer trainable via UI
 - Review mini_transformer.ts completeness
@@ -34,11 +41,13 @@
 ```
 
 **Files to modify:**
+
 - `src/models/mini_transformer.ts:1`
 - `src/components/TrainingPanel.tsx:1`
 - `src/lib/AdvancedNeuralLM.ts:1`
 
 **Success criteria:**
+
 - User can select "Transformer" architecture in UI
 - Training completes without errors
 - Model artifact saved successfully
@@ -46,7 +55,9 @@
 ---
 
 ### 3. Edge Learning Diagnostics Demo
+
 **Time:** 2-3 hours
+
 ```bash
 # Goal: Connect Python edge learning to trained model
 - Run on_the_edge_learning.py on existing model
@@ -55,10 +66,12 @@
 ```
 
 **Files to explore:**
+
 - `symmetry_coupling/on_the_edge_learning.py:1`
 - `models/neuro-lingua-v324.json:1` (latest trained model)
 
 **Commands to run:**
+
 ```bash
 # Test edge learning on existing model
 cd symmetry_coupling
@@ -68,6 +81,7 @@ python on_the_edge_learning.py ../data/corpus.txt --model ../models/neuro-lingua
 ```
 
 **Success criteria:**
+
 - Script executes successfully
 - Metrics computed and interpretable
 - Clear path to UI integration identified
@@ -79,11 +93,13 @@ python on_the_edge_learning.py ../data/corpus.txt --model ../models/neuro-lingua
 ### Phase 1: Core Integration (40-60 hours)
 
 #### Week 1
+
 - [ ] **Day 1-2:** Complete WebGPU integration prototype
 - [ ] **Day 3-4:** Transformer architecture fully functional in UI
 - [ ] **Day 5:** Edge learning diagnostics connected to ModelMetrics
 
 #### Week 2
+
 - [ ] **Day 6-7:** WebGPU performance testing and fallback logic
 - [ ] **Day 8-9:** Transformer comparison experiments (vs ProNeuralLM)
 - [ ] **Day 10:** Documentation update, commit Phase 1
@@ -93,6 +109,7 @@ python on_the_edge_learning.py ../data/corpus.txt --model ../models/neuro-lingua
 ## Validation Checklist
 
 Before moving to Phase 2, ensure:
+
 - [ ] WebGPU toggle works in UI, graceful fallback tested
 - [ ] Transformer training produces reasonable perplexity (<100 on sample data)
 - [ ] Edge learning metrics displayed alongside standard metrics
@@ -105,15 +122,18 @@ Before moving to Phase 2, ensure:
 ## Dependencies & Prerequisites
 
 ### Required
+
 - Node.js 18+ (for `tsx` to run TypeScript scripts)
 - Python 3.9+ (for edge learning scripts)
 - Browser with WebGPU support (Chrome 113+, Edge 113+)
 
 ### Optional
+
 - GPU with WebGPU support (for acceleration testing)
 - Hebrew corpus (for multilingual experiments)
 
 ### Installation
+
 ```bash
 # Install dependencies
 npm install
@@ -129,6 +149,7 @@ npm run build                  # Should complete without errors
 ## Measurement Plan
 
 ### Track These Metrics Weekly
+
 1. **WebGPU Performance:**
    - Training time (CPU vs GPU)
    - Browser compatibility rate
@@ -149,16 +170,19 @@ npm run build                  # Should complete without errors
 ## Communication Plan
 
 ### Daily Standups (5 min)
+
 - What I completed yesterday
 - What I'm working on today
 - Any blockers
 
 ### Weekly Review (30 min)
+
 - Demo working features
 - Review metrics against targets
 - Adjust priorities if needed
 
 ### Sprint Retrospective (1 hour)
+
 - What went well
 - What could improve
 - Action items for next sprint
@@ -168,14 +192,17 @@ npm run build                  # Should complete without errors
 ## Risk Mitigation
 
 ### If WebGPU Integration Blocked
+
 **Fallback:** Proceed with Transformer + Edge Learning
 **Reason:** WebGPU is additive, not critical path
 
 ### If Transformer Integration Complex
+
 **Fallback:** Start with smaller model (2 layers, 4 heads)
 **Reason:** Prove concept before scaling up
 
 ### If Edge Learning Script Fails
+
 **Fallback:** Mock metrics in UI, fix integration later
 **Reason:** UI work can proceed independently
 
@@ -184,12 +211,14 @@ npm run build                  # Should complete without errors
 ## Success Signals
 
 ### You're on track if:
+
 - WebGPU prototype shows measurable speedup by Day 3
 - Transformer trains successfully by Day 5
 - Edge metrics displayed in UI by Day 7
 - All three features documented by Day 10
 
 ### You're blocked if:
+
 - No browser supports WebGPU (unlikely)
 - Transformer forward pass produces NaN (debug numerical stability)
 - Edge learning script errors (check Python environment)
@@ -201,16 +230,19 @@ npm run build                  # Should complete without errors
 ## Post-Phase 1 Decision Point
 
 After completing immediate actions, evaluate:
+
 1. **User Impact:** Which feature generates most interest?
 2. **Technical Debt:** Any critical issues to address before Phase 2?
 3. **Research Value:** Which experiments would be most insightful?
 
 **Options:**
+
 - **Option A:** Continue to Phase 2 (Research Validation)
 - **Option B:** Polish Phase 1 features based on feedback
 - **Option C:** Prioritize different feature (e.g., explainability)
 
 **Decision Criteria:**
+
 - User engagement with new features
 - Technical stability of integrations
 - Research questions ready to validate
@@ -220,17 +252,20 @@ After completing immediate actions, evaluate:
 ## Resources
 
 ### Documentation
+
 - [DEVELOPMENT_ROADMAP.md](./DEVELOPMENT_ROADMAP.md) - Full roadmap
 - [docs/theory/information.md](./docs/theory/information.md) - Information bottleneck theory
 - [docs/on-the-edge-formalism.md](./docs/on-the-edge-formalism.md) - Edge learning theory
 
 ### Key Code Locations
+
 - `src/backend/webgpu.ts:1` - GPU operations
 - `src/models/mini_transformer.ts:1` - Transformer architecture
 - `symmetry_coupling/on_the_edge_learning.py:1` - Edge learning
 - `src/components/TrainingPanel.tsx:1` - Main training UI
 
 ### Testing
+
 ```bash
 # Run all tests
 npm test
@@ -243,6 +278,7 @@ npm test:watch
 ```
 
 ### Useful Commands
+
 ```bash
 # Start dev server
 npm run dev

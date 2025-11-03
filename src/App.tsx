@@ -33,15 +33,16 @@ import {
 
 import {
   OnboardingCard,
+  type OnboardingCardStrings,
   ModelMetrics,
   ChatInterface,
+  type ChatInterfaceStrings,
   TrainingPanel,
   ErrorBoundary,
   type Message
 } from './components';
 
 type UiSettings = {
-  trainingText: string;
   hiddenSize: number;
   epochs: number;
   lr: number;
@@ -76,6 +77,172 @@ type UiSettings = {
 
 type ModelMeta = { timestamp: number; vocab: number };
 
+type Locale = 'en' | 'he';
+
+type AppTranslations = {
+  toggle: { button: string; aria: string };
+  title: string;
+  subtitle: string;
+  training: {
+    heading: string;
+    placeholder: string;
+    textareaAria: string;
+    characters: string;
+    words: string;
+    tip: string;
+    example: string;
+    exampleAria: string;
+  };
+  infoCards: { title: string; body: string }[];
+  chat: ChatInterfaceStrings & { trainFirst: string };
+  onboarding: OnboardingCardStrings;
+};
+
+const TRANSLATIONS: Record<Locale, AppTranslations> = {
+  en: {
+    toggle: { button: 'עברית / RTL', aria: 'Switch interface language to Hebrew (RTL)' },
+    title: '🧠 Neuro‑Lingua DOMESTICA — v{version}',
+    subtitle:
+      'Advanced neural language model with Momentum/Adam, training-only dropout, real-time charts, and flexible context windows.',
+    training: {
+      heading: '🎓 Training',
+      placeholder: 'Enter training text (ideally 200+ words in English or Hebrew)...',
+      textareaAria: 'Training corpus',
+      characters: 'Characters',
+      words: 'Words',
+      tip:
+        '💡 Tip: Start with the example corpus, then paste your own dataset to compare results.',
+      example: '📚 Example',
+      exampleAria: 'Load example corpus'
+    },
+    infoCards: [
+      {
+        title: '🎯 Training Tips',
+        body: '• 200–500 words • 20–50 epochs • LR: 0.05–0.1 • Context: 3–5'
+      },
+      {
+        title: '🎲 Text Generation',
+        body: '• Temperature: 0.7–1.0 • Choose top‑k or top‑p (top‑p ≈ 0.85–0.95)'
+      },
+      {
+        title: '⚡ Performance',
+        body: '• Momentum: 0.9 or Adam • Save tokenizer presets • Export CSV to compare runs'
+      },
+      {
+        title: '⌨️ Shortcuts',
+        body: '• Ctrl/Cmd+Enter: Train/Stop • Ctrl/Cmd+S: Save • Ctrl/Cmd+G: Generate'
+      }
+    ],
+    chat: {
+      title: '💬 Chat Console',
+      replies: (count) => `${count} replies`,
+      regionAria: 'Chat interface',
+      logAria: 'Chat messages',
+      inputAria: 'Chat prompt',
+      generateAria: 'Generate text from model',
+      placeholderReady: 'Type a message for the model…',
+      placeholderEmpty: 'Train the model first…',
+      generate: '✨ Generate',
+      tip:
+        '💡 Press Shift+Enter to add a new line. Responses reflect the active sampling mode and temperature.',
+      userLabel: '👤 You',
+      assistantLabel: '🤖 Model',
+      systemLabel: '⚙️ System',
+      userRole: 'User',
+      assistantRole: 'Model',
+      systemRole: 'System',
+      messageSuffix: 'message',
+      trainFirst: '❌ Please train the model first.'
+    },
+    onboarding: {
+      welcomeTitle: '👋 Welcome! Here is how Neuro-Lingua keeps your session in sync',
+      privacyWarningTitle: 'Privacy Warning',
+      privacyWarningLead: 'DO NOT train with sensitive data.',
+      privacyWarningBody:
+        'Settings live in browser storage without encryption. Avoid PII, passwords, financial, medical, or confidential data.',
+      bulletPauseResume:
+        'Pause / Resume: use the Stop button to pause training. With Resume training enabled we pick up from the latest checkpoint when you train again.',
+      bulletImportExport:
+        'Import / Export: save models and tokenizer presets to JSON for safekeeping or sharing. Importing immediately refreshes the charts and metadata.',
+      bulletPersistence:
+        'Session Persistence: hyperparameters and tokenizer preferences live in localStorage; training text stays in memory only.',
+      gotIt: 'Got it',
+      reopenInfo: 'You can reopen this info from localStorage by clearing the flag.'
+    }
+  },
+  he: {
+    toggle: { button: 'English / LTR', aria: 'החלף את שפת הממשק לאנגלית (כיוון LTR)' },
+    title: '🧠 ניורו-לינגואה DOMESTICA — גרסה {version}',
+    subtitle:
+      'מודל שפה מתקדם עם Momentum/Adam, דרופאאוט באימון בלבד, תרשימים בזמן אמת וחלונות הקשר גמישים.',
+    training: {
+      heading: '🎓 אימון',
+      placeholder: 'הזינו טקסט אימון (200+ מילים בעברית או באנגלית)...',
+      textareaAria: 'קורפוס אימון',
+      characters: 'תווים',
+      words: 'מילים',
+      tip:
+        '💡 טיפ: התחילו בקורפוס הדוגמה ואז הדביקו את הדאטהסט שלכם להשוואת תוצאות.',
+      example: '📚 דוגמה',
+      exampleAria: 'טען קורפוס דוגמה'
+    },
+    infoCards: [
+      {
+        title: '🎯 טיפים לאימון',
+        body: '• 200–500 מילים • 20–50 אפוקים • קצב למידה: 0.05–0.1 • הקשר: 3–5'
+      },
+      {
+        title: '🎲 יצירת טקסט',
+        body: '• טמפ׳: 0.7–1.0 • בחרו top‑k או top‑p (top‑p ≈ 0.85–0.95)'
+      },
+      {
+        title: '⚡ ביצועים',
+        body: '• מומנטום 0.9 או Adam • שמרו פרופילי טוקנייזר • ייצאו CSV להשוואת ריצות'
+      },
+      {
+        title: '⌨️ קיצורי דרך',
+        body: '• Ctrl/Cmd+Enter: התחלה/עצירה • Ctrl/Cmd+S: שמירה • Ctrl/Cmd+G: דגימה'
+      }
+    ],
+    chat: {
+      title: '💬 קונסולת שיחה',
+      replies: (count) => `${count} תגובות`,
+      regionAria: 'ממשק שיחה',
+      logAria: 'הודעות שיחה',
+      inputAria: 'הזנת שיחה',
+      generateAria: 'הפיקו טקסט מהמודל',
+      placeholderReady: 'כתבו הודעה למודל…',
+      placeholderEmpty: 'אימנו את המודל תחילה…',
+      generate: '✨ הפקה',
+      tip:
+        '💡 Shift+Enter מוסיף שורה חדשה. התגובות תלויות במצב הדגימה ובטמפרטורה הנבחרת.',
+      userLabel: '👤 אתם',
+      assistantLabel: '🤖 המודל',
+      systemLabel: '⚙️ מערכת',
+      userRole: 'משתמש',
+      assistantRole: 'מודל',
+      systemRole: 'מערכת',
+      messageSuffix: 'הודעה',
+      trainFirst: '❌ נא לאמן את המודל תחילה.'
+    },
+    onboarding: {
+      welcomeTitle: '👋 ברוכים הבאים! כך Neuro-Lingua מסנכרנת את הסשן שלכם',
+      privacyWarningTitle: 'אזהרת פרטיות',
+      privacyWarningLead: 'אל תאמן עם נתונים רגישים.',
+      privacyWarningBody:
+        'ההגדרות נשמרות באחסון הדפדפן ללא הצפנה. הימנעו מ-PII, סיסמאות, מידע פיננסי, רפואי או חסוי.',
+      bulletPauseResume:
+        'עצירה / המשך: השתמשו בכפתור העצירה כדי להקפיא את האימון. עם “המשך אימון” פעיל נמשיך מהצ׳קפוינט האחרון.',
+      bulletImportExport:
+        'ייבוא / ייצוא: שמרו מודלים ופרופילי טוקנייזר ל-JSON לגיבוי או שיתוף. ייבוא מרענן מיידית תרשימים ומטא־דאטה.',
+      bulletPersistence:
+        'התמדה בסשן: היפר־פרמטרים ופרופילי טוקנייזר נשמרים ב-localStorage; טקסט האימון נשאר בזיכרון בלבד.',
+      gotIt: 'הבנתי',
+      reopenInfo: 'אפשר לפתוח שוב את הכרטיס על ידי ניקוי הדגל ב-localStorage.'
+    }
+  }
+} as const;
+
 function loadLatestModel(): ProNeuralLM | null {
   const primary = ProNeuralLM.loadFromLocalStorage(MODEL_STORAGE_KEY);
   if (primary) return primary;
@@ -103,6 +270,12 @@ export default function NeuroLinguaDomesticaV324() {
   // Chat interface
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [locale, setLocale] = useState<Locale>('en');
+  const direction: 'ltr' | 'rtl' = locale === 'he' ? 'rtl' : 'ltr';
+  const t = TRANSLATIONS[locale];
+  const toggleLocale = useCallback(() => {
+    setLocale((prev) => (prev === 'en' ? 'he' : 'en'));
+  }, []);
 
   // Training state
   const [isTraining, setIsTraining] = useState(false);
@@ -270,12 +443,14 @@ export default function NeuroLinguaDomesticaV324() {
     }
   }
 
+  useEffect(() => {
+    document.documentElement.setAttribute('dir', direction);
+    document.documentElement.setAttribute('lang', locale === 'he' ? 'he' : 'en');
+  }, [direction, locale]);
+
   // Load settings on mount
   useEffect(() => {
     const saved = StorageManager.get<Partial<UiSettings>>(STORAGE_KEYS.UI_SETTINGS, {});
-    if (typeof saved.trainingText === 'string' && saved.trainingText.trim().length > 0) {
-      setTrainingText(saved.trainingText);
-    }
     if (typeof saved.hiddenSize === 'number') setHiddenSize(saved.hiddenSize);
     if (typeof saved.epochs === 'number') setEpochs(saved.epochs);
     if (typeof saved.lr === 'number') setLr(saved.lr);
@@ -466,7 +641,6 @@ export default function NeuroLinguaDomesticaV324() {
   // Persist settings when they change
   useEffect(() => {
     const settings: UiSettings = {
-      trainingText,
       hiddenSize,
       epochs,
       lr,
@@ -499,7 +673,6 @@ export default function NeuroLinguaDomesticaV324() {
     };
     StorageManager.set(STORAGE_KEYS.UI_SETTINGS, settings);
   }, [
-    trainingText,
     hiddenSize,
     epochs,
     lr,
@@ -758,7 +931,7 @@ export default function NeuroLinguaDomesticaV324() {
 
   async function onGenerate() {
     if (!modelRef.current || !input.trim()) {
-      addSystemMessage('❌ Please train the model first.');
+      addSystemMessage(t.chat.trainFirst);
       return;
     }
     setMessages((m) => [...m, { type: 'user', content: input, timestamp: Date.now() }]);
@@ -791,34 +964,64 @@ export default function NeuroLinguaDomesticaV324() {
   return (
     <ErrorBoundary>
       <div
+        dir={direction}
         style={{
           minHeight: '100vh',
           background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
           color: '#e2e8f0',
           padding: 20,
-          fontFamily: "'Segoe UI', system-ui, sans-serif"
+          fontFamily: "'Segoe UI', system-ui, sans-serif",
+          direction
         }}
       >
         <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-          <OnboardingCard show={showOnboarding} onDismiss={() => setShowOnboarding(false)} />
+          <OnboardingCard
+            show={showOnboarding}
+            onDismiss={() => setShowOnboarding(false)}
+            strings={t.onboarding}
+            direction={direction}
+          />
 
-          <header style={{ textAlign: 'center', marginBottom: 32 }}>
-            <h1
+          <header style={{ marginBottom: 32 }}>
+            <div
               style={{
-                fontSize: '2.8rem',
-                fontWeight: 800,
-                background: 'linear-gradient(90deg, #a78bfa 0%, #34d399 50%, #60a5fa 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                marginBottom: 8
+                display: 'flex',
+                justifyContent: direction === 'rtl' ? 'flex-start' : 'flex-end',
+                marginBottom: 16
               }}
             >
-              🧠 Neuro‑Lingua DOMESTICA — v{MODEL_VERSION}
-            </h1>
-            <p style={{ color: '#94a3b8', fontSize: '1.05rem' }}>
-              Advanced neural language model with Momentum/Adam, training-only dropout, real-time
-              charts, and flexible context windows.
-            </p>
+              <button
+                type="button"
+                onClick={toggleLocale}
+                aria-label={t.toggle.aria}
+                style={{
+                  padding: '8px 16px',
+                  background: 'linear-gradient(90deg, #22d3ee, #818cf8)',
+                  border: 'none',
+                  borderRadius: 999,
+                  color: '#0f172a',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                {t.toggle.button}
+              </button>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <h1
+                style={{
+                  fontSize: '2.8rem',
+                  fontWeight: 800,
+                  background: 'linear-gradient(90deg, #a78bfa 0%, #34d399 50%, #60a5fa 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  marginBottom: 8
+                }}
+              >
+                {t.title.replace('{version}', MODEL_VERSION)}
+              </h1>
+              <p style={{ color: '#94a3b8', fontSize: '1.05rem', margin: 0 }}>{t.subtitle}</p>
+            </div>
           </header>
 
           <div
@@ -927,15 +1130,16 @@ export default function NeuroLinguaDomesticaV324() {
                 borderRadius: 16,
                 padding: 20,
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                direction
               }}
             >
-              <h3 style={{ color: '#a78bfa', marginTop: 0, marginBottom: 16 }}>🎓 Training</h3>
+              <h3 style={{ color: '#a78bfa', marginTop: 0, marginBottom: 16 }}>{t.training.heading}</h3>
               <textarea
                 value={trainingText}
                 onChange={(e) => setTrainingText(e.target.value)}
-                placeholder="Enter training text (ideally 200+ English words)..."
-                aria-label="Training corpus"
+                placeholder={t.training.placeholder}
+                aria-label={t.training.textareaAria}
                 style={{
                   width: '100%',
                   minHeight: 200,
@@ -959,16 +1163,20 @@ export default function NeuroLinguaDomesticaV324() {
                   justifyContent: 'space-between'
                 }}
               >
-                <span>Characters: {trainingText.length}</span>
-                <span>Words: {trainingText.split(/\s+/).filter((w) => w.length > 0).length}</span>
+                <span>
+                  {t.training.characters}: {trainingText.length}
+                </span>
+                <span>
+                  {t.training.words}:{' '}
+                  {trainingText.split(/\s+/).filter((w) => w.length > 0).length}
+                </span>
               </div>
-              <div style={{ fontSize: 12, color: '#cbd5f5', marginTop: 8 }}>
-                💡 Tip: Start with the example corpus, then paste your own dataset to compare
-                results.
-              </div>
+              <div style={{ fontSize: 12, color: '#cbd5f5', marginTop: 8 }}>{t.training.tip}</div>
               <div style={{ marginTop: 12 }}>
                 <button
+                  type="button"
                   onClick={onExample}
+                  aria-label={t.training.exampleAria}
                   style={{
                     padding: '10px 14px',
                     background: '#6366f1',
@@ -979,7 +1187,7 @@ export default function NeuroLinguaDomesticaV324() {
                     cursor: 'pointer'
                   }}
                 >
-                  📚 Example
+                  {t.training.example}
                 </button>
               </div>
             </div>
@@ -990,6 +1198,9 @@ export default function NeuroLinguaDomesticaV324() {
               modelExists={!!modelRef.current}
               onInputChange={setInput}
               onGenerate={onGenerate}
+              strings={t.chat}
+              direction={direction}
+              locale={locale}
             />
           </div>
 
@@ -1005,30 +1216,12 @@ export default function NeuroLinguaDomesticaV324() {
             }}
           >
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-              <div>
-                <strong>🎯 Training Tips</strong>
-                <div style={{ fontSize: 12, marginTop: 4 }}>
-                  • 200–500 words • 20–50 epochs • LR: 0.05–0.1 • Context: 3–5
+              {t.infoCards.map((card) => (
+                <div key={card.title}>
+                  <strong>{card.title}</strong>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>{card.body}</div>
                 </div>
-              </div>
-              <div>
-                <strong>🎲 Text Generation</strong>
-                <div style={{ fontSize: 12, marginTop: 4 }}>
-                  • Temperature: 0.7–1.0 • Choose top‑k or top‑p (top‑p ≈ 0.85–0.95)
-                </div>
-              </div>
-              <div>
-                <strong>⚡ Performance</strong>
-                <div style={{ fontSize: 12, marginTop: 4 }}>
-                  • Momentum: 0.9 or Adam • Save tokenizer presets • Export CSV to compare runs
-                </div>
-              </div>
-              <div>
-                <strong>⌨️ Shortcuts</strong>
-                <div style={{ fontSize: 12, marginTop: 4 }}>
-                  • Ctrl/Cmd+Enter: Train/Stop • Ctrl/Cmd+S: Save • Ctrl/Cmd+G: Generate
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>

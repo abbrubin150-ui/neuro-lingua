@@ -6,12 +6,35 @@ export interface Message {
   timestamp?: number;
 }
 
+export interface ChatInterfaceStrings {
+  title: string;
+  replies: (count: number) => string;
+  regionAria: string;
+  logAria: string;
+  inputAria: string;
+  generateAria: string;
+  placeholderReady: string;
+  placeholderEmpty: string;
+  generate: string;
+  tip: string;
+  userLabel: string;
+  assistantLabel: string;
+  systemLabel: string;
+  userRole: string;
+  assistantRole: string;
+  systemRole: string;
+  messageSuffix: string;
+}
+
 interface ChatInterfaceProps {
   messages: Message[];
   input: string;
   modelExists: boolean;
   onInputChange: (value: string) => void;
   onGenerate: () => void;
+  strings: ChatInterfaceStrings;
+  direction: 'ltr' | 'rtl';
+  locale: 'en' | 'he';
 }
 
 /**
@@ -22,7 +45,10 @@ export function ChatInterface({
   input,
   modelExists,
   onInputChange,
-  onGenerate
+  onGenerate,
+  strings,
+  direction,
+  locale
 }: ChatInterfaceProps) {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -31,10 +57,12 @@ export function ChatInterface({
     }
   };
 
+  const assistantReplies = messages.filter((m) => m.type === 'assistant').length;
+
   return (
     <div
       role="region"
-      aria-label="Chat interface"
+      aria-label={strings.regionAria}
       style={{
         background: 'rgba(30,41,59,0.9)',
         border: '1px solid #334155',
@@ -42,7 +70,8 @@ export function ChatInterface({
         padding: 20,
         display: 'flex',
         flexDirection: 'column',
-        height: 600
+        height: 600,
+        direction
       }}
     >
       <div
@@ -53,15 +82,15 @@ export function ChatInterface({
           marginBottom: 16
         }}
       >
-        <h3 style={{ color: '#60a5fa', margin: 0 }}>💬 Chat Console</h3>
+        <h3 style={{ color: '#60a5fa', margin: 0 }}>{strings.title}</h3>
         <div style={{ fontSize: 12, color: '#94a3b8' }} aria-live="polite">
-          {messages.filter((m) => m.type === 'assistant').length} replies
+          {strings.replies(assistantReplies)}
         </div>
       </div>
 
       <div
         role="log"
-        aria-label="Chat messages"
+        aria-label={strings.logAria}
         aria-live="polite"
         aria-atomic="false"
         style={{
@@ -77,7 +106,13 @@ export function ChatInterface({
           <div
             key={i}
             role="article"
-            aria-label={`${m.type === 'user' ? 'User' : m.type === 'assistant' ? 'Model' : 'System'} message`}
+            aria-label={`${
+              m.type === 'user'
+                ? strings.userRole
+                : m.type === 'assistant'
+                  ? strings.assistantRole
+                  : strings.systemRole
+            } ${strings.messageSuffix}`}
             style={{
               padding: '12px 16px',
               borderRadius: 12,
@@ -93,10 +128,14 @@ export function ChatInterface({
             }}
           >
             <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
-              {m.type === 'user' ? '👤 You' : m.type === 'assistant' ? '🤖 Model' : '⚙️ System'}
+              {m.type === 'user'
+                ? strings.userLabel
+                : m.type === 'assistant'
+                  ? strings.assistantLabel
+                  : strings.systemLabel}
               {m.timestamp && (
-                <span style={{ marginLeft: 8 }}>
-                  {new Date(m.timestamp).toLocaleTimeString('en-US')}
+                <span style={{ marginInlineStart: 8 }}>
+                  {new Date(m.timestamp).toLocaleTimeString(locale === 'he' ? 'he-IL' : 'en-US')}
                 </span>
               )}
             </div>
@@ -119,8 +158,8 @@ export function ChatInterface({
           value={input}
           onChange={(e) => onInputChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={modelExists ? 'Type a message for the model…' : 'Train the model first…'}
-          aria-label="Chat prompt"
+          placeholder={modelExists ? strings.placeholderReady : strings.placeholderEmpty}
+          aria-label={strings.inputAria}
           style={{
             flex: 1,
             padding: '12px 16px',
@@ -138,7 +177,7 @@ export function ChatInterface({
         <button
           onClick={onGenerate}
           disabled={!modelExists}
-          aria-label="Generate text from model"
+          aria-label={strings.generateAria}
           aria-disabled={!modelExists}
           style={{
             padding: '12px 20px',
@@ -152,13 +191,10 @@ export function ChatInterface({
             minWidth: 100
           }}
         >
-          ✨ Generate
+          {strings.generate}
         </button>
       </div>
-      <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 8 }}>
-        💡 Press Shift+Enter to add a new line. Responses reflect the active sampling mode and
-        temperature.
-      </div>
+      <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 8 }}>{strings.tip}</div>
     </div>
   );
 }

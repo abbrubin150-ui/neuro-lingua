@@ -7,7 +7,7 @@ describe('AdvancedNeuralLM', () => {
   const contextSize = 2;
 
   describe('Initialization', () => {
-    it('initializes with default advanced config', () => {
+    it('initializes with default advanced config', async () => {
       const model = new AdvancedNeuralLM(vocab, hiddenSize, 0.05, contextSize);
       const config = model.getAdvancedConfig();
 
@@ -17,7 +17,7 @@ describe('AdvancedNeuralLM', () => {
       expect(config.weightDecay).toBeGreaterThan(0);
     });
 
-    it('accepts custom advanced config', () => {
+    it('accepts custom advanced config', async () => {
       const model = new AdvancedNeuralLM(
         vocab,
         hiddenSize,
@@ -43,7 +43,7 @@ describe('AdvancedNeuralLM', () => {
       expect(config.weightDecay).toBe(1e-3);
     });
 
-    it('reinitializes weights with He initialization', () => {
+    it('reinitializes weights with He initialization', async () => {
       const model1 = new AdvancedNeuralLM(
         vocab,
         hiddenSize,
@@ -79,7 +79,7 @@ describe('AdvancedNeuralLM', () => {
   });
 
   describe('Advanced Training', () => {
-    it('trains with learning rate schedule', () => {
+    it('trains with learning rate schedule', async () => {
       const model = new AdvancedNeuralLM(
         vocab,
         hiddenSize,
@@ -98,7 +98,7 @@ describe('AdvancedNeuralLM', () => {
 
       const lrHistory: number[] = [];
 
-      model.trainAdvanced('hello world neural network', 10, {
+      await model.trainAdvanced('hello world neural network', 10, {
         onEpochEnd: (epoch, metrics) => {
           lrHistory.push(metrics.lr);
         }
@@ -116,7 +116,7 @@ describe('AdvancedNeuralLM', () => {
       expect(midpointLR).toBeLessThan(linearMidpoint);
     });
 
-    it('applies L2 regularization', () => {
+    it('applies L2 regularization', async () => {
       const text = 'hello world hello world';
 
       // Train without regularization
@@ -135,7 +135,7 @@ describe('AdvancedNeuralLM', () => {
           lrSchedule: 'constant'
         }
       );
-      model1.trainAdvanced(text, 20);
+      await model1.trainAdvanced(text, 20);
 
       // Train with regularization
       const model2 = new AdvancedNeuralLM(
@@ -153,7 +153,7 @@ describe('AdvancedNeuralLM', () => {
           lrSchedule: 'constant'
         }
       );
-      model2.trainAdvanced(text, 20);
+      await model2.trainAdvanced(text, 20);
 
       // Model with regularization should have smaller weight norms
       const weights1 = (model1 as any).wHidden;
@@ -165,13 +165,13 @@ describe('AdvancedNeuralLM', () => {
       expect(norm2).toBeLessThan(norm1);
     });
 
-    it('callback provides metrics', () => {
+    it('callback provides metrics', async () => {
       const model = new AdvancedNeuralLM(vocab, hiddenSize, 0.05, contextSize);
 
       let callbackCount = 0;
       const metrics: any[] = [];
 
-      model.trainAdvanced('hello world neural', 5, {
+      await model.trainAdvanced('hello world neural', 5, {
         onEpochEnd: (epoch, metric) => {
           callbackCount++;
           metrics.push(metric);
@@ -194,11 +194,11 @@ describe('AdvancedNeuralLM', () => {
   });
 
   describe('Beam Search Generation', () => {
-    it('generates text using beam search', () => {
+    it('generates text using beam search', async () => {
       const model = new AdvancedNeuralLM(vocab, hiddenSize, 0.1, contextSize);
-      model.train('hello world neural network hello neural', 30);
+      await model.train('hello world neural network hello neural', 30);
 
-      const result = model.generateBeamSearch('hello', 10, 3, 0.8);
+      const result = await model.generateBeamSearch('hello', 10, 3, 0.8);
 
       expect(result).toHaveProperty('text');
       expect(result).toHaveProperty('score');
@@ -212,12 +212,12 @@ describe('AdvancedNeuralLM', () => {
       expect(result.score).toBeLessThanOrEqual(0);
     });
 
-    it('beam search produces different results than greedy', () => {
+    it('beam search produces different results than greedy', async () => {
       const model = new AdvancedNeuralLM(vocab, hiddenSize, 0.1, contextSize);
-      model.train('hello world neural network world neural', 30);
+      await model.train('hello world neural network world neural', 30);
 
-      const beamResult = model.generateBeamSearch('hello', 5, 3);
-      const greedyResult = model.generate('hello', 5, 0.01); // Low temp = greedy
+      const beamResult = await model.generateBeamSearch('hello', 5, 3);
+      const greedyResult = await model.generate('hello', 5, 0.01); // Low temp = greedy
 
       // Beam search might find better sequences
       expect(typeof beamResult.text).toBe('string');
@@ -228,13 +228,13 @@ describe('AdvancedNeuralLM', () => {
       expect(beamResult.text.length).toBeGreaterThan(0);
     });
 
-    it('respects beam width parameter', () => {
+    it('respects beam width parameter', async () => {
       const model = new AdvancedNeuralLM(vocab, hiddenSize, 0.1, contextSize);
-      model.train('hello world', 10);
+      await model.train('hello world', 10);
 
       // Should work with different beam widths
-      const result1 = model.generateBeamSearch('hello', 5, 1);
-      const result2 = model.generateBeamSearch('hello', 5, 5);
+      const result1 = await model.generateBeamSearch('hello', 5, 1);
+      const result2 = await model.generateBeamSearch('hello', 5, 5);
 
       expect(result1.text).toBeDefined();
       expect(result2.text).toBeDefined();
@@ -242,24 +242,24 @@ describe('AdvancedNeuralLM', () => {
   });
 
   describe('Nucleus Sampling', () => {
-    it('generates text using nucleus sampling', () => {
+    it('generates text using nucleus sampling', async () => {
       const model = new AdvancedNeuralLM(vocab, hiddenSize, 0.1, contextSize);
-      model.train('hello world neural network', 30);
+      await model.train('hello world neural network', 30);
 
-      const text = model.generateNucleus('hello', 10, 0.9, 0.9);
+      const text = await model.generateNucleus('hello', 10, 0.9, 0.9);
 
       expect(typeof text).toBe('string');
       expect(text.length).toBeGreaterThan(0);
     });
 
-    it('produces diverse outputs with high temperature', () => {
+    it('produces diverse outputs with high temperature', async () => {
       const model = new AdvancedNeuralLM(vocab, hiddenSize, 0.1, contextSize, 'adam', 0.9, 0, 42);
-      model.train('hello world neural network hello world', 30);
+      await model.train('hello world neural network hello world', 30);
 
       const outputs = new Set<string>();
 
       for (let i = 0; i < 10; i++) {
-        const text = model.generateNucleus('hello', 5, 1.5, 0.9);
+        const text = await model.generateNucleus('hello', 5, 1.5, 0.9);
         outputs.add(text);
       }
 
@@ -270,25 +270,25 @@ describe('AdvancedNeuralLM', () => {
   });
 
   describe('Perplexity Calculation', () => {
-    it('calculates perplexity on text', () => {
+    it('calculates perplexity on text', async () => {
       const model = new AdvancedNeuralLM(vocab, hiddenSize, 0.1, contextSize);
       const trainText = 'hello world neural network';
-      model.train(trainText, 30);
+      await model.train(trainText, 30);
 
-      const perplexity = model.calculatePerplexity('hello world');
+      const perplexity = await model.calculatePerplexity('hello world');
 
       expect(typeof perplexity).toBe('number');
       expect(perplexity).toBeGreaterThan(0);
       expect(isFinite(perplexity)).toBe(true);
     });
 
-    it('perplexity decreases with training', () => {
+    it('perplexity decreases with training', async () => {
       const model = new AdvancedNeuralLM(vocab, hiddenSize, 0.1, contextSize);
       const text = 'hello world neural network hello world';
 
-      const ppl0 = model.calculatePerplexity(text);
-      model.train(text, 20);
-      const ppl20 = model.calculatePerplexity(text);
+      const ppl0 = await model.calculatePerplexity(text);
+      await model.train(text, 20);
+      const ppl20 = await model.calculatePerplexity(text);
 
       // Perplexity should decrease with training (first 20 epochs should show improvement)
       expect(ppl20).toBeLessThan(ppl0);
@@ -298,22 +298,22 @@ describe('AdvancedNeuralLM', () => {
       expect(ppl20).toBeGreaterThan(1);
     });
 
-    it('handles empty or very short sequences', () => {
+    it('handles empty or very short sequences', async () => {
       const model = new AdvancedNeuralLM(vocab, hiddenSize, 0.1, contextSize);
 
       // Empty text should return Infinity
-      const pplEmpty = model.calculatePerplexity('');
+      const pplEmpty = await model.calculatePerplexity('');
       expect(pplEmpty).toBe(Infinity);
 
       // Very short text (shorter than context) may have special handling
-      const pplShort = model.calculatePerplexity('a');
+      const pplShort = await model.calculatePerplexity('a');
       expect(isFinite(pplShort)).toBe(true);
       expect(pplShort).toBeGreaterThan(0);
     });
   });
 
   describe('Config Management', () => {
-    it('updates advanced config', () => {
+    it('updates advanced config', async () => {
       const model = new AdvancedNeuralLM(vocab, hiddenSize, 0.05, contextSize);
 
       model.setAdvancedConfig({
@@ -326,7 +326,7 @@ describe('AdvancedNeuralLM', () => {
       expect(config.weightDecay).toBe(1e-3);
     });
 
-    it('reinitializes weights when initialization changes', () => {
+    it('reinitializes weights when initialization changes', async () => {
       const model = new AdvancedNeuralLM(
         vocab,
         hiddenSize,
@@ -351,7 +351,7 @@ describe('AdvancedNeuralLM', () => {
   });
 
   describe('Serialization', () => {
-    it('exports and imports advanced model', () => {
+    it('exports and imports advanced model', async () => {
       const model = new AdvancedNeuralLM(
         vocab,
         hiddenSize,
@@ -369,7 +369,7 @@ describe('AdvancedNeuralLM', () => {
         }
       );
 
-      model.train('hello world neural network', 10);
+      await model.train('hello world neural network', 10);
 
       const exported = model.toJSONAdvanced();
 
@@ -397,7 +397,7 @@ describe('AdvancedNeuralLM', () => {
   });
 
   describe('Different Activation Functions', () => {
-    it('trains with LeakyReLU activation', () => {
+    it('trains with LeakyReLU activation', async () => {
       const model = new AdvancedNeuralLM(
         vocab,
         hiddenSize,
@@ -411,14 +411,14 @@ describe('AdvancedNeuralLM', () => {
         { activation: 'leaky_relu' }
       );
 
-      const result = model.trainAdvanced('hello world neural network', 10);
+      const result = await model.trainAdvanced('hello world neural network', 10);
 
       expect(result.loss).toBeGreaterThan(0);
       expect(result.accuracy).toBeGreaterThanOrEqual(0);
       expect(result.accuracy).toBeLessThanOrEqual(1);
     });
 
-    it('trains with ELU activation', () => {
+    it('trains with ELU activation', async () => {
       const model = new AdvancedNeuralLM(
         vocab,
         hiddenSize,
@@ -432,13 +432,13 @@ describe('AdvancedNeuralLM', () => {
         { activation: 'elu' }
       );
 
-      const result = model.trainAdvanced('hello world neural network', 10);
+      const result = await model.trainAdvanced('hello world neural network', 10);
 
       expect(result.loss).toBeGreaterThan(0);
       expect(result.accuracy).toBeGreaterThanOrEqual(0);
     });
 
-    it('trains with GELU activation', () => {
+    it('trains with GELU activation', async () => {
       const model = new AdvancedNeuralLM(
         vocab,
         hiddenSize,
@@ -452,7 +452,7 @@ describe('AdvancedNeuralLM', () => {
         { activation: 'gelu' }
       );
 
-      const result = model.trainAdvanced('hello world neural network', 10);
+      const result = await model.trainAdvanced('hello world neural network', 10);
 
       expect(result.loss).toBeGreaterThan(0);
       expect(result.accuracy).toBeGreaterThanOrEqual(0);
@@ -460,7 +460,7 @@ describe('AdvancedNeuralLM', () => {
   });
 
   describe('Learning Rate Schedules', () => {
-    it('constant schedule maintains LR', () => {
+    it('constant schedule maintains LR', async () => {
       const model = new AdvancedNeuralLM(
         vocab,
         hiddenSize,
@@ -475,7 +475,7 @@ describe('AdvancedNeuralLM', () => {
       );
 
       const lrs: number[] = [];
-      model.trainAdvanced('hello world', 5, {
+      await model.trainAdvanced('hello world', 5, {
         onEpochEnd: (_, metrics) => lrs.push(metrics.lr)
       });
 
@@ -483,7 +483,7 @@ describe('AdvancedNeuralLM', () => {
       expect(lrs.every((lr) => Math.abs(lr - 0.1) < 1e-6)).toBe(true);
     });
 
-    it('exponential schedule decays LR', () => {
+    it('exponential schedule decays LR', async () => {
       const model = new AdvancedNeuralLM(
         vocab,
         hiddenSize,
@@ -498,7 +498,7 @@ describe('AdvancedNeuralLM', () => {
       );
 
       const lrs: number[] = [];
-      model.trainAdvanced('hello world', 5, {
+      await model.trainAdvanced('hello world', 5, {
         onEpochEnd: (_, metrics) => lrs.push(metrics.lr)
       });
 
@@ -511,7 +511,7 @@ describe('AdvancedNeuralLM', () => {
       }
     });
 
-    it('warmup + cosine schedule warms up then decays', () => {
+    it('warmup + cosine schedule warms up then decays', async () => {
       const model = new AdvancedNeuralLM(
         vocab,
         hiddenSize,
@@ -526,7 +526,7 @@ describe('AdvancedNeuralLM', () => {
       );
 
       const lrs: number[] = [];
-      model.trainAdvanced('hello world', 10, {
+      await model.trainAdvanced('hello world', 10, {
         onEpochEnd: (_, metrics) => lrs.push(metrics.lr)
       });
 

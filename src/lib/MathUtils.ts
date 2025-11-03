@@ -463,13 +463,13 @@ export type BeamCandidate = {
  * @param eosToken - End-of-sequence token index
  * @returns Best sequence found
  */
-export function beamSearch(
+export async function beamSearch(
   initialContext: number[],
   beamWidth: number,
   maxLength: number,
-  forwardFn: (context: number[]) => number[],
+  forwardFn: (context: number[]) => Promise<number[]>,
   eosToken: number
-): BeamCandidate {
+): Promise<BeamCandidate> {
   // Initialize beam with starting context
   let beams: BeamCandidate[] = [
     {
@@ -491,7 +491,7 @@ export function beamSearch(
       }
 
       // Get probabilities for next token
-      const probs = forwardFn(beam.tokens);
+      const probs = await forwardFn(beam.tokens);
 
       // Get top-k tokens
       const topK = getTopKIndices(probs, beamWidth);

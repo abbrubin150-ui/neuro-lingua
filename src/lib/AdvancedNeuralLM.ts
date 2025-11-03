@@ -311,13 +311,13 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   /**
    * Enhanced training with advanced features
    */
-  trainAdvanced(
+  async trainAdvanced(
     text: string,
     epochs = 10,
     callbacks?: {
       onEpochEnd?: (epoch: number, metrics: { loss: number; accuracy: number; lr: number }) => void;
     }
-  ): { loss: number; accuracy: number; history: any[] } {
+  ): Promise<{ loss: number; accuracy: number; history: any[] }> {
     this.totalEpochs = epochs;
     const seqs = (this as any).createTrainingSequences(text);
 
@@ -344,7 +344,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
 
       for (const [ctx, tgt] of seqs) {
         // Forward pass (use parent's forward with modifications)
-        const cache = (this as any).forward(ctx, true);
+        const cache = await (this as any).forward(ctx, true);
 
         // Apply advanced activation if needed (stored in cache)
         // Note: For full integration, we'd override forward() method
@@ -364,7 +364,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
         count++;
 
         // Backward pass with regularization
-        (this as any).backward(ctx, tgt, { ...cache, probs });
+        await (this as any).backward(ctx, tgt, { ...cache, probs });
 
         // Apply L2 regularization
         if (this.advancedConfig.weightDecay > 0) {
@@ -396,12 +396,12 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   /**
    * Generate text using beam search
    */
-  generateBeamSearch(
+  async generateBeamSearch(
     seedText: string,
     maxLen = 25,
     beamWidth?: number,
     temperature = 0.9
-  ): { text: string; score: number; tokens: number[] } {
+  ): Promise<{ text: string; score: number; tokens: number[] }> {
     const width = beamWidth || this.advancedConfig.beamWidth;
 
     // Tokenize seed text
@@ -418,14 +418,14 @@ export class AdvancedNeuralLM extends ProNeuralLM {
     }
 
     // Forward function for beam search
-    const forwardFn = (context: number[]) => {
+    const forwardFn = async (context: number[]) => {
       const window = context.slice(-contextSize);
-      const { logits } = (this as any).forward(window, false);
+      const { logits } = await (this as any).forward(window, false);
       return stableSoftmax(logits, temperature);
     };
 
     // Perform beam search
-    const result = beamSearch(initialContext, width, maxLen, forwardFn, eosIdx);
+    const result = await beamSearch(initialContext, width, maxLen, forwardFn, eosIdx);
 
     // Convert tokens to text
     const outputTokens = result.tokens.slice(initialContext.length);
@@ -445,7 +445,12 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   /**
    * Generate text using nucleus sampling (improved version)
    */
-  generateNucleus(seedText: string, maxLen = 25, temperature = 0.9, topP = 0.9): string {
+  async generateNucleus(
+    seedText: string,
+    maxLen = 25,
+    temperature = 0.9,
+    topP = 0.9
+  ): Promise<string> {
     const seedToks = (this as any).tokenize(seedText).map((t: string) => (this as any).toIndex(t));
     const bosIdx = (this as any).toIndex((this as any).bos);
     const contextSize = (this as any).contextSize;
@@ -458,7 +463,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
 
     while (out.length < maxLen) {
       const window = ctx.slice(-contextSize);
-      const { logits } = (this as any).forward(window, false);
+      const { logits } = await (this as any).forward(window, false);
       const probs = stableSoftmax(logits, temperature);
 
       const idx = nucleusSampling(probs, topP, () => rng.next());
@@ -562,7 +567,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   /**
    * Calculate perplexity on test text
    */
-  calculatePerplexity(text: string): number {
+  async calculatePerplexity(text: string): Promise<number> {
     // Check if text is empty or contains no tokens
     const tokens = (this as any).tokenize(text);
     if (tokens.length === 0) return Infinity;
@@ -573,7 +578,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
     let totalLogProb = 0;
 
     for (const [ctx, tgt] of seqs) {
-      const { logits } = (this as any).forward(ctx, false);
+      const { logits } = await (this as any).forward(ctx, false);
       const logProbs = logSoftmax(logits);
       totalLogProb += logProbs[tgt];
     }

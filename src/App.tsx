@@ -18,6 +18,7 @@ import {
 
 import { StorageManager } from './lib/storage';
 import { buildVocab, parseTokenizerConfig, downloadBlob } from './lib/utils';
+import type { GPUNeuralOps } from './backend/gpu_neural_ops';
 import {
   STORAGE_KEYS,
   DEFAULT_TRAINING_TEXT,
@@ -175,7 +176,7 @@ export default function NeuroLinguaDomesticaV324() {
   const modelRef = useRef<ProNeuralLM | null>(null);
   const trainingRef = useRef({ running: false, currentEpoch: 0 });
   const abortControllerRef = useRef<AbortController | null>(null);
-  const gpuOpsRef = useRef<any>(null);
+  const gpuOpsRef = useRef<GPUNeuralOps | null>(null);
 
   // Helper to add system messages
   const addSystemMessage = useCallback((content: string) => {

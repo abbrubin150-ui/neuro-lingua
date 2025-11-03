@@ -445,7 +445,12 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   /**
    * Generate text using nucleus sampling (improved version)
    */
-  async generateNucleus(seedText: string, maxLen = 25, temperature = 0.9, topP = 0.9): Promise<string> {
+  async generateNucleus(
+    seedText: string,
+    maxLen = 25,
+    temperature = 0.9,
+    topP = 0.9
+  ): Promise<string> {
     const seedToks = (this as any).tokenize(seedText).map((t: string) => (this as any).toIndex(t));
     const bosIdx = (this as any).toIndex((this as any).bos);
     const contextSize = (this as any).contextSize;

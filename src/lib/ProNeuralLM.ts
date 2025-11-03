@@ -686,7 +686,13 @@ export class ProNeuralLM {
     });
   }
 
-  async generate(seedText: string, maxLen = 25, temperature = 0.9, topK = 0, topP = 0): Promise<string> {
+  async generate(
+    seedText: string,
+    maxLen = 25,
+    temperature = 0.9,
+    topK = 0,
+    topP = 0
+  ): Promise<string> {
     const seedToks = this.tokenize(seedText).map((t) => this.toIndex(t));
     const ctx: number[] = new Array(this.contextSize).fill(this.toIndex(this.bos));
     for (const t of seedToks) ctx.push(t);

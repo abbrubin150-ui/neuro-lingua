@@ -50,7 +50,9 @@ export function OnboardingCard({ show, onDismiss, strings, direction }: Onboardi
         direction
       }}
     >
-      <div style={{ fontWeight: 700, fontSize: '1.05rem', color: '#60a5fa' }}>{strings.welcomeTitle}</div>
+      <div style={{ fontWeight: 700, fontSize: '1.05rem', color: '#60a5fa' }}>
+        {strings.welcomeTitle}
+      </div>
 
       <div
         style={{
@@ -97,9 +99,7 @@ export function OnboardingCard({ show, onDismiss, strings, direction }: Onboardi
         >
           {strings.gotIt}
         </button>
-        <div style={{ fontSize: 12, color: '#94a3b8' }}>
-          {strings.reopenInfo}
-        </div>
+        <div style={{ fontSize: 12, color: '#94a3b8' }}>{strings.reopenInfo}</div>
       </div>
     </div>
   );

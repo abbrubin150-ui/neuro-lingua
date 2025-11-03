@@ -110,8 +110,7 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
       textareaAria: 'Training corpus',
       characters: 'Characters',
       words: 'Words',
-      tip:
-        '💡 Tip: Start with the example corpus, then paste your own dataset to compare results.',
+      tip: '💡 Tip: Start with the example corpus, then paste your own dataset to compare results.',
       example: '📚 Example',
       exampleAria: 'Load example corpus'
     },
@@ -143,8 +142,7 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
       placeholderReady: 'Type a message for the model…',
       placeholderEmpty: 'Train the model first…',
       generate: '✨ Generate',
-      tip:
-        '💡 Press Shift+Enter to add a new line. Responses reflect the active sampling mode and temperature.',
+      tip: '💡 Press Shift+Enter to add a new line. Responses reflect the active sampling mode and temperature.',
       userLabel: '👤 You',
       assistantLabel: '🤖 Model',
       systemLabel: '⚙️ System',
@@ -181,8 +179,7 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
       textareaAria: 'קורפוס אימון',
       characters: 'תווים',
       words: 'מילים',
-      tip:
-        '💡 טיפ: התחילו בקורפוס הדוגמה ואז הדביקו את הדאטהסט שלכם להשוואת תוצאות.',
+      tip: '💡 טיפ: התחילו בקורפוס הדוגמה ואז הדביקו את הדאטהסט שלכם להשוואת תוצאות.',
       example: '📚 דוגמה',
       exampleAria: 'טען קורפוס דוגמה'
     },
@@ -214,8 +211,7 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
       placeholderReady: 'כתבו הודעה למודל…',
       placeholderEmpty: 'אימנו את המודל תחילה…',
       generate: '✨ הפקה',
-      tip:
-        '💡 Shift+Enter מוסיף שורה חדשה. התגובות תלויות במצב הדגימה ובטמפרטורה הנבחרת.',
+      tip: '💡 Shift+Enter מוסיף שורה חדשה. התגובות תלויות במצב הדגימה ובטמפרטורה הנבחרת.',
       userLabel: '👤 אתם',
       assistantLabel: '🤖 המודל',
       systemLabel: '⚙️ מערכת',
@@ -1134,7 +1130,9 @@ export default function NeuroLinguaDomesticaV324() {
                 direction
               }}
             >
-              <h3 style={{ color: '#a78bfa', marginTop: 0, marginBottom: 16 }}>{t.training.heading}</h3>
+              <h3 style={{ color: '#a78bfa', marginTop: 0, marginBottom: 16 }}>
+                {t.training.heading}
+              </h3>
               <textarea
                 value={trainingText}
                 onChange={(e) => setTrainingText(e.target.value)}
@@ -1167,8 +1165,7 @@ export default function NeuroLinguaDomesticaV324() {
                   {t.training.characters}: {trainingText.length}
                 </span>
                 <span>
-                  {t.training.words}:{' '}
-                  {trainingText.split(/\s+/).filter((w) => w.length > 0).length}
+                  {t.training.words}: {trainingText.split(/\s+/).filter((w) => w.length > 0).length}
                 </span>
               </div>
               <div style={{ fontSize: 12, color: '#cbd5f5', marginTop: 8 }}>{t.training.tip}</div>

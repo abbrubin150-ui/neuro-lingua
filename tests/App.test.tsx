@@ -3,7 +3,7 @@ import React from 'react';
 import { describe, expect, it, beforeEach } from 'vitest';
 
 import App from '../src/App';
-import { STORAGE_KEYS } from '../src/config/constants';
+import { DEFAULT_TRAINING_TEXT, STORAGE_KEYS } from '../src/config/constants';
 
 const UI_SETTINGS_KEY = STORAGE_KEYS.UI_SETTINGS;
 const TOKENIZER_STORAGE_KEY = STORAGE_KEYS.TOKENIZER_CONFIG;
@@ -38,8 +38,11 @@ describe('Neuro-Lingua App UI', () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText('Hidden size')).toHaveValue(96);
-      expect(screen.getByLabelText('Training corpus')).toHaveValue('Saved corpus sample');
+      expect(screen.getByLabelText('Training corpus')).toHaveValue(DEFAULT_TRAINING_TEXT);
       expect(screen.getByLabelText('Tokenizer mode')).toHaveValue('ascii');
+      const stored = localStorage.getItem(UI_SETTINGS_KEY);
+      expect(stored).toBeTruthy();
+      expect(JSON.parse(stored!).trainingText).toBeUndefined();
     });
   });
 
@@ -56,7 +59,7 @@ describe('Neuro-Lingua App UI', () => {
       expect(raw).toBeTruthy();
       const parsed = JSON.parse(raw!);
       expect(parsed.hiddenSize).toBe(72);
-      expect(parsed.trainingText).toContain('Hello persistent world');
+      expect(parsed.trainingText).toBeUndefined();
     });
   });
 

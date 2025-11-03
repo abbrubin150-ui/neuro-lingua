@@ -505,7 +505,7 @@ export function TrainingPanel(props: TrainingPanelProps) {
             style={{
               fontSize: 11,
               color: '#94a3b8',
-              marginLeft: 24,
+              marginInlineStart: 24,
               marginTop: 4
             }}
           >
@@ -930,7 +930,7 @@ export function TrainingPanel(props: TrainingPanelProps) {
           />{' '}
           Resume training when possible
         </label>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ marginInlineStart: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             onClick={props.onTrain}
             disabled={props.isTraining}

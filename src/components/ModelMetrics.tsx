@@ -2,6 +2,7 @@ import React from 'react';
 import { formatTimestamp, createTrainingHistoryCsv, downloadBlob } from '../lib/utils';
 import { EXPORT_FILENAMES } from '../config/constants';
 import type { GPUMetrics } from '../backend/gpu_neural_ops';
+import type { EdgeMetrics } from '../diagnostics/edge_learning';
 
 interface ModelMetricsProps {
   stats: { loss: number; acc: number; ppl: number; lossEMA: number; tokensPerSec: number };
@@ -9,6 +10,7 @@ interface ModelMetricsProps {
   lastModelUpdate: { timestamp: number; vocab: number } | null;
   trainingHistory: { loss: number; accuracy: number; timestamp: number }[];
   gpuMetrics?: GPUMetrics | null;
+  edgeMetrics?: EdgeMetrics | null;
   onMessage: (message: string) => void;
 }
 
@@ -179,6 +181,91 @@ function GPUMetricsPanel({ metrics }: { metrics: GPUMetrics }) {
 }
 
 /**
+ * EdgeMetricsPanel displays edge-of-efficiency diagnostics
+ */
+function EdgeMetricsPanel({ metrics }: { metrics: EdgeMetrics }) {
+  return (
+    <div
+      style={{
+        background: 'rgba(168, 85, 247, 0.1)',
+        border: '1px solid rgba(168, 85, 247, 0.3)',
+        borderRadius: 12,
+        padding: 16,
+        marginTop: 16
+      }}
+    >
+      <h4
+        style={{
+          color: '#a78bfa',
+          margin: '0 0 12px 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8
+        }}
+      >
+        🔬 Edge Learning Diagnostics
+        {metrics.onEdge ? (
+          <span
+            style={{
+              fontSize: 11,
+              padding: '2px 8px',
+              background: '#10b981',
+              borderRadius: 12,
+              color: 'white'
+            }}
+          >
+            ON EDGE
+          </span>
+        ) : (
+          <span
+            style={{
+              fontSize: 11,
+              padding: '2px 8px',
+              background: '#f59e0b',
+              borderRadius: 12,
+              color: 'white'
+            }}
+          >
+            SUB-OPTIMAL
+          </span>
+        )}
+      </h4>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Fisher Information</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#a78bfa' }}>
+            {metrics.fisherInformation.toExponential(2)}
+          </div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Efficiency</div>
+          <div
+            style={{
+              fontSize: 20,
+              fontWeight: 700,
+              color: metrics.efficiency >= 0.95 ? '#10b981' : '#f59e0b'
+            }}
+          >
+            {metrics.efficiency.toFixed(3)}
+          </div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Edge Score</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#c084fc' }}>
+            {metrics.edgeScore.toFixed(3)}
+          </div>
+        </div>
+      </div>
+      <div style={{ marginTop: 12, fontSize: 11, color: '#cbd5e1', textAlign: 'center' }}>
+        {metrics.onEdge
+          ? '✨ Model is near-optimal given the training data'
+          : `💡 Estimated ${metrics.sampleComplexity.toLocaleString()} samples for optimal efficiency`}
+      </div>
+    </div>
+  );
+}
+
+/**
  * ModelMetrics displays training statistics, model info, and training history chart
  */
 export function ModelMetrics({
@@ -187,6 +274,7 @@ export function ModelMetrics({
   lastModelUpdate,
   trainingHistory,
   gpuMetrics,
+  edgeMetrics,
   onMessage
 }: ModelMetricsProps) {
   const handleDownloadCsv = () => {
@@ -259,6 +347,7 @@ export function ModelMetrics({
       </div>
       <TrainingChart history={trainingHistory} />
       {gpuMetrics && gpuMetrics.available && <GPUMetricsPanel metrics={gpuMetrics} />}
+      {edgeMetrics && <EdgeMetricsPanel metrics={edgeMetrics} />}
       <button
         onClick={handleDownloadCsv}
         style={{

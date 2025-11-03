@@ -18,6 +18,7 @@ import {
 
 import { StorageManager } from './lib/storage';
 import { buildVocab, parseTokenizerConfig, downloadBlob } from './lib/utils';
+import { computeEdgeDiagnostics } from './diagnostics/edge_learning';
 import {
   STORAGE_KEYS,
   DEFAULT_TRAINING_TEXT,
@@ -161,6 +162,16 @@ export default function NeuroLinguaDomesticaV324() {
     totalTimeMs: number;
     averageTimeMs: number;
     deviceInfo?: string;
+  } | null>(null);
+
+  // Edge learning diagnostics
+  const [edgeMetrics, setEdgeMetrics] = useState<{
+    fisherInformation: number;
+    cramérRaoBound: number;
+    efficiency: number;
+    onEdge: boolean;
+    edgeScore: number;
+    sampleComplexity: number;
   } | null>(null);
 
   // Tokenizer
@@ -639,9 +650,36 @@ export default function NeuroLinguaDomesticaV324() {
     if (trainingRef.current.running) {
       setInfo({ V: modelRef.current!.getVocabSize(), P: modelRef.current!.getParametersCount() });
       applyModelMeta(modelRef.current!);
-      addSystemMessage(
-        `✅ Training complete! Average accuracy: ${((aggAcc / total) * 100).toFixed(1)}%`
-      );
+
+      // Compute edge learning diagnostics
+      try {
+        const edgeDiagnostics = computeEdgeDiagnostics({
+          loss: aggLoss / total,
+          accuracy: aggAcc / total,
+          perplexity: Math.exp(Math.max(1e-8, aggLoss / total)),
+          vocabSize: modelRef.current!.getVocabSize(),
+          paramCount: modelRef.current!.getParametersCount(),
+          trainingSize: tokens.length,
+          trainingHistory: modelRef.current!.getTrainingHistory()
+        });
+        setEdgeMetrics(edgeDiagnostics);
+
+        if (edgeDiagnostics.onEdge) {
+          addSystemMessage(
+            `✅ Training complete! Average accuracy: ${((aggAcc / total) * 100).toFixed(1)}% | ✨ Model is on the edge of efficiency!`
+          );
+        } else {
+          addSystemMessage(
+            `✅ Training complete! Average accuracy: ${((aggAcc / total) * 100).toFixed(1)}%`
+          );
+        }
+      } catch (error) {
+        console.warn('Failed to compute edge diagnostics:', error);
+        addSystemMessage(
+          `✅ Training complete! Average accuracy: ${((aggAcc / total) * 100).toFixed(1)}%`
+        );
+      }
+
       modelRef.current!.saveToLocalStorage(MODEL_STORAGE_KEY);
     }
 
@@ -888,6 +926,7 @@ export default function NeuroLinguaDomesticaV324() {
               lastModelUpdate={lastModelUpdate}
               trainingHistory={trainingHistory}
               gpuMetrics={gpuMetrics}
+              edgeMetrics={edgeMetrics}
               onMessage={addSystemMessage}
             />
           </div>

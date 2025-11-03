@@ -83,35 +83,35 @@ describe('ProNeuralLM persistence', () => {
     storage.clear();
   });
 
-  it('restores optimizer and model state deterministically', () => {
+  it('restores optimizer and model state deterministically', async () => {
     const vocab = ['<BOS>', '<EOS>', '<UNK>', 'hello', 'world'];
     const text = 'hello world';
     const key = 'test-pro-neural-lm';
 
     const original = new ProNeuralLM(vocab, 8, 0.05, 2, 'adam', 0.9, 0, 42);
-    original.train(text, 1);
+    await original.train(text, 1);
     original.saveToLocalStorage(key);
 
     const resumed = ProNeuralLM.loadFromLocalStorage(key);
     expect(resumed).toBeTruthy();
 
     const seqs: [number[], number][] = (original as any).createTrainingSequences(text);
-    const step = (model: ProNeuralLM) => {
+    const step = async (model: ProNeuralLM) => {
       for (const [ctx, tgt] of seqs) {
-        const cache = (model as any).forward(ctx, true);
-        (model as any).backward(ctx, tgt, cache);
+        const cache = await (model as any).forward(ctx, true);
+        await (model as any).backward(ctx, tgt, cache);
       }
     };
 
-    step(original);
-    step(resumed!);
+    await step(original);
+    await step(resumed!);
 
     modelStateClose(original, resumed!);
     optimizerStateClose(original, resumed!);
     expect((resumed as any).adamT).toEqual((original as any).adamT);
   });
 
-  it('restores RNG state and dropout masks', () => {
+  it('restores RNG state and dropout masks', async () => {
     const vocab = ['<BOS>', '<EOS>', '<UNK>', 'foo', 'bar'];
     const text = 'foo bar foo';
     const key = 'test-pro-neural-lm-rng';
@@ -122,7 +122,7 @@ describe('ProNeuralLM persistence', () => {
     const seqs: [number[], number][] = (original as any).createTrainingSequences(text);
     expect(seqs.length).toBeGreaterThanOrEqual(2);
 
-    (original as any).forward(seqs[0][0], true);
+    await (original as any).forward(seqs[0][0], true);
     original.saveToLocalStorage(key);
 
     const raw = storage.get(key);
@@ -136,15 +136,15 @@ describe('ProNeuralLM persistence', () => {
     expect((resumed as any).rngSeed).toEqual((original as any).rngSeed);
     expect((resumed as any).rngState).toEqual((original as any).rngState);
 
-    const originalCache = (original as any).forward(seqs[1][0], true);
-    const resumedCache = (resumed as any).forward(seqs[1][0], true);
+    const originalCache = await (original as any).forward(seqs[1][0], true);
+    const resumedCache = await (resumed as any).forward(seqs[1][0], true);
 
     expect(originalCache.dropMask).toBeTruthy();
     expect(resumedCache.dropMask).toBeTruthy();
     vectorsClose(originalCache.dropMask!, resumedCache.dropMask!);
   });
 
-  it('persists tokenizer configuration and metadata', () => {
+  it('persists tokenizer configuration and metadata', async () => {
     const vocab = ['<BOS>', '<EOS>', '<UNK>', 'alpha', 'βeta'];
     const key = 'test-tokenizer-config';
     const customPattern = '[^\\p{L}\\d]+';
@@ -153,7 +153,7 @@ describe('ProNeuralLM persistence', () => {
       mode: 'custom',
       pattern: customPattern
     });
-    model.train('alpha βeta alpha', 1);
+    await model.train('alpha βeta alpha', 1);
     model.saveToLocalStorage(key);
 
     const resumed = ProNeuralLM.loadFromLocalStorage(key);

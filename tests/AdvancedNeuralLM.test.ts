@@ -98,7 +98,7 @@ describe('AdvancedNeuralLM', () => {
 
       const lrHistory: number[] = [];
 
-      model.trainAdvanced('hello world neural network', 10, {
+      await model.trainAdvanced('hello world neural network', 10, {
         onEpochEnd: (epoch, metrics) => {
           lrHistory.push(metrics.lr);
         }
@@ -135,7 +135,7 @@ describe('AdvancedNeuralLM', () => {
           lrSchedule: 'constant'
         }
       );
-      model1.trainAdvanced(text, 20);
+      await model1.trainAdvanced(text, 20);
 
       // Train with regularization
       const model2 = new AdvancedNeuralLM(
@@ -153,7 +153,7 @@ describe('AdvancedNeuralLM', () => {
           lrSchedule: 'constant'
         }
       );
-      model2.trainAdvanced(text, 20);
+      await model2.trainAdvanced(text, 20);
 
       // Model with regularization should have smaller weight norms
       const weights1 = (model1 as any).wHidden;
@@ -171,7 +171,7 @@ describe('AdvancedNeuralLM', () => {
       let callbackCount = 0;
       const metrics: any[] = [];
 
-      model.trainAdvanced('hello world neural', 5, {
+      await model.trainAdvanced('hello world neural', 5, {
         onEpochEnd: (epoch, metric) => {
           callbackCount++;
           metrics.push(metric);
@@ -275,7 +275,7 @@ describe('AdvancedNeuralLM', () => {
       const trainText = 'hello world neural network';
       await model.train(trainText, 30);
 
-      const perplexity = model.calculatePerplexity('hello world');
+      const perplexity = await model.calculatePerplexity('hello world');
 
       expect(typeof perplexity).toBe('number');
       expect(perplexity).toBeGreaterThan(0);
@@ -286,9 +286,9 @@ describe('AdvancedNeuralLM', () => {
       const model = new AdvancedNeuralLM(vocab, hiddenSize, 0.1, contextSize);
       const text = 'hello world neural network hello world';
 
-      const ppl0 = model.calculatePerplexity(text);
+      const ppl0 = await model.calculatePerplexity(text);
       await model.train(text, 20);
-      const ppl20 = model.calculatePerplexity(text);
+      const ppl20 = await model.calculatePerplexity(text);
 
       // Perplexity should decrease with training (first 20 epochs should show improvement)
       expect(ppl20).toBeLessThan(ppl0);
@@ -302,11 +302,11 @@ describe('AdvancedNeuralLM', () => {
       const model = new AdvancedNeuralLM(vocab, hiddenSize, 0.1, contextSize);
 
       // Empty text should return Infinity
-      const pplEmpty = model.calculatePerplexity('');
+      const pplEmpty = await model.calculatePerplexity('');
       expect(pplEmpty).toBe(Infinity);
 
       // Very short text (shorter than context) may have special handling
-      const pplShort = model.calculatePerplexity('a');
+      const pplShort = await model.calculatePerplexity('a');
       expect(isFinite(pplShort)).toBe(true);
       expect(pplShort).toBeGreaterThan(0);
     });
@@ -411,7 +411,7 @@ describe('AdvancedNeuralLM', () => {
         { activation: 'leaky_relu' }
       );
 
-      const result = model.trainAdvanced('hello world neural network', 10);
+      const result = await model.trainAdvanced('hello world neural network', 10);
 
       expect(result.loss).toBeGreaterThan(0);
       expect(result.accuracy).toBeGreaterThanOrEqual(0);
@@ -432,7 +432,7 @@ describe('AdvancedNeuralLM', () => {
         { activation: 'elu' }
       );
 
-      const result = model.trainAdvanced('hello world neural network', 10);
+      const result = await model.trainAdvanced('hello world neural network', 10);
 
       expect(result.loss).toBeGreaterThan(0);
       expect(result.accuracy).toBeGreaterThanOrEqual(0);
@@ -452,7 +452,7 @@ describe('AdvancedNeuralLM', () => {
         { activation: 'gelu' }
       );
 
-      const result = model.trainAdvanced('hello world neural network', 10);
+      const result = await model.trainAdvanced('hello world neural network', 10);
 
       expect(result.loss).toBeGreaterThan(0);
       expect(result.accuracy).toBeGreaterThanOrEqual(0);
@@ -475,7 +475,7 @@ describe('AdvancedNeuralLM', () => {
       );
 
       const lrs: number[] = [];
-      model.trainAdvanced('hello world', 5, {
+      await model.trainAdvanced('hello world', 5, {
         onEpochEnd: (_, metrics) => lrs.push(metrics.lr)
       });
 
@@ -498,7 +498,7 @@ describe('AdvancedNeuralLM', () => {
       );
 
       const lrs: number[] = [];
-      model.trainAdvanced('hello world', 5, {
+      await model.trainAdvanced('hello world', 5, {
         onEpochEnd: (_, metrics) => lrs.push(metrics.lr)
       });
 
@@ -526,7 +526,7 @@ describe('AdvancedNeuralLM', () => {
       );
 
       const lrs: number[] = [];
-      model.trainAdvanced('hello world', 10, {
+      await model.trainAdvanced('hello world', 10, {
         onEpochEnd: (_, metrics) => lrs.push(metrics.lr)
       });
 

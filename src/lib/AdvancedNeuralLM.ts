@@ -311,13 +311,13 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   /**
    * Enhanced training with advanced features
    */
-  trainAdvanced(
+  async trainAdvanced(
     text: string,
     epochs = 10,
     callbacks?: {
       onEpochEnd?: (epoch: number, metrics: { loss: number; accuracy: number; lr: number }) => void;
     }
-  ): { loss: number; accuracy: number; history: any[] } {
+  ): Promise<{ loss: number; accuracy: number; history: any[] }> {
     this.totalEpochs = epochs;
     const seqs = (this as any).createTrainingSequences(text);
 
@@ -344,7 +344,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
 
       for (const [ctx, tgt] of seqs) {
         // Forward pass (use parent's forward with modifications)
-        const cache = (this as any).forward(ctx, true);
+        const cache = await (this as any).forward(ctx, true);
 
         // Apply advanced activation if needed (stored in cache)
         // Note: For full integration, we'd override forward() method
@@ -364,7 +364,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
         count++;
 
         // Backward pass with regularization
-        (this as any).backward(ctx, tgt, { ...cache, probs });
+        await (this as any).backward(ctx, tgt, { ...cache, probs });
 
         // Apply L2 regularization
         if (this.advancedConfig.weightDecay > 0) {
@@ -567,7 +567,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   /**
    * Calculate perplexity on test text
    */
-  calculatePerplexity(text: string): number {
+  async calculatePerplexity(text: string): Promise<number> {
     // Check if text is empty or contains no tokens
     const tokens = (this as any).tokenize(text);
     if (tokens.length === 0) return Infinity;
@@ -578,7 +578,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
     let totalLogProb = 0;
 
     for (const [ctx, tgt] of seqs) {
-      const { logits } = (this as any).forward(ctx, false);
+      const { logits } = await (this as any).forward(ctx, false);
       const logProbs = logSoftmax(logits);
       totalLogProb += logProbs[tgt];
     }

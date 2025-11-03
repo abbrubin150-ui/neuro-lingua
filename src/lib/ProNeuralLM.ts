@@ -11,6 +11,7 @@ import {
 } from '../training/optimizer';
 import { stableSoftmax } from './MathUtils';
 import { sampleFromLogits as drawToken } from '../generation/sampling';
+import { GPUNeuralOps } from '../backend/gpu_neural_ops';
 
 export type Optimizer = 'momentum' | 'adam' | 'newton' | 'bfgs';
 export type TokenizerMode = 'unicode' | 'ascii' | 'custom';
@@ -127,6 +128,8 @@ export class ProNeuralLM {
   private eos = '<EOS>';
   private unk = '<UNK>';
 
+  private gpuOps: GPUNeuralOps | null = null;
+
   constructor(
     vocab: string[],
     hiddenSize = 64,
@@ -219,6 +222,20 @@ export class ProNeuralLM {
     return last?.timestamp ?? null;
   }
 
+  /**
+   * Set GPU operations handler for hardware acceleration
+   */
+  setGPUOps(gpuOps: GPUNeuralOps | null) {
+    this.gpuOps = gpuOps;
+  }
+
+  /**
+   * Check if GPU acceleration is enabled and available
+   */
+  isGPUEnabled(): boolean {
+    return this.gpuOps !== null && this.gpuOps.isEnabled();
+  }
+
   private nextRandom() {
     const value = this.rng.next();
     this.rngState = this.rng.getState();
@@ -287,7 +304,18 @@ export class ProNeuralLM {
     return Math.max(0, x);
   }
 
-  private matrixVectorMul(A: number[][], x: number[]): number[] {
+  private async matrixVectorMul(A: number[][], x: number[]): Promise<number[]> {
+    // Use GPU if available and enabled
+    if (this.gpuOps && this.gpuOps.isEnabled()) {
+      try {
+        return await this.gpuOps.matrixVectorMul(A, x);
+      } catch (error) {
+        console.warn('GPU matrixVectorMul failed, falling back to CPU:', error);
+        // Fall through to CPU implementation
+      }
+    }
+
+    // CPU implementation
     const y = new Array(A.length).fill(0);
     for (let i = 0; i < A.length; i++) {
       let s = 0;
@@ -298,7 +326,18 @@ export class ProNeuralLM {
     return y;
   }
 
-  private matrixVectorMulTranspose(A: number[][], x: number[]): number[] {
+  private async matrixVectorMulTranspose(A: number[][], x: number[]): Promise<number[]> {
+    // Use GPU if available and enabled
+    if (this.gpuOps && this.gpuOps.isEnabled()) {
+      try {
+        return await this.gpuOps.matrixVectorMulTranspose(A, x);
+      } catch (error) {
+        console.warn('GPU matrixVectorMulTranspose failed, falling back to CPU:', error);
+        // Fall through to CPU implementation
+      }
+    }
+
+    // CPU implementation
     if (A.length === 0) return [];
     const cols = A[0].length;
     const y = new Array(cols).fill(0);
@@ -319,10 +358,10 @@ export class ProNeuralLM {
     return y;
   }
 
-  private forward(inputs: number[], train = false) {
+  private async forward(inputs: number[], train = false) {
     const emb = this.averageVectors(inputs.map((i) => this.embedding[i]));
 
-    const hPreCore = this.matrixVectorMul(this.wHidden, emb);
+    const hPreCore = await this.matrixVectorMul(this.wHidden, emb);
     const preAct = hPreCore.map((v, i) => v + this.bHidden[i]);
     let h = preAct.map((v) => this.relu(v));
 
@@ -335,7 +374,7 @@ export class ProNeuralLM {
       h = h.map((v, i) => v * dropMask![i]);
     }
 
-    const logits = this.matrixVectorMulTranspose(this.wOutput, h).map(
+    const logits = (await this.matrixVectorMulTranspose(this.wOutput, h)).map(
       (v, i) => v + this.bOutput[i]
     );
     const probs = stableSoftmax(logits);
@@ -434,7 +473,7 @@ export class ProNeuralLM {
     }
   }
 
-  private backward(
+  private async backward(
     inputs: number[],
     target: number,
     cache: {
@@ -599,7 +638,7 @@ export class ProNeuralLM {
     }
   }
 
-  train(text: string, epochs = 10) {
+  async train(text: string, epochs = 10) {
     const seqs = this.createTrainingSequences(text);
     if (seqs.length === 0) return { loss: 0, accuracy: 0, history: this.trainingHistory };
 
@@ -612,7 +651,7 @@ export class ProNeuralLM {
       let epochLoss = 0;
       let epochCorrect = 0;
       for (const [ctx, tgt] of seqs) {
-        const cache = this.forward(ctx, true);
+        const cache = await this.forward(ctx, true);
         const loss = -Math.log(cache.probs[tgt] + 1e-8);
         epochLoss += loss;
         totalLoss += loss;
@@ -622,7 +661,7 @@ export class ProNeuralLM {
           correct++;
         }
         count++;
-        this.backward(ctx, tgt, cache);
+        await this.backward(ctx, tgt, cache);
       }
       const avgLoss = epochLoss / seqs.length;
       const accuracy = epochCorrect / seqs.length;
@@ -647,7 +686,7 @@ export class ProNeuralLM {
     });
   }
 
-  generate(seedText: string, maxLen = 25, temperature = 0.9, topK = 0, topP = 0): string {
+  async generate(seedText: string, maxLen = 25, temperature = 0.9, topK = 0, topP = 0): Promise<string> {
     const seedToks = this.tokenize(seedText).map((t) => this.toIndex(t));
     const ctx: number[] = new Array(this.contextSize).fill(this.toIndex(this.bos));
     for (const t of seedToks) ctx.push(t);
@@ -655,7 +694,7 @@ export class ProNeuralLM {
     const out: string[] = [];
     while (out.length < maxLen) {
       const window = ctx.slice(-this.contextSize);
-      const { logits } = this.forward(window, false);
+      const { logits } = await this.forward(window, false);
       const idx = this.sampleFromLogits(logits, temperature, topK, topP);
       const tok = this.idxToWord.get(idx)!;
       if (tok === this.eos) break;

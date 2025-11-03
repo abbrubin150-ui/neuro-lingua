@@ -396,12 +396,12 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   /**
    * Generate text using beam search
    */
-  generateBeamSearch(
+  async generateBeamSearch(
     seedText: string,
     maxLen = 25,
     beamWidth?: number,
     temperature = 0.9
-  ): { text: string; score: number; tokens: number[] } {
+  ): Promise<{ text: string; score: number; tokens: number[] }> {
     const width = beamWidth || this.advancedConfig.beamWidth;
 
     // Tokenize seed text
@@ -418,14 +418,14 @@ export class AdvancedNeuralLM extends ProNeuralLM {
     }
 
     // Forward function for beam search
-    const forwardFn = (context: number[]) => {
+    const forwardFn = async (context: number[]) => {
       const window = context.slice(-contextSize);
-      const { logits } = (this as any).forward(window, false);
+      const { logits } = await (this as any).forward(window, false);
       return stableSoftmax(logits, temperature);
     };
 
     // Perform beam search
-    const result = beamSearch(initialContext, width, maxLen, forwardFn, eosIdx);
+    const result = await beamSearch(initialContext, width, maxLen, forwardFn, eosIdx);
 
     // Convert tokens to text
     const outputTokens = result.tokens.slice(initialContext.length);
@@ -445,7 +445,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   /**
    * Generate text using nucleus sampling (improved version)
    */
-  generateNucleus(seedText: string, maxLen = 25, temperature = 0.9, topP = 0.9): string {
+  async generateNucleus(seedText: string, maxLen = 25, temperature = 0.9, topP = 0.9): Promise<string> {
     const seedToks = (this as any).tokenize(seedText).map((t: string) => (this as any).toIndex(t));
     const bosIdx = (this as any).toIndex((this as any).bos);
     const contextSize = (this as any).contextSize;
@@ -458,7 +458,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
 
     while (out.length < maxLen) {
       const window = ctx.slice(-contextSize);
-      const { logits } = (this as any).forward(window, false);
+      const { logits } = await (this as any).forward(window, false);
       const probs = stableSoftmax(logits, temperature);
 
       const idx = nucleusSampling(probs, topP, () => rng.next());

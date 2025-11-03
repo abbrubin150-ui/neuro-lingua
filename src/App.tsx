@@ -175,6 +175,7 @@ export default function NeuroLinguaDomesticaV324() {
   const modelRef = useRef<ProNeuralLM | null>(null);
   const trainingRef = useRef({ running: false, currentEpoch: 0 });
   const abortControllerRef = useRef<AbortController | null>(null);
+  const gpuOpsRef = useRef<any>(null);
 
   // Helper to add system messages
   const addSystemMessage = useCallback((content: string) => {
@@ -209,16 +210,16 @@ export default function NeuroLinguaDomesticaV324() {
     }
   }, []);
 
-  function runSelfTests() {
+  async function runSelfTests() {
     try {
       const vocab = ['<PAD>', '<BOS>', '<EOS>', '<UNK>', 'hello', 'world'];
       const m = new ProNeuralLM(vocab, 16, 0.05, 3, 'momentum', 0.9, 0, 1234);
-      const res = m.train('hello world hello', 1);
+      const res = await m.train('hello world hello', 1);
       console.assert(
         res.loss > 0 && res.accuracy >= 0 && res.accuracy <= 1,
         '[SelfTest] train metrics valid'
       );
-      const out = m.generate('hello', 5, 0.9, 0, 0.9);
+      const out = await m.generate('hello', 5, 0.9, 0, 0.9);
       console.assert(
         typeof out === 'string' && out.length <= 5 * 10,
         '[SelfTest] generate output (bounded)'
@@ -226,13 +227,13 @@ export default function NeuroLinguaDomesticaV324() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const m2: any = new ProNeuralLM(vocab, 8, 0.05, 3, 'momentum', 0.9, 0.3, 42);
-      const fTrain = m2.forward([1, 1, 1], true);
-      const fEval = m2.forward([1, 1, 1], false);
+      const fTrain = await m2.forward([1, 1, 1], true);
+      const fEval = await m2.forward([1, 1, 1], false);
       console.assert(!!fTrain.dropMask && !fEval.dropMask, '[SelfTest] dropout train vs eval');
 
       const m3 = new ProNeuralLM(vocab, 8, 0.05, 3, 'adam', 0.9, 0.0, 7);
       const hLen0 = m3.getTrainingHistory().length;
-      m3.train('hello world hello', 2);
+      await m3.train('hello world hello', 2);
       const hLen1 = m3.getTrainingHistory().length;
       console.assert(hLen1 === hLen0 + 2, '[SelfTest] history grows per epoch (adam)');
 
@@ -242,14 +243,14 @@ export default function NeuroLinguaDomesticaV324() {
       console.assert(seqs.length > 0, '[SelfTest] sequences exist');
       console.assert(seqs[0][0].length === 5, '[SelfTest] context window = 5');
 
-      const sK = m.generate('hello', 5, 0.9, 2, 0);
-      const sP = m.generate('hello', 5, 0.9, 0, 0.8);
+      const sK = await m.generate('hello', 5, 0.9, 2, 0);
+      const sP = await m.generate('hello', 5, 0.9, 0, 0.8);
       console.assert(typeof sK === 'string' && typeof sP === 'string', '[SelfTest] sampling modes');
 
       const mA = new ProNeuralLM(vocab, 12, 0.05, 3, 'momentum', 0.9, 0.0, 111);
       const mB = new ProNeuralLM(vocab, 12, 0.05, 3, 'momentum', 0.9, 0.0, 111);
-      const gA = mA.generate('hello', 6, 0.7, 0, 0.9);
-      const gB = mB.generate('hello', 6, 0.7, 0, 0.9);
+      const gA = await mA.generate('hello', 6, 0.7, 0, 0.9);
+      const gB = await mB.generate('hello', 6, 0.7, 0, 0.9);
       console.assert(gA === gB, '[SelfTest] deterministic generation with same seed');
 
       const vocab2 = ['<PAD>', '<BOS>', '<EOS>', '<UNK>', 'hello', 'friends'];
@@ -258,7 +259,7 @@ export default function NeuroLinguaDomesticaV324() {
       console.assert(s1 !== s2, '[SelfTest] vocab signature reflects vocab');
 
       const m5 = new ProNeuralLM(vocab, 8, 0.05, 3, 'momentum', 0.9, 0.0, 3);
-      const r5 = m5.train('hello world', 1);
+      const r5 = await m5.train('hello world', 1);
       const ppl = Math.exp(Math.max(1e-8, r5.loss));
       console.assert(!Number.isNaN(ppl), '[SelfTest] perplexity finite');
 
@@ -362,16 +363,33 @@ export default function NeuroLinguaDomesticaV324() {
         if (typeof navigator !== 'undefined' && 'gpu' in navigator) {
           const adapter = await (navigator as Navigator & { gpu: GPU }).gpu.requestAdapter();
           if (adapter) {
-            setGpuAvailable(true);
-            setGpuMetrics({
-              enabled: false,
-              available: true,
-              totalOperations: 0,
-              totalTimeMs: 0,
-              averageTimeMs: 0,
-              deviceInfo: 'WebGPU Device'
-            });
-            console.log('✅ WebGPU is available');
+            // Initialize GPUNeuralOps
+            const { GPUNeuralOps } = await import('./backend/gpu_neural_ops');
+            const ops = new GPUNeuralOps();
+            const initialized = await ops.initialize();
+            if (initialized) {
+              gpuOpsRef.current = ops;
+              setGpuAvailable(true);
+              setGpuMetrics({
+                enabled: false,
+                available: true,
+                totalOperations: 0,
+                totalTimeMs: 0,
+                averageTimeMs: 0,
+                deviceInfo: 'WebGPU Device'
+              });
+              console.log('✅ WebGPU is available and GPUNeuralOps initialized');
+            } else {
+              setGpuAvailable(false);
+              setGpuMetrics({
+                enabled: false,
+                available: false,
+                totalOperations: 0,
+                totalTimeMs: 0,
+                averageTimeMs: 0
+              });
+              console.log('⚠️ GPUNeuralOps initialization failed');
+            }
           } else {
             setGpuAvailable(false);
             setGpuMetrics({
@@ -596,6 +614,14 @@ export default function NeuroLinguaDomesticaV324() {
       addSystemMessage('🔁 Continuing training on the current model…');
     }
 
+    // Set GPU operations if enabled
+    if (useGPU && gpuOpsRef.current) {
+      modelRef.current!.setGPUOps(gpuOpsRef.current);
+      addSystemMessage('⚡ GPU acceleration enabled');
+    } else {
+      modelRef.current!.setGPUOps(null);
+    }
+
     const total = Math.max(1, epochs);
     let aggLoss = 0;
     let aggAcc = 0;
@@ -610,7 +636,7 @@ export default function NeuroLinguaDomesticaV324() {
       trainingRef.current.currentEpoch = e;
 
       const epochStartTime = Date.now();
-      const res = modelRef.current!.train(trainingText, 1);
+      const res = await modelRef.current!.train(trainingText, 1);
       const epochEndTime = Date.now();
 
       aggLoss += res.loss;
@@ -729,7 +755,7 @@ export default function NeuroLinguaDomesticaV324() {
     addSystemMessage('🔄 Model reset. Ready to train again.');
   }
 
-  function onGenerate() {
+  async function onGenerate() {
     if (!modelRef.current || !input.trim()) {
       addSystemMessage('❌ Please train the model first.');
       return;
@@ -739,7 +765,7 @@ export default function NeuroLinguaDomesticaV324() {
     let txt: string;
     if (useBeamSearch && modelRef.current instanceof AdvancedNeuralLM) {
       // Use beam search generation
-      const result = modelRef.current.generateBeamSearch(
+      const result = await modelRef.current.generateBeamSearch(
         input,
         DEFAULT_GENERATION.maxTokens,
         beamWidth,
@@ -750,7 +776,7 @@ export default function NeuroLinguaDomesticaV324() {
       // Use standard generation
       const k = samplingMode === 'topk' ? topK : 0;
       const p = samplingMode === 'topp' ? topP : 0;
-      txt = modelRef.current.generate(input, DEFAULT_GENERATION.maxTokens, temperature, k, p);
+      txt = await modelRef.current.generate(input, DEFAULT_GENERATION.maxTokens, temperature, k, p);
     }
 
     setMessages((m) => [...m, { type: 'assistant', content: txt, timestamp: Date.now() }]);

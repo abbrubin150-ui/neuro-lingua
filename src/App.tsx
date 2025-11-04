@@ -20,6 +20,7 @@ import { StorageManager } from './lib/storage';
 import { buildVocab, parseTokenizerConfig, downloadBlob } from './lib/utils';
 import type { GPUNeuralOps } from './backend/gpu_neural_ops';
 import { TransformerLM } from './lib/TransformerLM';
+import { computeEdgeDiagnostics, type EdgeDiagnostics } from './diagnostics/edge_learning';
 import {
   STORAGE_KEYS,
   DEFAULT_TRAINING_TEXT,
@@ -169,6 +170,9 @@ export default function NeuroLinguaDomesticaV324() {
     averageTimeMs: number;
     deviceInfo?: string;
   } | null>(null);
+
+  // Edge learning diagnostics
+  const [edgeDiagnostics, setEdgeDiagnostics] = useState<EdgeDiagnostics | null>(null);
 
   // Tokenizer
   const [tokenizerConfig, setTokenizerConfig] = useState<TokenizerConfig>(DEFAULT_TOKENIZER_CONFIG);
@@ -689,6 +693,18 @@ export default function NeuroLinguaDomesticaV324() {
       });
       setTrainingHistory(modelRef.current!.getTrainingHistory());
       setProgress(((e + 1) / total) * 100);
+
+      // Compute edge learning diagnostics
+      if (modelRef.current) {
+        const diagnostics = computeEdgeDiagnostics(
+          modelRef.current.getVocabSize(),
+          modelRef.current.getParametersCount(),
+          meanLoss,
+          aggAcc / (e + 1)
+        );
+        setEdgeDiagnostics(diagnostics);
+      }
+
       await new Promise((r) => setTimeout(r, TRAINING_UI_UPDATE_DELAY));
     }
 
@@ -948,6 +964,7 @@ export default function NeuroLinguaDomesticaV324() {
               lastModelUpdate={lastModelUpdate}
               trainingHistory={trainingHistory}
               gpuMetrics={gpuMetrics}
+              edgeDiagnostics={edgeDiagnostics}
               onMessage={addSystemMessage}
             />
           </div>

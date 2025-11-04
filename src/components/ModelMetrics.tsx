@@ -2,6 +2,7 @@ import React from 'react';
 import { formatTimestamp, createTrainingHistoryCsv, downloadBlob } from '../lib/utils';
 import { EXPORT_FILENAMES } from '../config/constants';
 import type { GPUMetrics } from '../backend/gpu_neural_ops';
+import { type EdgeDiagnostics } from '../diagnostics/edge_learning';
 
 interface ModelMetricsProps {
   stats: { loss: number; acc: number; ppl: number; lossEMA: number; tokensPerSec: number };
@@ -9,6 +10,7 @@ interface ModelMetricsProps {
   lastModelUpdate: { timestamp: number; vocab: number } | null;
   trainingHistory: { loss: number; accuracy: number; timestamp: number }[];
   gpuMetrics?: GPUMetrics | null;
+  edgeDiagnostics?: EdgeDiagnostics | null;
   onMessage: (message: string) => void;
 }
 
@@ -90,6 +92,113 @@ function TrainingChart({
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * EdgeDiagnosticsPanel displays edge-of-efficiency learning metrics
+ */
+function EdgeDiagnosticsPanel({ diagnostics }: { diagnostics: EdgeDiagnostics | null }) {
+  if (!diagnostics) {
+    return null;
+  }
+
+  const statusColor = diagnostics.onEdge
+    ? '#10b981'
+    : diagnostics.efficiencyProduct < 0.8
+      ? '#ef4444'
+      : '#f59e0b';
+
+  return (
+    <div
+      style={{
+        background: 'rgba(167, 139, 250, 0.1)',
+        border: '1px solid rgba(167, 139, 250, 0.3)',
+        borderRadius: 12,
+        padding: 16,
+        marginTop: 16
+      }}
+    >
+      <h4
+        style={{
+          color: '#a78bfa',
+          margin: '0 0 12px 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8
+        }}
+      >
+        📊 Edge Learning Diagnostics
+        <span
+          style={{
+            fontSize: 11,
+            padding: '2px 8px',
+            background: statusColor,
+            borderRadius: 12,
+            color: 'white'
+          }}
+        >
+          {diagnostics.onEdge ? 'ON EDGE ✓' : 'OFF EDGE'}
+        </span>
+      </h4>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Efficiency Product</div>
+          <div
+            style={{
+              fontSize: 20,
+              fontWeight: 700,
+              color: diagnostics.onEdge ? '#10b981' : '#f59e0b'
+            }}
+          >
+            {diagnostics.efficiencyProduct.toFixed(3)}
+          </div>
+          <div style={{ fontSize: 10, color: '#64748b' }}>target: 1.000</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Fisher Info</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#a78bfa' }}>
+            {diagnostics.fisherInformation.toFixed(4)}
+          </div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Entropy</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#8b5cf6' }}>
+            {diagnostics.entropy.toFixed(3)}
+          </div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Effective n</div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: '#c084fc' }}>
+            {diagnostics.effectiveSampleSize}
+          </div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Optimal n</div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: '#a78bfa' }}>
+            {diagnostics.optimalSampleSize}
+          </div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Edge Distance</div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: '#9333ea' }}>
+            {diagnostics.edgeDistance.toFixed(3)}
+          </div>
+        </div>
+      </div>
+      <div
+        style={{
+          marginTop: 12,
+          padding: 8,
+          background: 'rgba(0,0,0,0.2)',
+          borderRadius: 6,
+          fontSize: 12,
+          color: '#cbd5e1'
+        }}
+      >
+        💡 {diagnostics.recommendation}
       </div>
     </div>
   );
@@ -187,6 +296,7 @@ export function ModelMetrics({
   lastModelUpdate,
   trainingHistory,
   gpuMetrics,
+  edgeDiagnostics,
   onMessage
 }: ModelMetricsProps) {
   const handleDownloadCsv = () => {
@@ -259,6 +369,7 @@ export function ModelMetrics({
       </div>
       <TrainingChart history={trainingHistory} />
       {gpuMetrics && gpuMetrics.available && <GPUMetricsPanel metrics={gpuMetrics} />}
+      {edgeDiagnostics && <EdgeDiagnosticsPanel diagnostics={edgeDiagnostics} />}
       <button
         onClick={handleDownloadCsv}
         style={{

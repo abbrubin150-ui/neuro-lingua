@@ -454,7 +454,11 @@ export default function NeuroLinguaDomesticaV324() {
   // Load settings on mount
   useEffect(() => {
     const saved = StorageManager.get<Partial<UiSettings>>(STORAGE_KEYS.UI_SETTINGS, {});
-    if (saved.architecture === 'feedforward' || saved.architecture === 'advanced' || saved.architecture === 'transformer') {
+    if (
+      saved.architecture === 'feedforward' ||
+      saved.architecture === 'advanced' ||
+      saved.architecture === 'transformer'
+    ) {
       setArchitecture(saved.architecture);
     }
     if (typeof saved.hiddenSize === 'number') setHiddenSize(saved.hiddenSize);
@@ -812,7 +816,9 @@ export default function NeuroLinguaDomesticaV324() {
           seed,
           tokenizerConfig
         );
-        addSystemMessage(`📊 Starting fresh training with ProNeuralLM (${vocab.length} vocabulary tokens)…`);
+        addSystemMessage(
+          `📊 Starting fresh training with ProNeuralLM (${vocab.length} vocabulary tokens)…`
+        );
       }
     } else {
       modelRef.current!.importTokenizerConfig(tokenizerConfig);

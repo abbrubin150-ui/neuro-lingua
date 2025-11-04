@@ -129,7 +129,8 @@ export function TrainingPanel(props: TrainingPanelProps) {
                 props.architecture === 'feedforward'
                   ? 'linear-gradient(90deg, #7c3aed, #6366f1)'
                   : '#374151',
-              border: props.architecture === 'feedforward' ? '2px solid #a78bfa' : '1px solid #4b5563',
+              border:
+                props.architecture === 'feedforward' ? '2px solid #a78bfa' : '1px solid #4b5563',
               borderRadius: 10,
               color: 'white',
               fontWeight: props.architecture === 'feedforward' ? 700 : 600,
@@ -167,7 +168,8 @@ export function TrainingPanel(props: TrainingPanelProps) {
                 props.architecture === 'transformer'
                   ? 'linear-gradient(90deg, #7c3aed, #6366f1)'
                   : '#374151',
-              border: props.architecture === 'transformer' ? '2px solid #a78bfa' : '1px solid #4b5563',
+              border:
+                props.architecture === 'transformer' ? '2px solid #a78bfa' : '1px solid #4b5563',
               borderRadius: 10,
               color: 'white',
               fontWeight: props.architecture === 'transformer' ? 700 : 600,

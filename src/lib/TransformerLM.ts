@@ -77,7 +77,8 @@ export class TransformerLM extends ProNeuralLM {
    * Initialize transformer layers
    */
   private initializeTransformerLayers(): void {
-    const { numLayers, numHeads, ffHiddenDim, attentionDropout, dropConnectRate } = this.transformerConfig;
+    const { numLayers, numHeads, ffHiddenDim, attentionDropout, dropConnectRate } =
+      this.transformerConfig;
     const modelDim = this.getHiddenSize();
 
     this.transformerLayers = [];
@@ -182,7 +183,7 @@ export class TransformerLM extends ProNeuralLM {
    */
   private async transformerForward(inputEmbeddings: number[][]): Promise<number[][]> {
     // Add position embeddings
-    let hidden = this.addPositionEmbeddings(inputEmbeddings);
+    const hidden = this.addPositionEmbeddings(inputEmbeddings);
 
     // TODO Phase 2: Implement full transformer forward pass with proper attention mechanism
     // For now, the transformer layers are initialized but not used in training
@@ -217,7 +218,10 @@ export class TransformerLM extends ProNeuralLM {
    * Train method - uses base class training for Phase 1
    * (Full transformer training with self-attention backpropagation will be added in Phase 2)
    */
-  async train(text: string, epochs = 1): Promise<{
+  async train(
+    text: string,
+    epochs = 1
+  ): Promise<{
     readonly loss: number;
     readonly accuracy: number;
     readonly history: { loss: number; accuracy: number; timestamp: number }[];

@@ -19,6 +19,7 @@ import {
 import { StorageManager } from './lib/storage';
 import { buildVocab, parseTokenizerConfig, downloadBlob } from './lib/utils';
 import type { GPUNeuralOps } from './backend/gpu_neural_ops';
+import { TransformerLM } from './lib/TransformerLM';
 import {
   STORAGE_KEYS,
   DEFAULT_TRAINING_TEXT,
@@ -56,6 +57,8 @@ type UiSettings = {
   seed: number;
   resume: boolean;
   tokenizerConfig: TokenizerConfig;
+  // Architecture selection
+  architecture: 'feedforward' | 'transformer';
   // Advanced features
   useAdvanced: boolean;
   useGPU: boolean;
@@ -130,6 +133,9 @@ export default function NeuroLinguaDomesticaV324() {
   const [seed, setSeed] = useState(DEFAULT_HYPERPARAMETERS.seed);
   const [resume, setResume] = useState(DEFAULT_HYPERPARAMETERS.resume);
 
+  // Architecture selection
+  const [architecture, setArchitecture] = useState<'feedforward' | 'transformer'>('feedforward');
+
   // Advanced features
   const [useAdvanced, setUseAdvanced] = useState(DEFAULT_ADVANCED_CONFIG.useAdvanced);
   const [activation, setActivation] = useState<ActivationFunction>(
@@ -173,7 +179,7 @@ export default function NeuroLinguaDomesticaV324() {
   const [lastModelUpdate, setLastModelUpdate] = useState<ModelMeta | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(true);
 
-  const modelRef = useRef<ProNeuralLM | null>(null);
+  const modelRef = useRef<ProNeuralLM | TransformerLM | null>(null);
   const trainingRef = useRef({ running: false, currentEpoch: 0 });
   const abortControllerRef = useRef<AbortController | null>(null);
   const gpuOpsRef = useRef<GPUNeuralOps | null>(null);
@@ -306,6 +312,11 @@ export default function NeuroLinguaDomesticaV324() {
       const parsed = parseTokenizerConfig(saved.tokenizerConfig);
       setTokenizerConfig(parsed);
       if (parsed.mode === 'custom') setCustomTokenizerPattern(parsed.pattern ?? '');
+    }
+
+    // Load architecture selection
+    if (saved.architecture === 'feedforward' || saved.architecture === 'transformer') {
+      setArchitecture(saved.architecture);
     }
 
     // Load advanced features
@@ -481,6 +492,7 @@ export default function NeuroLinguaDomesticaV324() {
       seed,
       resume,
       tokenizerConfig,
+      architecture,
       useAdvanced,
       useGPU,
       activation,
@@ -514,6 +526,7 @@ export default function NeuroLinguaDomesticaV324() {
     seed,
     resume,
     tokenizerConfig,
+    architecture,
     useAdvanced,
     useGPU,
     activation,
@@ -594,6 +607,22 @@ export default function NeuroLinguaDomesticaV324() {
         );
         addSystemMessage(
           `🚀 Starting fresh training with AdvancedNeuralLM (${vocab.length} vocabulary tokens)…`
+        );
+      } else if (architecture === 'transformer') {
+        // Use TransformerLM
+        modelRef.current = new TransformerLM(
+          vocab,
+          hiddenSize,
+          lr,
+          clamp(contextSize, 2, 6),
+          optimizer,
+          momentum,
+          clamp(dropout, 0, 0.5),
+          seed,
+          tokenizerConfig
+        );
+        addSystemMessage(
+          `🔷 Starting fresh training with TransformerLM (${vocab.length} vocabulary tokens)…`
         );
       } else {
         // Use standard ProNeuralLM
@@ -849,6 +878,8 @@ export default function NeuroLinguaDomesticaV324() {
               isTraining={isTraining}
               progress={progress}
               currentEpoch={trainingRef.current.currentEpoch}
+              // Architecture
+              architecture={architecture}
               // Advanced features
               useAdvanced={useAdvanced}
               useGPU={useGPU}
@@ -880,6 +911,8 @@ export default function NeuroLinguaDomesticaV324() {
               onSamplingModeChange={setSamplingMode}
               onSeedChange={setSeed}
               onResumeChange={setResume}
+              // Architecture callback
+              onArchitectureChange={setArchitecture}
               // Advanced callbacks
               onUseAdvancedChange={setUseAdvanced}
               onUseGPUChange={setUseGPU}

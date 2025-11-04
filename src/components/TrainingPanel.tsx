@@ -21,6 +21,9 @@ interface TrainingPanelProps {
   seed: number;
   resume: boolean;
 
+  // Architecture
+  architecture: 'feedforward' | 'transformer';
+
   // Advanced features
   useAdvanced: boolean;
   useGPU: boolean;
@@ -63,6 +66,9 @@ interface TrainingPanelProps {
   onSamplingModeChange: (value: 'off' | 'topk' | 'topp') => void;
   onSeedChange: (value: number) => void;
   onResumeChange: (value: boolean) => void;
+
+  // Architecture callback
+  onArchitectureChange: (value: 'feedforward' | 'transformer') => void;
 
   // Advanced callbacks
   onUseAdvancedChange: (value: boolean) => void;
@@ -294,6 +300,61 @@ export function TrainingPanel(props: TrainingPanelProps) {
               color: 'white'
             }}
           />
+        </div>
+      </div>
+
+      {/* Architecture Selection */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 6 }}>Architecture</div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 12px',
+              background: props.architecture === 'feedforward' ? '#3b82f6' : '#1e293b',
+              border: '1px solid #475569',
+              borderRadius: 6,
+              cursor: 'pointer',
+              flex: 1,
+              justifyContent: 'center',
+              transition: 'background 0.2s'
+            }}
+          >
+            <input
+              type="radio"
+              value="feedforward"
+              checked={props.architecture === 'feedforward'}
+              onChange={() => props.onArchitectureChange('feedforward')}
+              style={{ cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 14 }}>Feedforward (ProNeuralLM)</span>
+          </label>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 12px',
+              background: props.architecture === 'transformer' ? '#3b82f6' : '#1e293b',
+              border: '1px solid #475569',
+              borderRadius: 6,
+              cursor: 'pointer',
+              flex: 1,
+              justifyContent: 'center',
+              transition: 'background 0.2s'
+            }}
+          >
+            <input
+              type="radio"
+              value="transformer"
+              checked={props.architecture === 'transformer'}
+              onChange={() => props.onArchitectureChange('transformer')}
+              style={{ cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 14 }}>🔷 Transformer</span>
+          </label>
         </div>
       </div>
 

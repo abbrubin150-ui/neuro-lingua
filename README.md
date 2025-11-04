@@ -18,11 +18,13 @@
 ## 🚀 Advanced Features
 
 ### Neural Network Architectures
+
 - **🔮 Transformer**: Multi-head self-attention with position embeddings (2 layers, 4 heads)
 - **🚀 AdvancedNeuralLM**: State-of-the-art feedforward architecture
 - **📊 ProNeuralLM**: Standard baseline model
 
 ### Mathematical Enhancements
+
 - ✅ **He/Xavier Initialization** - Faster convergence with proper weight init
 - ✅ **Advanced Activations** - LeakyReLU, ELU, GELU, Swish
 - ✅ **Learning Rate Scheduling** - Cosine annealing, exponential decay, warmup
@@ -33,6 +35,7 @@
 - ✅ **Perplexity Calculation** - Model evaluation metric
 
 ### Performance Optimization
+
 - ✅ **WebGPU Acceleration** - Hardware-accelerated training with GPU
 - ✅ **GPU Metrics Dashboard** - Real-time performance monitoring
 - ✅ **Automatic Fallback** - Seamless CPU fallback when GPU unavailable

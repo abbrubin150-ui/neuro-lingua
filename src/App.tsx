@@ -16,6 +16,8 @@ import {
   type InitializationScheme
 } from './lib/AdvancedNeuralLM';
 
+import { TransformerLM } from './lib/TransformerLM';
+
 import { StorageManager } from './lib/storage';
 import { buildVocab, parseTokenizerConfig, downloadBlob } from './lib/utils';
 import type { GPUNeuralOps } from './backend/gpu_neural_ops';
@@ -38,11 +40,13 @@ import {
   ChatInterface,
   type ChatInterfaceStrings,
   TrainingPanel,
+  type Architecture,
   ErrorBoundary,
   type Message
 } from './components';
 
 type UiSettings = {
+  architecture: Architecture;
   hiddenSize: number;
   epochs: number;
   lr: number;
@@ -299,6 +303,9 @@ export default function NeuroLinguaDomesticaV324() {
   const [seed, setSeed] = useState(DEFAULT_HYPERPARAMETERS.seed);
   const [resume, setResume] = useState(DEFAULT_HYPERPARAMETERS.resume);
 
+  // Architecture selection
+  const [architecture, setArchitecture] = useState<Architecture>('feedforward');
+
   // Advanced features
   const [useAdvanced, setUseAdvanced] = useState(DEFAULT_ADVANCED_CONFIG.useAdvanced);
   const [activation, setActivation] = useState<ActivationFunction>(
@@ -447,6 +454,13 @@ export default function NeuroLinguaDomesticaV324() {
   // Load settings on mount
   useEffect(() => {
     const saved = StorageManager.get<Partial<UiSettings>>(STORAGE_KEYS.UI_SETTINGS, {});
+    if (
+      saved.architecture === 'feedforward' ||
+      saved.architecture === 'advanced' ||
+      saved.architecture === 'transformer'
+    ) {
+      setArchitecture(saved.architecture);
+    }
     if (typeof saved.hiddenSize === 'number') setHiddenSize(saved.hiddenSize);
     if (typeof saved.epochs === 'number') setEpochs(saved.epochs);
     if (typeof saved.lr === 'number') setLr(saved.lr);
@@ -637,6 +651,7 @@ export default function NeuroLinguaDomesticaV324() {
   // Persist settings when they change
   useEffect(() => {
     const settings: UiSettings = {
+      architecture,
       hiddenSize,
       epochs,
       lr,
@@ -669,6 +684,7 @@ export default function NeuroLinguaDomesticaV324() {
     };
     StorageManager.set(STORAGE_KEYS.UI_SETTINGS, settings);
   }, [
+    architecture,
     hiddenSize,
     epochs,
     lr,
@@ -734,7 +750,30 @@ export default function NeuroLinguaDomesticaV324() {
     const shouldReinit = !resume || !modelRef.current || sigNew !== sigOld;
 
     if (shouldReinit) {
-      if (useAdvanced) {
+      if (architecture === 'transformer') {
+        // Use TransformerLM
+        modelRef.current = new TransformerLM(
+          vocab,
+          hiddenSize,
+          lr,
+          clamp(contextSize, 2, 6),
+          optimizer,
+          momentum,
+          clamp(dropout, 0, 0.5),
+          seed,
+          tokenizerConfig,
+          {
+            numLayers: 2,
+            numHeads: 4,
+            ffHiddenDim: hiddenSize * 2,
+            attentionDropout: dropout,
+            dropConnectRate: 0.1
+          }
+        );
+        addSystemMessage(
+          `🔮 Starting fresh training with TransformerLM (${vocab.length} vocabulary tokens, 2 layers, 4 heads)…`
+        );
+      } else if (architecture === 'advanced' || useAdvanced) {
         // Use AdvancedNeuralLM with advanced configuration
         modelRef.current = new AdvancedNeuralLM(
           vocab,
@@ -777,7 +816,9 @@ export default function NeuroLinguaDomesticaV324() {
           seed,
           tokenizerConfig
         );
-        addSystemMessage(`🎯 Starting fresh training with ${vocab.length} vocabulary tokens…`);
+        addSystemMessage(
+          `📊 Starting fresh training with ProNeuralLM (${vocab.length} vocabulary tokens)…`
+        );
       }
     } else {
       modelRef.current!.importTokenizerConfig(tokenizerConfig);
@@ -1029,6 +1070,7 @@ export default function NeuroLinguaDomesticaV324() {
             }}
           >
             <TrainingPanel
+              architecture={architecture}
               hiddenSize={hiddenSize}
               epochs={epochs}
               lr={lr}
@@ -1066,6 +1108,7 @@ export default function NeuroLinguaDomesticaV324() {
               useBeamSearch={useBeamSearch}
               beamWidth={beamWidth}
               // Callbacks
+              onArchitectureChange={setArchitecture}
               onHiddenSizeChange={setHiddenSize}
               onEpochsChange={setEpochs}
               onLrChange={setLr}

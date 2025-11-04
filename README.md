@@ -6,16 +6,24 @@
 
 ## Core Features
 
-- SGD with **Momentum** or **Adam**
+- **Multiple Architectures**: Standard ProNeuralLM, AdvancedNeuralLM, and Transformer models
+- **WebGPU Acceleration**: 2-5x faster training on compatible hardware with automatic CPU fallback
+- SGD with **Momentum**, **Adam**, **Damped Newton**, or **L-BFGS** optimization
 - **Dropout** (train‑only)
 - **Top‑p** (nucleus) and **Top‑k** sampling with temperature
 - **Session persistence**, onboarding tips, and downloadable **training-history CSVs**
 - **Tokenizer presets** (Unicode/ASCII/custom) with import/export support
 - **Agent** workflow: a single GitHub Action retrains the model and commits the updated JSON artifact
 
-## 🚀 Advanced Mathematical Enhancements (NEW)
+## 🚀 Advanced Features
 
-Rigorous mathematical improvements for better performance:
+### Neural Network Architectures
+
+- **🔮 Transformer**: Multi-head self-attention with position embeddings (2 layers, 4 heads)
+- **🚀 AdvancedNeuralLM**: State-of-the-art feedforward architecture
+- **📊 ProNeuralLM**: Standard baseline model
+
+### Mathematical Enhancements
 
 - ✅ **He/Xavier Initialization** - Faster convergence with proper weight init
 - ✅ **Advanced Activations** - LeakyReLU, ELU, GELU, Swish
@@ -25,6 +33,12 @@ Rigorous mathematical improvements for better performance:
 - ✅ **Beam Search** - Higher quality text generation
 - ✅ **Numerical Stability** - Log-sum-exp, stable softmax
 - ✅ **Perplexity Calculation** - Model evaluation metric
+
+### Performance Optimization
+
+- ✅ **WebGPU Acceleration** - Hardware-accelerated training with GPU
+- ✅ **GPU Metrics Dashboard** - Real-time performance monitoring
+- ✅ **Automatic Fallback** - Seamless CPU fallback when GPU unavailable
 
 📚 **[See full mathematical documentation →](./MATHEMATICAL_ENHANCEMENTS.md)**
 

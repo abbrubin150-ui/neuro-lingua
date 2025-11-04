@@ -5,7 +5,12 @@ import { clamp } from '../lib/ProNeuralLM';
 import { TokenizerConfig } from './TokenizerConfig';
 import { HYPERPARAMETER_CONSTRAINTS } from '../config/constants';
 
+export type Architecture = 'feedforward' | 'advanced' | 'transformer';
+
 interface TrainingPanelProps {
+  // Architecture selection
+  architecture: Architecture;
+
   // Hyperparameters
   hiddenSize: number;
   epochs: number;
@@ -50,6 +55,7 @@ interface TrainingPanelProps {
   currentEpoch: number;
 
   // Callbacks
+  onArchitectureChange: (value: Architecture) => void;
   onHiddenSizeChange: (value: number) => void;
   onEpochsChange: (value: number) => void;
   onLrChange: (value: number) => void;
@@ -111,6 +117,72 @@ export function TrainingPanel(props: TrainingPanelProps) {
         padding: 20
       }}
     >
+      {/* Architecture Selection */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>🏗️ Architecture</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          <button
+            onClick={() => props.onArchitectureChange('feedforward')}
+            style={{
+              padding: '12px 16px',
+              background:
+                props.architecture === 'feedforward'
+                  ? 'linear-gradient(90deg, #7c3aed, #6366f1)'
+                  : '#374151',
+              border:
+                props.architecture === 'feedforward' ? '2px solid #a78bfa' : '1px solid #4b5563',
+              borderRadius: 10,
+              color: 'white',
+              fontWeight: props.architecture === 'feedforward' ? 700 : 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            📊 Standard
+            <div style={{ fontSize: 10, opacity: 0.8, marginTop: 4 }}>ProNeuralLM</div>
+          </button>
+          <button
+            onClick={() => props.onArchitectureChange('advanced')}
+            style={{
+              padding: '12px 16px',
+              background:
+                props.architecture === 'advanced'
+                  ? 'linear-gradient(90deg, #7c3aed, #6366f1)'
+                  : '#374151',
+              border: props.architecture === 'advanced' ? '2px solid #a78bfa' : '1px solid #4b5563',
+              borderRadius: 10,
+              color: 'white',
+              fontWeight: props.architecture === 'advanced' ? 700 : 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            🚀 Advanced
+            <div style={{ fontSize: 10, opacity: 0.8, marginTop: 4 }}>AdvancedNeuralLM</div>
+          </button>
+          <button
+            onClick={() => props.onArchitectureChange('transformer')}
+            style={{
+              padding: '12px 16px',
+              background:
+                props.architecture === 'transformer'
+                  ? 'linear-gradient(90deg, #7c3aed, #6366f1)'
+                  : '#374151',
+              border:
+                props.architecture === 'transformer' ? '2px solid #a78bfa' : '1px solid #4b5563',
+              borderRadius: 10,
+              color: 'white',
+              fontWeight: props.architecture === 'transformer' ? 700 : 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            🔮 Transformer
+            <div style={{ fontSize: 10, opacity: 0.8, marginTop: 4 }}>Multi-Head Attention</div>
+          </button>
+        </div>
+      </div>
+
       {/* Hyperparameters Grid */}
       <div
         style={{

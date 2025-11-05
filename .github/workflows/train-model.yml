@@ -52,3 +52,4 @@ jobs:
             git push
           else
             echo "No model changes to commit."
+          fi

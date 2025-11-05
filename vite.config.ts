@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
+export default defineConfig(({ command, mode }) => ({
   plugins: [react()],
-  base: process.env.NODE_ENV === 'production' ? '/neuro-lingua/' : '/',
+  base: command === 'build' ? '/neuro-lingua/' : '/',
   server: {
     open: true
   },
@@ -12,4 +12,4 @@ export default defineConfig({
     setupFiles: './tests/setup.ts',
     globals: true
   }
-});
+}));

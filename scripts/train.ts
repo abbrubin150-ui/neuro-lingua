@@ -124,7 +124,7 @@ async function main() {
     seed,
     tokenizerConfig
   );
-  const { loss, accuracy, history } = model.train(corpus, epochs);
+  const { loss, accuracy, history } = await model.train(corpus, epochs);
 
   const lastEpoch = history[history.length - 1];
   console.log(

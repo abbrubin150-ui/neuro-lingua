@@ -31,7 +31,22 @@ export interface BeamSearchResult {
   probability: number;
 }
 
+export interface ContrastiveSearchOptions {
+  topK: number;
+  alpha: number;
+  maxLength: number;
+  eosToken?: number;
+  penaltyAlpha?: number;
+  rng?: SamplingRng;
+}
+
+export interface ContrastiveSearchResult {
+  tokens: number[];
+  score: number;
+}
+
 export type LogitsFn = (prefix: number[]) => number[];
+export type EmbeddingFn = (tokenIds: number[]) => number[];
 
 function defaultRng(): number {
   return Math.random();
@@ -126,6 +141,20 @@ export function nucleusSample(
   options: SamplingOptions = {}
 ): number {
   return sampleFromLogits(logits, { ...options, topP });
+}
+
+/**
+ * Greedy decoding: selects the token with the highest probability (argmax).
+ * This is deterministic and always picks the most likely token.
+ *
+ * @param logits - The raw logits from the model
+ * @returns The index of the token with highest logit value
+ */
+export function greedySample(logits: number[]): number {
+  if (logits.length === 0) {
+    throw new Error('Cannot perform greedy sampling on empty logits.');
+  }
+  return argMax(logits);
 }
 
 export function sampleFromLogits(logits: number[], options: SamplingOptions = {}): number {
@@ -248,6 +277,128 @@ export function beamSearch(
     score: beam.score,
     probability: weights[index]
   }));
+}
+
+/**
+ * Computes cosine similarity between two vectors
+ */
+function cosineSimilarity(vec1: number[], vec2: number[]): number {
+  if (vec1.length !== vec2.length) {
+    throw new Error('Vectors must have the same length for cosine similarity.');
+  }
+
+  let dotProduct = 0;
+  let norm1 = 0;
+  let norm2 = 0;
+
+  for (let i = 0; i < vec1.length; i++) {
+    dotProduct += vec1[i] * vec2[i];
+    norm1 += vec1[i] * vec1[i];
+    norm2 += vec2[i] * vec2[i];
+  }
+
+  const denominator = Math.sqrt(norm1) * Math.sqrt(norm2);
+  if (denominator === 0) return 0;
+
+  return dotProduct / denominator;
+}
+
+/**
+ * Contrastive search/decoding: balances model confidence with diversity.
+ * This method penalizes tokens that are too similar to previously generated tokens,
+ * helping to reduce repetition while maintaining coherence.
+ *
+ * The scoring function is: score(token) = (1 - alpha) * p(token) - alpha * max(similarity(token, context))
+ *
+ * @param step - Function that takes token sequence and returns next-token logits
+ * @param embeddingFn - Function that converts token IDs to embedding vectors
+ * @param startTokens - Initial sequence of tokens
+ * @param options - Configuration options for contrastive search
+ * @returns Result containing generated tokens and score
+ */
+export function contrastiveSearch(
+  step: LogitsFn,
+  embeddingFn: EmbeddingFn,
+  startTokens: number[],
+  options: ContrastiveSearchOptions
+): ContrastiveSearchResult {
+  const { topK, alpha, maxLength, eosToken } = options;
+
+  if (topK <= 0) {
+    throw new Error('topK must be positive for contrastive search.');
+  }
+  if (alpha < 0 || alpha > 1) {
+    throw new Error('alpha must be between 0 and 1.');
+  }
+  if (maxLength <= 0) {
+    throw new Error('maxLength must be positive.');
+  }
+
+  const tokens = [...startTokens];
+  let totalScore = 0;
+
+  // Cache embeddings for all generated tokens
+  const contextEmbeddings: number[][] = [];
+
+  for (let step_num = 0; step_num < maxLength; step_num++) {
+    const logits = step(tokens);
+    if (logits.length === 0) break;
+
+    // Convert logits to probabilities
+    const probs = stableSoftmax(logits);
+
+    // Get top-k candidates
+    const indexed = probs.map((value, index) => ({ value, index }));
+    indexed.sort((a, b) => b.value - a.value);
+    const topKCandidates = indexed.slice(0, Math.min(topK, indexed.length));
+
+    let bestToken = topKCandidates[0].index;
+    let bestScore = -Infinity;
+
+    // Score each candidate
+    for (const candidate of topKCandidates) {
+      const tokenId = candidate.index;
+      const modelProb = candidate.value;
+
+      // Get embedding for candidate token
+      const candidateEmbedding = embeddingFn([tokenId]);
+
+      // Compute maximum similarity with context
+      let maxSimilarity = 0;
+      if (contextEmbeddings.length > 0) {
+        for (const contextEmb of contextEmbeddings) {
+          const similarity = cosineSimilarity(candidateEmbedding, contextEmb);
+          maxSimilarity = Math.max(maxSimilarity, similarity);
+        }
+      }
+
+      // Contrastive scoring: balance probability and diversity
+      const score = (1 - alpha) * modelProb - alpha * maxSimilarity;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestToken = tokenId;
+      }
+    }
+
+    // Add selected token
+    tokens.push(bestToken);
+    totalScore += bestScore;
+
+    // Cache the embedding
+    const selectedEmbedding = embeddingFn([bestToken]);
+    contextEmbeddings.push(selectedEmbedding);
+
+    // Check for EOS
+    if (eosToken !== undefined && bestToken === eosToken) {
+      break;
+    }
+  }
+
+  return {
+    tokens: tokens.slice(startTokens.length),
+    score: totalScore
+  };
 }
 
 export function monteCarloSample<T>(

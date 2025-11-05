@@ -10,7 +10,7 @@
 - **WebGPU Acceleration**: 2-5x faster training on compatible hardware with automatic CPU fallback
 - SGD with **Momentum**, **Adam**, **Damped Newton**, or **L-BFGS** optimization
 - **Dropout** (train‑only)
-- **Top‑p** (nucleus) and **Top‑k** sampling with temperature
+- **Advanced Text Generation**: Greedy, Sampling (Top-p/Top-k), Beam Search, and Contrastive decoding
 - **Session persistence**, onboarding tips, and downloadable **training-history CSVs**
 - **Tokenizer presets** (Unicode/ASCII/custom) with import/export support
 - **Agent** workflow: a single GitHub Action retrains the model and commits the updated JSON artifact
@@ -30,9 +30,17 @@
 - ✅ **Learning Rate Scheduling** - Cosine annealing, exponential decay, warmup
 - ✅ **L2 Regularization** - Weight decay for better generalization
 - ✅ **Layer Normalization** - Training stability
-- ✅ **Beam Search** - Higher quality text generation
 - ✅ **Numerical Stability** - Log-sum-exp, stable softmax
 - ✅ **Perplexity Calculation** - Model evaluation metric
+
+### Text Generation Methods
+
+- ✅ **Greedy Decoding** - Deterministic selection of most likely token (argmax)
+- ✅ **Temperature Sampling** - Controlled randomness in generation
+- ✅ **Top-k Sampling** - Sample from k most likely tokens
+- ✅ **Nucleus (Top-p) Sampling** - Sample from smallest set with cumulative probability p
+- ✅ **Beam Search** - Maintain multiple hypotheses for higher quality output
+- ✅ **Contrastive Search** - Balance model confidence with diversity to reduce repetition
 
 ### Performance Optimization
 

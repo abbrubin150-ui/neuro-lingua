@@ -34,6 +34,7 @@ import {
   beamSearch,
   nucleusSampling
 } from './MathUtils';
+import { greedySample } from '../generation/sampling';
 
 export type ActivationFunction = 'relu' | 'leaky_relu' | 'elu' | 'gelu';
 export type LRSchedule = 'constant' | 'cosine' | 'exponential' | 'warmup_cosine';
@@ -477,6 +478,146 @@ export class AdvancedNeuralLM extends ProNeuralLM {
     }
 
     return out.join(' ');
+  }
+
+  /**
+   * Generate text using greedy decoding (always select most likely token)
+   */
+  async generateGreedy(seedText: string, maxLen = 25): Promise<string> {
+    const seedToks = (this as any).tokenize(seedText).map((t: string) => (this as any).toIndex(t));
+    const bosIdx = (this as any).toIndex((this as any).bos);
+    const contextSize = (this as any).contextSize;
+
+    const ctx: number[] = new Array(contextSize).fill(bosIdx);
+    for (const t of seedToks) ctx.push(t);
+
+    const out: string[] = [];
+
+    while (out.length < maxLen) {
+      const window = ctx.slice(-contextSize);
+      const { logits } = await (this as any).forward(window, false);
+
+      // Use greedy sampling (argmax)
+      const idx = greedySample(logits);
+
+      const idxToWord = (this as any).idxToWord;
+      const tok = idxToWord.get(idx)!;
+      if (tok === (this as any).eos) break;
+
+      out.push(tok);
+      ctx.push(idx);
+    }
+
+    return out.join(' ');
+  }
+
+  /**
+   * Generate text using contrastive search/decoding
+   * Balances model confidence with diversity to reduce repetition
+   *
+   * This implementation manually performs contrastive decoding to support async forward passes
+   */
+  async generateContrastive(
+    seedText: string,
+    maxLen = 25,
+    topK = 4,
+    alpha = 0.6
+  ): Promise<{ text: string; score: number }> {
+    const seedToks = (this as any).tokenize(seedText).map((t: string) => (this as any).toIndex(t));
+    const bosIdx = (this as any).toIndex((this as any).bos);
+    const contextSize = (this as any).contextSize;
+
+    const ctx: number[] = new Array(contextSize).fill(bosIdx);
+    for (const t of seedToks) ctx.push(t);
+
+    const out: number[] = [];
+    let totalScore = 0;
+
+    // Cache embeddings for context
+    const contextEmbeddings: number[][] = [];
+    const embeddingSize = (this as any).embedding[0].length;
+
+    // Helper function for cosine similarity
+    const cosineSimilarity = (vec1: number[], vec2: number[]): number => {
+      let dotProduct = 0;
+      let norm1 = 0;
+      let norm2 = 0;
+      for (let i = 0; i < vec1.length; i++) {
+        dotProduct += vec1[i] * vec2[i];
+        norm1 += vec1[i] * vec1[i];
+        norm2 += vec2[i] * vec2[i];
+      }
+      const denominator = Math.sqrt(norm1) * Math.sqrt(norm2);
+      return denominator === 0 ? 0 : dotProduct / denominator;
+    };
+
+    while (out.length < maxLen) {
+      const window = ctx.slice(-contextSize);
+      const { logits } = await (this as any).forward(window, false);
+      const probs = stableSoftmax(logits, 1.0);
+
+      // Get top-k candidates
+      const indexed = probs.map((value, index) => ({ value, index }));
+      indexed.sort((a, b) => b.value - a.value);
+      const topKCandidates = indexed.slice(0, Math.min(topK, indexed.length));
+
+      let bestToken = topKCandidates[0].index;
+      let bestScore = -Infinity;
+
+      // Score each candidate
+      for (const candidate of topKCandidates) {
+        const tokenId = candidate.index;
+        const modelProb = candidate.value;
+
+        // Get embedding for candidate token
+        const candidateEmbedding =
+          (this as any).embedding[tokenId] || new Array(embeddingSize).fill(0);
+
+        // Compute maximum similarity with context
+        let maxSimilarity = 0;
+        if (contextEmbeddings.length > 0) {
+          for (const contextEmb of contextEmbeddings) {
+            const similarity = cosineSimilarity(candidateEmbedding, contextEmb);
+            maxSimilarity = Math.max(maxSimilarity, similarity);
+          }
+        }
+
+        // Contrastive scoring: balance probability and diversity
+        const score = (1 - alpha) * modelProb - alpha * maxSimilarity;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestToken = tokenId;
+        }
+      }
+
+      // Check for EOS
+      const idxToWord = (this as any).idxToWord;
+      const tok = idxToWord.get(bestToken)!;
+      if (tok === (this as any).eos) break;
+
+      // Add selected token
+      out.push(bestToken);
+      ctx.push(bestToken);
+      totalScore += bestScore;
+
+      // Cache the embedding
+      const selectedEmbedding =
+        (this as any).embedding[bestToken] || new Array(embeddingSize).fill(0);
+      contextEmbeddings.push([...selectedEmbedding]);
+    }
+
+    // Convert tokens to text
+    const idxToWord = (this as any).idxToWord;
+    const text = out
+      .map((idx: number) => idxToWord.get(idx))
+      .filter((word: string | undefined) => word !== undefined)
+      .join(' ');
+
+    return {
+      text,
+      score: totalScore
+    };
   }
 
   /**

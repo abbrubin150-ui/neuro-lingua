@@ -6,7 +6,7 @@
 
 ## Core Features
 
-- **Multiple Architectures**: Standard ProNeuralLM, AdvancedNeuralLM, and Transformer models
+- **Multiple Architectures**: Standard ProNeuralLM, AdvancedNeuralLM, and fully-functional Transformer models with multi-head attention
 - **WebGPU Acceleration**: 2-5x faster training on compatible hardware with automatic CPU fallback
 - SGD with **Momentum**, **Adam**, **Damped Newton**, or **L-BFGS** optimization
 - **Dropout** (train‑only)
@@ -19,7 +19,7 @@
 
 ### Neural Network Architectures
 
-- **🔮 Transformer**: Multi-head self-attention with position embeddings (2 layers, 4 heads)
+- **🔮 Transformer**: Fully-implemented multi-head self-attention with position embeddings, residual connections, and layer normalization (configurable layers and heads)
 - **🚀 AdvancedNeuralLM**: State-of-the-art feedforward architecture
 - **📊 ProNeuralLM**: Standard baseline model
 

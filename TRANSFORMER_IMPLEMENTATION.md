@@ -27,6 +27,7 @@ Attention(Q, K, V) = softmax(QK^T / √d_k)V
 ```
 
 where:
+
 - Q, K, V are query, key, and value matrices
 - d_k is the dimension of keys
 - Multiple heads allow the model to attend to different representation subspaces
@@ -115,9 +116,9 @@ import { TransformerLM } from './lib/TransformerLM';
 // Create a transformer model
 const model = new TransformerLM(
   vocab,
-  64,    // hidden size
-  0.05,  // learning rate
-  3,     // context size
+  64, // hidden size
+  0.05, // learning rate
+  3, // context size
   'adam',
   0.9,
   0.1,
@@ -131,10 +132,10 @@ const model = new TransformerLM(
 );
 
 // Train the model
-await model.train(corpus, epochs = 20);
+await model.train(corpus, (epochs = 20));
 
 // Generate text
-const text = await model.generate('seed text', 50, temperature = 0.9);
+const text = await model.generate('seed text', 50, (temperature = 0.9));
 ```
 
 ## Performance Characteristics
@@ -184,6 +185,7 @@ pnpm test TransformerLM.test.ts
 For a sequence of length n and model dimension d:
 
 1. **Linear Projections**:
+
    ```
    Q = X W_Q  (n × d) × (d × d) → (n × d)
    K = X W_K  (n × d) × (d × d) → (n × d)
@@ -194,6 +196,7 @@ For a sequence of length n and model dimension d:
    Split Q, K, V into h heads of dimension d/h each
 
 3. **Scaled Dot-Product**:
+
    ```
    scores = Q K^T / √(d/h)
    attention_weights = softmax(scores)
@@ -206,6 +209,7 @@ For a sequence of length n and model dimension d:
 ### Gradients
 
 Gradients flow through:
+
 1. Output softmax → cross-entropy loss
 2. Output projection → hidden states
 3. Pooling → sequence representations

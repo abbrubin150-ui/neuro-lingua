@@ -21,6 +21,7 @@ import { TransformerLM } from './lib/TransformerLM';
 import { StorageManager } from './lib/storage';
 import { buildVocab, parseTokenizerConfig, downloadBlob } from './lib/utils';
 import type { GPUNeuralOps } from './backend/gpu_neural_ops';
+import { computeSimulatedEdgeLearningDiagnostics, type EdgeLearningDiagnostics } from './backend/edgeLearning';
 import {
   STORAGE_KEYS,
   DEFAULT_TRAINING_TEXT,
@@ -346,6 +347,9 @@ export default function NeuroLinguaDomesticaV324() {
     averageTimeMs: number;
     deviceInfo?: string;
   } | null>(null);
+
+  // Edge Learning diagnostics
+  const [edgeLearningDiagnostics, setEdgeLearningDiagnostics] = useState<EdgeLearningDiagnostics | null>(null);
 
   // Tokenizer
   const [tokenizerConfig, setTokenizerConfig] = useState<TokenizerConfig>(DEFAULT_TOKENIZER_CONFIG);
@@ -912,6 +916,24 @@ export default function NeuroLinguaDomesticaV324() {
         }
       }
 
+      // Compute Edge Learning diagnostics
+      try {
+        const trainingHistory = modelRef.current!.getTrainingHistory();
+        const losses = trainingHistory.map((h) => h.loss);
+        const parametersCount = modelRef.current!.getParametersCount();
+
+        const diagnostics = computeSimulatedEdgeLearningDiagnostics(parametersCount, losses);
+        setEdgeLearningDiagnostics(diagnostics);
+
+        if (diagnostics.status === 'success') {
+          addSystemMessage(
+            `📊 Edge Learning: Fisher=${diagnostics.fisherInformation.toFixed(4)}, Efficiency=${(diagnostics.efficiency * 100).toFixed(1)}%`
+          );
+        }
+      } catch (error) {
+        console.warn('Edge Learning computation failed:', error);
+      }
+
       addSystemMessage(
         `✅ Training complete! Average accuracy: ${((aggAcc / total) * 100).toFixed(1)}%`
       );
@@ -1197,6 +1219,7 @@ export default function NeuroLinguaDomesticaV324() {
               lastModelUpdate={lastModelUpdate}
               trainingHistory={trainingHistory}
               gpuMetrics={gpuMetrics}
+              edgeLearningDiagnostics={edgeLearningDiagnostics}
               onMessage={addSystemMessage}
             />
           </div>

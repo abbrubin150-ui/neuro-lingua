@@ -4,7 +4,6 @@ dist/
 .vscode/
 .DS_Store
 npm-debug.log*
-pnpm-lock.yaml
 yarn.lock
 __pycache__/
 *.py[cod]

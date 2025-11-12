@@ -2,6 +2,7 @@ import React from 'react';
 import { formatTimestamp, createTrainingHistoryCsv, downloadBlob } from '../lib/utils';
 import { EXPORT_FILENAMES } from '../config/constants';
 import type { GPUMetrics } from '../backend/gpu_neural_ops';
+import type { EdgeLearningDiagnostics } from '../backend/edgeLearning';
 
 interface ModelMetricsProps {
   stats: { loss: number; acc: number; ppl: number; lossEMA: number; tokensPerSec: number };
@@ -9,6 +10,7 @@ interface ModelMetricsProps {
   lastModelUpdate: { timestamp: number; vocab: number } | null;
   trainingHistory: { loss: number; accuracy: number; timestamp: number }[];
   gpuMetrics?: GPUMetrics | null;
+  edgeLearningDiagnostics?: EdgeLearningDiagnostics | null;
   onMessage: (message: string) => void;
 }
 
@@ -187,6 +189,7 @@ export function ModelMetrics({
   lastModelUpdate,
   trainingHistory,
   gpuMetrics,
+  edgeLearningDiagnostics,
   onMessage
 }: ModelMetricsProps) {
   const handleDownloadCsv = () => {
@@ -259,6 +262,83 @@ export function ModelMetrics({
       </div>
       <TrainingChart history={trainingHistory} />
       {gpuMetrics && gpuMetrics.available && <GPUMetricsPanel metrics={gpuMetrics} />}
+      {edgeLearningDiagnostics && (
+        <div
+          style={{
+            background: 'rgba(34, 197, 94, 0.1)',
+            border: '1px solid rgba(34, 197, 94, 0.3)',
+            borderRadius: 12,
+            padding: 16,
+            marginTop: 16
+          }}
+        >
+          <h4
+            style={{
+              color: '#22c55e',
+              margin: '0 0 12px 0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8
+            }}
+          >
+            📊 Edge Learning Diagnostics
+            {edgeLearningDiagnostics.status === 'success' && (
+              <span
+                style={{
+                  fontSize: 11,
+                  padding: '2px 8px',
+                  background: '#10b981',
+                  borderRadius: 12,
+                  color: 'white'
+                }}
+              >
+                COMPUTED
+              </span>
+            )}
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>Fisher Info</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#22c55e' }}>
+                {edgeLearningDiagnostics.fisherInformation.toFixed(4)}
+              </div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>Efficiency</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>
+                {(edgeLearningDiagnostics.efficiency * 100).toFixed(1)}%
+              </div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>Variance</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#059669' }}>
+                {edgeLearningDiagnostics.variance.toFixed(4)}
+              </div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>Entropy</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#34d399' }}>
+                {edgeLearningDiagnostics.entropy.toFixed(4)}
+              </div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>Est. Covariance</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#6ee7b7' }}>
+                {edgeLearningDiagnostics.estimatorCovariance.toFixed(4)}
+              </div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>CRB</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#a7f3d0' }}>
+                {edgeLearningDiagnostics.cramerRaoBound.toExponential(2)}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 8 }}>
+            💡 Edge Learning: Information-theoretic analysis of model learning efficiency
+          </div>
+        </div>
+      )}
       <button
         onClick={handleDownloadCsv}
         style={{

@@ -22,6 +22,10 @@ import { StorageManager } from './lib/storage';
 import { buildVocab, parseTokenizerConfig, downloadBlob } from './lib/utils';
 import type { GPUNeuralOps } from './backend/gpu_neural_ops';
 import {
+  computeSimulatedEdgeLearningDiagnostics,
+  type EdgeLearningDiagnostics
+} from './backend/edgeLearning';
+import {
   STORAGE_KEYS,
   DEFAULT_TRAINING_TEXT,
   DEFAULT_HYPERPARAMETERS,
@@ -77,6 +81,9 @@ type UiSettings = {
   useLayerNorm: boolean;
   useBeamSearch: boolean;
   beamWidth: number;
+  // Transformer-specific
+  numHeads: number;
+  numLayers: number;
 };
 
 type ModelMeta = { timestamp: number; vocab: number };
@@ -104,7 +111,7 @@ type AppTranslations = {
 
 const TRANSLATIONS: Record<Locale, AppTranslations> = {
   en: {
-    toggle: { button: 'עברית / RTL', aria: 'Switch interface language to Hebrew (RTL)' },
+    toggle: { button: 'Hebrew / RTL', aria: 'Switch interface language to Hebrew (RTL)' },
     title: '🧠 Neuro‑Lingua DOMESTICA — v{version}',
     subtitle:
       'Advanced neural language model with Momentum/Adam, training-only dropout, real-time charts, and flexible context windows.',
@@ -121,19 +128,19 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
     infoCards: [
       {
         title: '🎯 Training Tips',
-        body: '• 200–500 words • 20–50 epochs • LR: 0.05–0.1 • Context: 3–5'
+        body: '• 200–500 words • 20–50 epochs • LR: 0.05–0.1 • Context: 3–5 • Enable Resume to continue from last checkpoint'
       },
       {
         title: '🎲 Text Generation',
-        body: '• Temperature: 0.7–1.0 • Choose top‑k or top‑p (top‑p ≈ 0.85–0.95)'
+        body: '• Temperature: 0.7–1.0 for coherence • Top‑p ≈ 0.85–0.95 • Models generate predictions based on training'
       },
       {
-        title: '⚡ Performance',
-        body: '• Momentum: 0.9 or Adam • Save tokenizer presets • Export CSV to compare runs'
+        title: '💾 Save & Export',
+        body: '• Save exports JSON model • Load reimports from JSON • CSV export contains training history • All data stored locally'
       },
       {
         title: '⌨️ Shortcuts',
-        body: '• Ctrl/Cmd+Enter: Train/Stop • Ctrl/Cmd+S: Save • Ctrl/Cmd+G: Generate'
+        body: '• Ctrl/Cmd+Enter: Train/Stop • Ctrl/Cmd+S: Save • Ctrl/Cmd+G: Generate • Stop to pause and resume later'
       }
     ],
     chat: {
@@ -190,19 +197,19 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
     infoCards: [
       {
         title: '🎯 טיפים לאימון',
-        body: '• 200–500 מילים • 20–50 אפוקים • קצב למידה: 0.05–0.1 • הקשר: 3–5'
+        body: '• 200–500 מילים • 20–50 אפוקים • קצב: 0.05–0.1 • הקשר: 3–5 • אפשרו המשך ממצ׳קפ׳ קודם'
       },
       {
         title: '🎲 יצירת טקסט',
-        body: '• טמפ׳: 0.7–1.0 • בחרו top‑k או top‑p (top‑p ≈ 0.85–0.95)'
+        body: '• טמפ׳: 0.7–1.0 לשפיעות • Top‑p ≈ 0.85–0.95 • מודל יוצר חיזויים מהדרכה'
       },
       {
-        title: '⚡ ביצועים',
-        body: '• מומנטום 0.9 או Adam • שמרו פרופילי טוקנייזר • ייצאו CSV להשוואת ריצות'
+        title: '💾 שמירה וייצוא',
+        body: '• שמירה לJSON • טעינה משוחזרת • CSV מהיסטוריה • כל הנתונים מקומיים'
       },
       {
         title: '⌨️ קיצורי דרך',
-        body: '• Ctrl/Cmd+Enter: התחלה/עצירה • Ctrl/Cmd+S: שמירה • Ctrl/Cmd+G: דגימה'
+        body: '• Ctrl/Cmd+Enter: התחלה/עצירה • Ctrl/Cmd+S: שמירה • Ctrl/Cmd+G: דגימה • עצרו להשהיה'
       }
     ],
     chat: {
@@ -328,6 +335,10 @@ export default function NeuroLinguaDomesticaV324() {
   const [useBeamSearch, setUseBeamSearch] = useState(DEFAULT_GENERATION.useBeamSearch);
   const [beamWidth, setBeamWidth] = useState(DEFAULT_GENERATION.beamWidth);
 
+  // Transformer-specific parameters
+  const [numHeads, setNumHeads] = useState(4);
+  const [numLayers, setNumLayers] = useState(2);
+
   // GPU acceleration
   const [useGPU, setUseGPU] = useState(false);
   const [gpuAvailable, setGpuAvailable] = useState(false);
@@ -339,6 +350,10 @@ export default function NeuroLinguaDomesticaV324() {
     averageTimeMs: number;
     deviceInfo?: string;
   } | null>(null);
+
+  // Edge Learning diagnostics
+  const [edgeLearningDiagnostics, setEdgeLearningDiagnostics] =
+    useState<EdgeLearningDiagnostics | null>(null);
 
   // Tokenizer
   const [tokenizerConfig, setTokenizerConfig] = useState<TokenizerConfig>(DEFAULT_TOKENIZER_CONFIG);
@@ -509,6 +524,8 @@ export default function NeuroLinguaDomesticaV324() {
     if (typeof saved.useLayerNorm === 'boolean') setUseLayerNorm(saved.useLayerNorm);
     if (typeof saved.useBeamSearch === 'boolean') setUseBeamSearch(saved.useBeamSearch);
     if (typeof saved.beamWidth === 'number') setBeamWidth(saved.beamWidth);
+    if (typeof saved.numHeads === 'number') setNumHeads(saved.numHeads);
+    if (typeof saved.numLayers === 'number') setNumLayers(saved.numLayers);
 
     const tokenizerRaw = StorageManager.get<unknown>(STORAGE_KEYS.TOKENIZER_CONFIG, null);
     if (tokenizerRaw) {
@@ -680,7 +697,9 @@ export default function NeuroLinguaDomesticaV324() {
       gradientClipNorm,
       useLayerNorm,
       useBeamSearch,
-      beamWidth
+      beamWidth,
+      numHeads,
+      numLayers
     };
     StorageManager.set(STORAGE_KEYS.UI_SETTINGS, settings);
   }, [
@@ -713,7 +732,9 @@ export default function NeuroLinguaDomesticaV324() {
     gradientClipNorm,
     useLayerNorm,
     useBeamSearch,
-    beamWidth
+    beamWidth,
+    numHeads,
+    numLayers
   ]);
 
   // Persist tokenizer config separately
@@ -763,15 +784,15 @@ export default function NeuroLinguaDomesticaV324() {
           seed,
           tokenizerConfig,
           {
-            numLayers: 2,
-            numHeads: 4,
+            numLayers: clamp(numLayers, 1, 8),
+            numHeads: clamp(numHeads, 1, 16),
             ffHiddenDim: hiddenSize * 2,
             attentionDropout: dropout,
             dropConnectRate: 0.1
           }
         );
         addSystemMessage(
-          `🔮 Starting fresh training with TransformerLM (${vocab.length} vocabulary tokens, 2 layers, 4 heads)…`
+          `🔮 Starting fresh training with TransformerLM (${vocab.length} vocabulary tokens, ${numLayers} layers, ${numHeads} heads)…`
         );
       } else if (architecture === 'advanced' || useAdvanced) {
         // Use AdvancedNeuralLM with advanced configuration
@@ -868,6 +889,15 @@ export default function NeuroLinguaDomesticaV324() {
         lossEMA: lossEMA,
         tokensPerSec: tokensPerSec
       });
+
+      // Update GPU metrics periodically (every 5 epochs or less frequently)
+      if (gpuOpsRef.current && useGPU && (e + 1) % Math.max(1, Math.floor(total / 10)) === 0) {
+        const metrics = gpuOpsRef.current.getMetrics();
+        if (metrics.available) {
+          setGpuMetrics(metrics);
+        }
+      }
+
       setTrainingHistory(modelRef.current!.getTrainingHistory());
       setProgress(((e + 1) / total) * 100);
       await new Promise((r) => setTimeout(r, TRAINING_UI_UPDATE_DELAY));
@@ -876,6 +906,38 @@ export default function NeuroLinguaDomesticaV324() {
     if (trainingRef.current.running) {
       setInfo({ V: modelRef.current!.getVocabSize(), P: modelRef.current!.getParametersCount() });
       applyModelMeta(modelRef.current!);
+
+      // Collect and display GPU metrics if available
+      if (gpuOpsRef.current && useGPU) {
+        const finalMetrics = gpuOpsRef.current.getMetrics();
+        if (finalMetrics.available) {
+          setGpuMetrics(finalMetrics);
+          if (finalMetrics.totalOperations > 0) {
+            addSystemMessage(
+              `⚡ GPU Acceleration: ${finalMetrics.totalOperations} ops, ${finalMetrics.totalTimeMs.toFixed(1)}ms total, ${finalMetrics.averageTimeMs.toFixed(2)}ms/op`
+            );
+          }
+        }
+      }
+
+      // Compute Edge Learning diagnostics
+      try {
+        const trainingHistory = modelRef.current!.getTrainingHistory();
+        const losses = trainingHistory.map((h) => h.loss);
+        const parametersCount = modelRef.current!.getParametersCount();
+
+        const diagnostics = computeSimulatedEdgeLearningDiagnostics(parametersCount, losses);
+        setEdgeLearningDiagnostics(diagnostics);
+
+        if (diagnostics.status === 'success') {
+          addSystemMessage(
+            `📊 Edge Learning: Fisher=${diagnostics.fisherInformation.toFixed(4)}, Efficiency=${(diagnostics.efficiency * 100).toFixed(1)}%`
+          );
+        }
+      } catch (error) {
+        console.warn('Edge Learning computation failed:', error);
+      }
+
       addSystemMessage(
         `✅ Training complete! Average accuracy: ${((aggAcc / total) * 100).toFixed(1)}%`
       );
@@ -1107,6 +1169,8 @@ export default function NeuroLinguaDomesticaV324() {
               useLayerNorm={useLayerNorm}
               useBeamSearch={useBeamSearch}
               beamWidth={beamWidth}
+              numHeads={numHeads}
+              numLayers={numLayers}
               // Callbacks
               onArchitectureChange={setArchitecture}
               onHiddenSizeChange={setHiddenSize}
@@ -1138,6 +1202,8 @@ export default function NeuroLinguaDomesticaV324() {
               onUseLayerNormChange={setUseLayerNorm}
               onUseBeamSearchChange={setUseBeamSearch}
               onBeamWidthChange={setBeamWidth}
+              onNumHeadsChange={setNumHeads}
+              onNumLayersChange={setNumLayers}
               onTokenizerConfigChange={setTokenizerConfig}
               onCustomPatternChange={setCustomTokenizerPattern}
               onTokenizerError={setTokenizerError}
@@ -1157,6 +1223,7 @@ export default function NeuroLinguaDomesticaV324() {
               lastModelUpdate={lastModelUpdate}
               trainingHistory={trainingHistory}
               gpuMetrics={gpuMetrics}
+              edgeLearningDiagnostics={edgeLearningDiagnostics}
               onMessage={addSystemMessage}
             />
           </div>

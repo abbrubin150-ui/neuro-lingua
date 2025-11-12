@@ -1,23 +1,48 @@
 name: Train Neuro-Lingua Model
+# Automated model retraining workflow for Neuro-Lingua DOMESTICA
+# Triggers on manual dispatch with custom hyperparameters or when data/corpus.txt changes
+# Commits the updated model artifact to the repository
 
 on:
   workflow_dispatch:
     inputs:
       epochs:
-        description: 'Number of training epochs'
+        description: 'Number of training epochs (1-200)'
         required: false
         default: '30'
+        type: string
+      hidden_size:
+        description: 'Hidden layer size (16-256)'
+        required: false
+        default: '64'
+        type: string
+      learning_rate:
+        description: 'Learning rate (0.001-1.0)'
+        required: false
+        default: '0.08'
+        type: string
       optimizer:
-        description: 'Optimizer to use (momentum or adam)'
+        description: 'Optimizer (momentum or adam)'
         required: false
         default: 'momentum'
+        type: choice
+        options:
+          - momentum
+          - adam
       dropout:
         description: 'Dropout rate (0-0.5)'
         required: false
         default: '0.1'
+        type: string
+      context_size:
+        description: 'Context window size (2-6)'
+        required: false
+        default: '3'
+        type: string
   push:
     paths:
       - data/corpus.txt
+      - scripts/train.ts
 
 jobs:
   train:
@@ -29,27 +54,83 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: pnpm
+
       - name: Install dependencies
-        run: npm ci
-      - name: Train model
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate hyperparameters
         env:
-          EPOCHS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.epochs || '' }}
-          OPTIMIZER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.optimizer || '' }}
-          DROPOUT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dropout || '' }}
-        run: npm run train
-      - name: Commit updated model artifact
+          EPOCHS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.epochs || '30' }}
+          HIDDEN_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.hidden_size || '64' }}
+          LEARNING_RATE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.learning_rate || '0.08' }}
+          DROPOUT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dropout || '0.1' }}
+          CONTEXT_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.context_size || '3' }}
+          OPTIMIZER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.optimizer || 'momentum' }}
+        run: |
+          echo "=== Training Configuration ==="
+          echo "Epochs: $EPOCHS"
+          echo "Hidden size: $HIDDEN_SIZE"
+          echo "Learning rate: $LEARNING_RATE"
+          echo "Dropout: $DROPOUT"
+          echo "Context size: $CONTEXT_SIZE"
+          echo "Optimizer: $OPTIMIZER"
+          echo "Trigger: ${{ github.event_name }}"
+
+      - name: Run training
+        env:
+          EPOCHS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.epochs || '30' }}
+          HIDDEN_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.hidden_size || '64' }}
+          LEARNING_RATE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.learning_rate || '0.08' }}
+          DROPOUT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dropout || '0.1' }}
+          CONTEXT_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.context_size || '3' }}
+          OPTIMIZER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.optimizer || 'momentum' }}
+        run: pnpm train
+
+      - name: Check for model changes
+        id: model-check
         run: |
           if [[ -n "$(git status --porcelain models/)" ]]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add models/
-            git commit -m "chore: update trained model"
-            git push
+            echo "has_changes=true" >> $GITHUB_OUTPUT
           else
-            echo "No model changes to commit."
+            echo "has_changes=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Commit updated model artifact
+        if: steps.model-check.outputs.has_changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add models/neuro-lingua-v324.json
+
+          TRIGGER_TYPE="${{ github.event_name }}"
+          if [[ "$TRIGGER_TYPE" == "workflow_dispatch" ]]; then
+            COMMIT_MSG="chore: update trained model (manual trigger: ${{ github.event.inputs.epochs || '30' }} epochs, ${{ github.event.inputs.optimizer || 'momentum' }} optimizer)"
+          else
+            COMMIT_MSG="chore: update trained model (corpus updated)"
+          fi
+
+          git commit -m "$COMMIT_MSG"
+          git push
+
+      - name: Upload training results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: training-artifacts
+          path: models/neuro-lingua-v324.json
+          retention-days: 30
+
+      - name: Report status
+        if: steps.model-check.outputs.has_changes != 'true'
+        run: echo "✓ No model changes detected - corpus unchanged or training produced identical weights"

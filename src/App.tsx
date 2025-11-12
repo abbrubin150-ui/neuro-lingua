@@ -104,7 +104,7 @@ type AppTranslations = {
 
 const TRANSLATIONS: Record<Locale, AppTranslations> = {
   en: {
-    toggle: { button: 'עברית / RTL', aria: 'Switch interface language to Hebrew (RTL)' },
+    toggle: { button: 'Hebrew / RTL', aria: 'Switch interface language to Hebrew (RTL)' },
     title: '🧠 Neuro‑Lingua DOMESTICA — v{version}',
     subtitle:
       'Advanced neural language model with Momentum/Adam, training-only dropout, real-time charts, and flexible context windows.',
@@ -121,19 +121,19 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
     infoCards: [
       {
         title: '🎯 Training Tips',
-        body: '• 200–500 words • 20–50 epochs • LR: 0.05–0.1 • Context: 3–5'
+        body: '• 200–500 words • 20–50 epochs • LR: 0.05–0.1 • Context: 3–5 • Enable Resume to continue from last checkpoint'
       },
       {
         title: '🎲 Text Generation',
-        body: '• Temperature: 0.7–1.0 • Choose top‑k or top‑p (top‑p ≈ 0.85–0.95)'
+        body: '• Temperature: 0.7–1.0 for coherence • Top‑p ≈ 0.85–0.95 • Models generate predictions based on training'
       },
       {
-        title: '⚡ Performance',
-        body: '• Momentum: 0.9 or Adam • Save tokenizer presets • Export CSV to compare runs'
+        title: '💾 Save & Export',
+        body: '• Save exports JSON model • Load reimports from JSON • CSV export contains training history • All data stored locally'
       },
       {
         title: '⌨️ Shortcuts',
-        body: '• Ctrl/Cmd+Enter: Train/Stop • Ctrl/Cmd+S: Save • Ctrl/Cmd+G: Generate'
+        body: '• Ctrl/Cmd+Enter: Train/Stop • Ctrl/Cmd+S: Save • Ctrl/Cmd+G: Generate • Stop to pause and resume later'
       }
     ],
     chat: {
@@ -190,19 +190,19 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
     infoCards: [
       {
         title: '🎯 טיפים לאימון',
-        body: '• 200–500 מילים • 20–50 אפוקים • קצב למידה: 0.05–0.1 • הקשר: 3–5'
+        body: '• 200–500 מילים • 20–50 אפוקים • קצב: 0.05–0.1 • הקשר: 3–5 • אפשרו המשך ממצ׳קפ׳ קודם'
       },
       {
         title: '🎲 יצירת טקסט',
-        body: '• טמפ׳: 0.7–1.0 • בחרו top‑k או top‑p (top‑p ≈ 0.85–0.95)'
+        body: '• טמפ׳: 0.7–1.0 לשפיעות • Top‑p ≈ 0.85–0.95 • מודל יוצר חיזויים מהדרכה'
       },
       {
-        title: '⚡ ביצועים',
-        body: '• מומנטום 0.9 או Adam • שמרו פרופילי טוקנייזר • ייצאו CSV להשוואת ריצות'
+        title: '💾 שמירה וייצוא',
+        body: '• שמירה לJSON • טעינה משוחזרת • CSV מהיסטוריה • כל הנתונים מקומיים'
       },
       {
         title: '⌨️ קיצורי דרך',
-        body: '• Ctrl/Cmd+Enter: התחלה/עצירה • Ctrl/Cmd+S: שמירה • Ctrl/Cmd+G: דגימה'
+        body: '• Ctrl/Cmd+Enter: התחלה/עצירה • Ctrl/Cmd+S: שמירה • Ctrl/Cmd+G: דגימה • עצרו להשהיה'
       }
     ],
     chat: {

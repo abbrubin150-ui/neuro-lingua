@@ -868,6 +868,15 @@ export default function NeuroLinguaDomesticaV324() {
         lossEMA: lossEMA,
         tokensPerSec: tokensPerSec
       });
+
+      // Update GPU metrics periodically (every 5 epochs or less frequently)
+      if (gpuOpsRef.current && useGPU && (e + 1) % Math.max(1, Math.floor(total / 10)) === 0) {
+        const metrics = gpuOpsRef.current.getMetrics();
+        if (metrics.available) {
+          setGpuMetrics(metrics);
+        }
+      }
+
       setTrainingHistory(modelRef.current!.getTrainingHistory());
       setProgress(((e + 1) / total) * 100);
       await new Promise((r) => setTimeout(r, TRAINING_UI_UPDATE_DELAY));
@@ -876,6 +885,20 @@ export default function NeuroLinguaDomesticaV324() {
     if (trainingRef.current.running) {
       setInfo({ V: modelRef.current!.getVocabSize(), P: modelRef.current!.getParametersCount() });
       applyModelMeta(modelRef.current!);
+
+      // Collect and display GPU metrics if available
+      if (gpuOpsRef.current && useGPU) {
+        const finalMetrics = gpuOpsRef.current.getMetrics();
+        if (finalMetrics.available) {
+          setGpuMetrics(finalMetrics);
+          if (finalMetrics.totalOperations > 0) {
+            addSystemMessage(
+              `⚡ GPU Acceleration: ${finalMetrics.totalOperations} ops, ${finalMetrics.totalTimeMs.toFixed(1)}ms total, ${finalMetrics.averageTimeMs.toFixed(2)}ms/op`
+            );
+          }
+        }
+      }
+
       addSystemMessage(
         `✅ Training complete! Average accuracy: ${((aggAcc / total) * 100).toFixed(1)}%`
       );

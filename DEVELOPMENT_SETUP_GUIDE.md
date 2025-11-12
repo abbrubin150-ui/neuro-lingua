@@ -111,6 +111,7 @@ pnpm dev
 ```
 
 This command:
+
 - Starts Vite development server on `http://localhost:5173/`
 - Enables hot module reloading (HMR)
 - Opens browser automatically (on supported platforms)
@@ -119,6 +120,7 @@ This command:
 ### IDE Recommendations
 
 **VS Code Setup:**
+
 ```json
 {
   "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -133,6 +135,7 @@ This command:
 ```
 
 **Recommended Extensions:**
+
 - ESLint (dbaeumer.vscode-eslint)
 - Prettier (esbenp.prettier-vscode)
 - TypeScript Vue Plugin (Vue.vscode-typescript-vue-plugin)
@@ -167,6 +170,7 @@ pnpm test -- --coverage
 ```
 
 **Test Structure:**
+
 - `tests/ProNeuralLM.test.ts` — Core language model tests
 - `tests/AdvancedNeuralLM.test.ts` — Advanced features tests
 - `tests/TransformerLM.test.ts` — Transformer architecture tests
@@ -225,6 +229,7 @@ pnpm build -- --sourcemap
 ```
 
 **Output:**
+
 - Built files: `dist/`
 - HTML: `dist/index.html`
 - JavaScript: `dist/assets/*.js`
@@ -240,6 +245,7 @@ The project auto-deploys to GitHub Pages on every push to `main`:
 3. Built artifacts deployed to `https://abbrubin150-ui.github.io/neuro-lingua/`
 
 **Manual deployment:**
+
 ```bash
 # Build and test locally
 pnpm build
@@ -311,6 +317,7 @@ EXPERIMENT_NAME=my_experiment       # Tag for experiment tracking
 ### Data Preparation
 
 Corpora should be:
+
 - **Plain text** (`.txt` files)
 - **200+ words minimum** for meaningful training
 - **1000+ words recommended** for good quality models
@@ -318,6 +325,7 @@ Corpora should be:
 - **Representative** of target domain
 
 **Example corpus structure:**
+
 ```
 Paragraph 1: Background and motivation
 Paragraph 2: Technical details
@@ -334,6 +342,7 @@ Paragraph 3: Implementation approach
 **Triggers:** Every push to main and all pull requests
 
 **Steps:**
+
 1. Type check with TypeScript
 2. ESLint validation
 3. Prettier formatting check
@@ -341,6 +350,7 @@ Paragraph 3: Implementation approach
 5. Production build
 
 **Status badge:**
+
 ```markdown
 ![CI](https://github.com/abbrubin150-ui/neuro-lingua/actions/workflows/ci.yml/badge.svg)
 ```
@@ -348,10 +358,12 @@ Paragraph 3: Implementation approach
 ### Automated Model Training (`.github/workflows/train-model.yml`)
 
 **Triggers:**
+
 1. Manual workflow dispatch (UI button in GitHub)
 2. Automatic push to `data/corpus.txt`
 
 **Manual Trigger Inputs:**
+
 - `epochs` — Number of training epochs (1-200, default: 30)
 - `hidden_size` — Hidden layer size (16-256, default: 64)
 - `learning_rate` — Learning rate (0.001-1.0, default: 0.08)
@@ -360,6 +372,7 @@ Paragraph 3: Implementation approach
 - `context_size` — Context window (2-6, default: 3)
 
 **Usage from GitHub CLI:**
+
 ```bash
 # Manual trigger with custom hyperparameters
 gh workflow run train-model.yml \
@@ -376,6 +389,7 @@ gh run view <RUN_ID>
 ```
 
 **Workflow outputs:**
+
 - Updated model artifact in `models/neuro-lingua-v324.json`
 - Git commit with hyperparameter details
 - Training artifacts uploaded (30-day retention)
@@ -385,6 +399,7 @@ gh run view <RUN_ID>
 **Triggers:** Successful CI on main branch
 
 **Steps:**
+
 1. Build production bundle
 2. Upload to GitHub Pages
 3. Deploy to public URL
@@ -460,28 +475,33 @@ neuro-lingua/
 ### Architecture Layers
 
 **Presentation Layer (`src/components/`):**
+
 - React components for UI
 - TrainingPanel for hyperparameter controls
 - ModelMetrics for visualization
 - ChatInterface for text generation
 
 **Core ML Layer (`src/lib/` + `src/models/`):**
+
 - ProNeuralLM: Feedforward neural network
 - AdvancedNeuralLM: Extended features (activations, schedules)
 - TransformerLM: Transformer architecture with attention
 - Shared utilities: Math, tokenization, sampling
 
 **GPU Acceleration (`src/backend/`):**
+
 - WebGPU implementation for matrix operations
 - Optional GPU tensor operations
 - Automatic CPU fallback
 
 **Data & Storage (`src/lib/storage.ts`):**
+
 - localStorage persistence
 - Model import/export
 - Tokenizer configuration
 
 **Testing (`tests/`):**
+
 - 144+ tests covering all major components
 - Unit tests for individual functions
 - Integration tests for complex features
@@ -491,17 +511,20 @@ neuro-lingua/
 ## Immediate Development Tasks
 
 ### Task 1: UI Language Consistency ✓ COMPLETED
+
 - Changed toggle button from "עברית" to "Hebrew"
 - Maintained full bilingual support (English + Hebrew with RTL)
 - All UI labels consistent
 
 ### Task 2: Improved Persistence & Help ✓ COMPLETED
+
 - All hyperparameters persist in localStorage
 - Model metadata (timestamp, vocab size) displayed
 - Enhanced info cards with pause/resume documentation
 - Privacy warnings in onboarding
 
 ### Task 3: GitHub Actions Automation ✓ COMPLETED
+
 - Enhanced train-model.yml with:
   - Expanded hyperparameter inputs
   - pnpm support
@@ -514,6 +537,7 @@ neuro-lingua/
   - Build verification
 
 ### Task 4: Developer Experience ✓ COMPLETED
+
 - ESLint configured and passing
 - Prettier formatting enforced
 - 144+ tests (10 test files)
@@ -529,12 +553,14 @@ neuro-lingua/
 **Status:** Backend code exists, needs UI integration
 
 **To implement:**
+
 1. Wire GPU toggle in TrainingPanel to actual training
 2. Add GPU metrics visualization
 3. Benchmark CPU vs GPU performance
 4. Implement automatic fallback for unsupported browsers
 
 **Files to modify:**
+
 - `src/components/TrainingPanel.tsx` — Add GPU toggle logic
 - `src/App.tsx` — Use GPU acceleration in training loop
 - `src/components/ModelMetrics.tsx` — Display GPU metrics
@@ -546,12 +572,14 @@ neuro-lingua/
 **Status:** TransformerLM implemented, needs better UI support
 
 **To implement:**
+
 1. Add architecture selection UI
 2. Transformer-specific hyperparameters (num_heads, num_layers)
 3. Attention visualization
 4. Performance comparison charts
 
 **Files to modify:**
+
 - `src/components/TrainingPanel.tsx` — Architecture selector
 - `src/components/ModelMetrics.tsx` — Architecture-specific charts
 
@@ -560,12 +588,14 @@ neuro-lingua/
 **Status:** Python script exists, not connected to browser
 
 **To implement:**
+
 1. Wrap Python script in Node.js subprocess
 2. Call after training completion
 3. Display Fisher Information metrics
 4. Show efficiency bounds
 
 **Files to create/modify:**
+
 - `src/backend/edgeLearning.ts` — Node.js wrapper
 - `scripts/edge_learning_wrapper.ts` — Training integration
 
@@ -576,6 +606,7 @@ neuro-lingua/
 ### Common Issues
 
 **Q: Build fails with "Cannot find type definition file for '@webgpu/types'"**
+
 ```bash
 # Solution: Reinstall dependencies
 pnpm install
@@ -583,12 +614,14 @@ pnpm build
 ```
 
 **Q: Tests timeout or fail intermittently**
+
 ```bash
 # Solution: Clear cache and retry
 pnpm test -- --clearCache
 ```
 
 **Q: Dev server won't start**
+
 ```bash
 # Solution: Check if port 5173 is in use
 lsof -i :5173  # macOS/Linux
@@ -599,6 +632,7 @@ pnpm dev -- --port 3000
 ```
 
 **Q: Training is slow**
+
 ```bash
 # Solution: Try reducing hyperparameters
 # - Decrease epochs (10-20 instead of 30-50)
@@ -610,6 +644,7 @@ OPTIMIZER=adam pnpm train
 ```
 
 **Q: Model doesn't converge (loss stays high)**
+
 ```bash
 # Solution: Adjust learning rate
 # Try lower rate: 0.01-0.05
@@ -618,6 +653,7 @@ OPTIMIZER=adam pnpm train
 ```
 
 **Q: Corpus validation error**
+
 ```bash
 # Solution: Ensure corpus.txt meets minimum requirements
 # Minimum: 8 unique characters/tokens
@@ -628,6 +664,7 @@ OPTIMIZER=adam pnpm train
 ### Debug Mode
 
 **Enable verbose logging:**
+
 ```bash
 # In browser console
 localStorage.setItem('DEBUG', 'true');
@@ -637,14 +674,16 @@ location.reload();
 ```
 
 **Inspect model state:**
+
 ```javascript
 // In browser console
-console.log(window.__MODEL__);  // Access model if exported
+console.log(window.__MODEL__); // Access model if exported
 ```
 
 ### Performance Profiling
 
 **CPU profiling (Chrome DevTools):**
+
 1. Open DevTools (F12)
 2. Go to Performance tab
 3. Click Record
@@ -653,6 +692,7 @@ console.log(window.__MODEL__);  // Access model if exported
 6. Analyze flame chart
 
 **Memory profiling:**
+
 1. Open DevTools → Memory tab
 2. Take heap snapshot before training
 3. Train model
@@ -681,6 +721,7 @@ Fixes #<issue-number> (if applicable)
 ```
 
 **Types:**
+
 - `feat:` New feature
 - `fix:` Bug fix
 - `docs:` Documentation
@@ -690,6 +731,7 @@ Fixes #<issue-number> (if applicable)
 - `chore:` Dependencies, configs
 
 **Example:**
+
 ```
 feat: add WebGPU acceleration toggle to training panel
 
@@ -716,17 +758,20 @@ Fixes #42
 ## Resources
 
 ### Documentation
+
 - [README.md](./README.md) — Project overview
 - [TRANSFORMER_IMPLEMENTATION.md](./TRANSFORMER_IMPLEMENTATION.md) — Transformer details
 - [IMMEDIATE_ACTIONS.md](./IMMEDIATE_ACTIONS.md) — Priority tasks
 
 ### External References
+
 - [Vite Documentation](https://vitejs.dev/)
 - [React Documentation](https://react.dev/)
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/)
 - [WebGPU Specification](https://www.w3.org/TR/webgpu/)
 
 ### Related Research
+
 - [Transformers: Attention Is All You Need](https://arxiv.org/abs/1706.03762)
 - [On-Device ML Best Practices](https://github.com/abbrubin150-ui/neuro-lingua/docs/theory/)
 
@@ -735,6 +780,7 @@ Fixes #42
 ## Support & Feedback
 
 Found a bug? Have a feature request?
+
 - [Open an issue](https://github.com/abbrubin150-ui/neuro-lingua/issues)
 - Include reproduction steps
 - Specify browser/OS/Node version

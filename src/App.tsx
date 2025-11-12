@@ -21,7 +21,10 @@ import { TransformerLM } from './lib/TransformerLM';
 import { StorageManager } from './lib/storage';
 import { buildVocab, parseTokenizerConfig, downloadBlob } from './lib/utils';
 import type { GPUNeuralOps } from './backend/gpu_neural_ops';
-import { computeSimulatedEdgeLearningDiagnostics, type EdgeLearningDiagnostics } from './backend/edgeLearning';
+import {
+  computeSimulatedEdgeLearningDiagnostics,
+  type EdgeLearningDiagnostics
+} from './backend/edgeLearning';
 import {
   STORAGE_KEYS,
   DEFAULT_TRAINING_TEXT,
@@ -349,7 +352,8 @@ export default function NeuroLinguaDomesticaV324() {
   } | null>(null);
 
   // Edge Learning diagnostics
-  const [edgeLearningDiagnostics, setEdgeLearningDiagnostics] = useState<EdgeLearningDiagnostics | null>(null);
+  const [edgeLearningDiagnostics, setEdgeLearningDiagnostics] =
+    useState<EdgeLearningDiagnostics | null>(null);
 
   // Tokenizer
   const [tokenizerConfig, setTokenizerConfig] = useState<TokenizerConfig>(DEFAULT_TOKENIZER_CONFIG);

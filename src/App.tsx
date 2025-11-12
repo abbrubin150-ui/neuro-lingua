@@ -77,6 +77,9 @@ type UiSettings = {
   useLayerNorm: boolean;
   useBeamSearch: boolean;
   beamWidth: number;
+  // Transformer-specific
+  numHeads: number;
+  numLayers: number;
 };
 
 type ModelMeta = { timestamp: number; vocab: number };
@@ -328,6 +331,10 @@ export default function NeuroLinguaDomesticaV324() {
   const [useBeamSearch, setUseBeamSearch] = useState(DEFAULT_GENERATION.useBeamSearch);
   const [beamWidth, setBeamWidth] = useState(DEFAULT_GENERATION.beamWidth);
 
+  // Transformer-specific parameters
+  const [numHeads, setNumHeads] = useState(4);
+  const [numLayers, setNumLayers] = useState(2);
+
   // GPU acceleration
   const [useGPU, setUseGPU] = useState(false);
   const [gpuAvailable, setGpuAvailable] = useState(false);
@@ -509,6 +516,8 @@ export default function NeuroLinguaDomesticaV324() {
     if (typeof saved.useLayerNorm === 'boolean') setUseLayerNorm(saved.useLayerNorm);
     if (typeof saved.useBeamSearch === 'boolean') setUseBeamSearch(saved.useBeamSearch);
     if (typeof saved.beamWidth === 'number') setBeamWidth(saved.beamWidth);
+    if (typeof saved.numHeads === 'number') setNumHeads(saved.numHeads);
+    if (typeof saved.numLayers === 'number') setNumLayers(saved.numLayers);
 
     const tokenizerRaw = StorageManager.get<unknown>(STORAGE_KEYS.TOKENIZER_CONFIG, null);
     if (tokenizerRaw) {
@@ -680,7 +689,9 @@ export default function NeuroLinguaDomesticaV324() {
       gradientClipNorm,
       useLayerNorm,
       useBeamSearch,
-      beamWidth
+      beamWidth,
+      numHeads,
+      numLayers
     };
     StorageManager.set(STORAGE_KEYS.UI_SETTINGS, settings);
   }, [
@@ -713,7 +724,9 @@ export default function NeuroLinguaDomesticaV324() {
     gradientClipNorm,
     useLayerNorm,
     useBeamSearch,
-    beamWidth
+    beamWidth,
+    numHeads,
+    numLayers
   ]);
 
   // Persist tokenizer config separately
@@ -763,15 +776,15 @@ export default function NeuroLinguaDomesticaV324() {
           seed,
           tokenizerConfig,
           {
-            numLayers: 2,
-            numHeads: 4,
+            numLayers: clamp(numLayers, 1, 8),
+            numHeads: clamp(numHeads, 1, 16),
             ffHiddenDim: hiddenSize * 2,
             attentionDropout: dropout,
             dropConnectRate: 0.1
           }
         );
         addSystemMessage(
-          `🔮 Starting fresh training with TransformerLM (${vocab.length} vocabulary tokens, 2 layers, 4 heads)…`
+          `🔮 Starting fresh training with TransformerLM (${vocab.length} vocabulary tokens, ${numLayers} layers, ${numHeads} heads)…`
         );
       } else if (architecture === 'advanced' || useAdvanced) {
         // Use AdvancedNeuralLM with advanced configuration
@@ -1130,6 +1143,8 @@ export default function NeuroLinguaDomesticaV324() {
               useLayerNorm={useLayerNorm}
               useBeamSearch={useBeamSearch}
               beamWidth={beamWidth}
+              numHeads={numHeads}
+              numLayers={numLayers}
               // Callbacks
               onArchitectureChange={setArchitecture}
               onHiddenSizeChange={setHiddenSize}
@@ -1161,6 +1176,8 @@ export default function NeuroLinguaDomesticaV324() {
               onUseLayerNormChange={setUseLayerNorm}
               onUseBeamSearchChange={setUseBeamSearch}
               onBeamWidthChange={setBeamWidth}
+              onNumHeadsChange={setNumHeads}
+              onNumLayersChange={setNumLayers}
               onTokenizerConfigChange={setTokenizerConfig}
               onCustomPatternChange={setCustomTokenizerPattern}
               onTokenizerError={setTokenizerError}

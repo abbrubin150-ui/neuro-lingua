@@ -44,6 +44,10 @@ interface TrainingPanelProps {
   useBeamSearch: boolean;
   beamWidth: number;
 
+  // Transformer-specific
+  numHeads: number;
+  numLayers: number;
+
   // Tokenizer
   tokenizerConfig: TokenizerConfigType;
   customTokenizerPattern: string;
@@ -86,6 +90,10 @@ interface TrainingPanelProps {
   onUseLayerNormChange: (value: boolean) => void;
   onUseBeamSearchChange: (value: boolean) => void;
   onBeamWidthChange: (value: number) => void;
+
+  // Transformer-specific callbacks
+  onNumHeadsChange: (value: number) => void;
+  onNumLayersChange: (value: number) => void;
 
   onTokenizerConfigChange: (config: TokenizerConfigType) => void;
   onCustomPatternChange: (pattern: string) => void;
@@ -182,6 +190,74 @@ export function TrainingPanel(props: TrainingPanelProps) {
           </button>
         </div>
       </div>
+
+      {/* Transformer-Specific Configuration */}
+      {props.architecture === 'transformer' && (
+        <div
+          style={{
+            background: 'rgba(139, 92, 246, 0.1)',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#a78bfa', marginBottom: 8 }}>
+            🔮 Transformer Configuration
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>Attention Heads</div>
+              <input
+                aria-label="Number of attention heads"
+                type="number"
+                min="1"
+                max="16"
+                value={props.numHeads}
+                onChange={(e) =>
+                  props.onNumHeadsChange(Math.max(1, Math.min(16, parseInt(e.target.value || '4'))))
+                }
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white',
+                  fontSize: 12
+                }}
+              />
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>1-16 (default: 4)</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>Layers</div>
+              <input
+                aria-label="Number of transformer layers"
+                type="number"
+                min="1"
+                max="8"
+                value={props.numLayers}
+                onChange={(e) =>
+                  props.onNumLayersChange(Math.max(1, Math.min(8, parseInt(e.target.value || '2'))))
+                }
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white',
+                  fontSize: 12
+                }}
+              />
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>1-8 (default: 2)</div>
+            </div>
+          </div>
+          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 8 }}>
+            💡 More heads/layers = more expressive but slower training
+          </div>
+        </div>
+      )}
 
       {/* Hyperparameters Grid */}
       <div

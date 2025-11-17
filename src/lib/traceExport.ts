@@ -3,7 +3,7 @@
  * Implements Σ-SIG compliant audit trail
  */
 
-import type { Run, DecisionLedger, ScenarioResult } from '../types/project';
+import type { Run } from '../types/project';
 import { generateCorpusChecksum } from '../types/project';
 
 /**
@@ -126,11 +126,7 @@ export function createTraceExport(
 /**
  * Generate filename for trace export
  */
-export function generateTraceFilename(
-  version: string,
-  runName?: string,
-  hash?: string
-): string {
+export function generateTraceFilename(version: string, runName?: string, hash?: string): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
   const versionSlug = version.replace(/\./g, '');
   const nameSlug = runName ? `-${runName.toLowerCase().replace(/\s+/g, '-')}` : '';

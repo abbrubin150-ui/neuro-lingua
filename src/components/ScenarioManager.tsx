@@ -4,14 +4,13 @@
 
 import React, { useState } from 'react';
 import { useProjects, useCreateScenario } from '../contexts/ProjectContext';
-import type { Scenario } from '../types/project';
 
 interface ScenarioManagerProps {
   direction?: 'ltr' | 'rtl';
 }
 
 export function ScenarioManager({ direction = 'ltr' }: ScenarioManagerProps) {
-  const { activeProject, addScenarioToProject, updateScenario, deleteScenario } = useProjects();
+  const { activeProject, addScenarioToProject, deleteScenario } = useProjects();
   const createScenario = useCreateScenario();
 
   const [isAdding, setIsAdding] = useState(false);

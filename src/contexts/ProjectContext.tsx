@@ -134,17 +134,20 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
-  const deleteProject = useCallback((id: string) => {
-    // Delete all runs associated with this project
-    setRuns((prev) => prev.filter((r) => r.projectId !== id));
-    // Delete the project
-    setProjects((prev) => prev.filter((p) => p.id !== id));
-    // Clear active selections if this was active
-    if (activeProjectId === id) {
-      setActiveProjectId(null);
-      setActiveRunId(null);
-    }
-  }, [activeProjectId]);
+  const deleteProject = useCallback(
+    (id: string) => {
+      // Delete all runs associated with this project
+      setRuns((prev) => prev.filter((r) => r.projectId !== id));
+      // Delete the project
+      setProjects((prev) => prev.filter((p) => p.id !== id));
+      // Clear active selections if this was active
+      if (activeProjectId === id) {
+        setActiveProjectId(null);
+        setActiveRunId(null);
+      }
+    },
+    [activeProjectId]
+  );
 
   const setActiveProject = useCallback((id: string | null) => {
     setActiveProjectId(id);
@@ -167,9 +170,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       // Add run ID to project
       setProjects((prev) =>
         prev.map((p) =>
-          p.id === projectId
-            ? { ...p, runIds: [...p.runIds, newRun.id], updatedAt: Date.now() }
-            : p
+          p.id === projectId ? { ...p, runIds: [...p.runIds, newRun.id], updatedAt: Date.now() } : p
         )
       );
 
@@ -183,25 +184,28 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     setRuns((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
   }, []);
 
-  const deleteRun = useCallback((id: string) => {
-    const run = runs.find((r) => r.id === id);
-    if (run) {
-      // Remove run ID from project
-      setProjects((prev) =>
-        prev.map((p) =>
-          p.id === run.projectId
-            ? { ...p, runIds: p.runIds.filter((rid) => rid !== id), updatedAt: Date.now() }
-            : p
-        )
-      );
-    }
-    // Delete the run
-    setRuns((prev) => prev.filter((r) => r.id !== id));
-    // Clear active run if this was active
-    if (activeRunId === id) {
-      setActiveRunId(null);
-    }
-  }, [runs, activeRunId]);
+  const deleteRun = useCallback(
+    (id: string) => {
+      const run = runs.find((r) => r.id === id);
+      if (run) {
+        // Remove run ID from project
+        setProjects((prev) =>
+          prev.map((p) =>
+            p.id === run.projectId
+              ? { ...p, runIds: p.runIds.filter((rid) => rid !== id), updatedAt: Date.now() }
+              : p
+          )
+        );
+      }
+      // Delete the run
+      setRuns((prev) => prev.filter((r) => r.id !== id));
+      // Clear active run if this was active
+      if (activeRunId === id) {
+        setActiveRunId(null);
+      }
+    },
+    [runs, activeRunId]
+  );
 
   const setActiveRun = useCallback((id: string | null) => {
     setActiveRunId(id);
@@ -259,10 +263,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Utility
-  const getProjectById = useCallback(
-    (id: string) => projects.find((p) => p.id === id),
-    [projects]
-  );
+  const getProjectById = useCallback((id: string) => projects.find((p) => p.id === id), [projects]);
 
   const getRunById = useCallback((id: string) => runs.find((r) => r.id === id), [runs]);
 

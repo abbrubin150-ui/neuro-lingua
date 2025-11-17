@@ -206,7 +206,7 @@ export function generateCorpusChecksum(text: string): string {
   let hash = 0;
   for (let i = 0; i < text.length; i++) {
     const char = text.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32-bit integer
   }
   // Convert to hex and pad
@@ -240,11 +240,7 @@ export function createProject(
 /**
  * Create a new scenario
  */
-export function createScenario(
-  name: string,
-  prompt: string,
-  expectedResponse?: string
-): Scenario {
+export function createScenario(name: string, prompt: string, expectedResponse?: string): Scenario {
   return {
     id: `scenario_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     name,

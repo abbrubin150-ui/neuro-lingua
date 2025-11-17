@@ -3,9 +3,7 @@
  */
 
 import React, { useState } from 'react';
-import { useProjects, useCreateDecisionLedger } from '../contexts/ProjectContext';
-import { DecisionLedgerEditor } from './DecisionLedgerEditor';
-import type { DecisionLedger } from '../types/project';
+import { useProjects } from '../contexts/ProjectContext';
 
 interface ProjectManagerProps {
   direction?: 'ltr' | 'rtl';
@@ -20,8 +18,7 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
     projectRuns,
     createNewProject,
     setActiveProject,
-    deleteProject,
-    updateProject
+    deleteProject
   } = useProjects();
 
   const [isCreatingProject, setIsCreatingProject] = useState(false);
@@ -45,6 +42,7 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
 
   return (
     <div
+      role="presentation"
       style={{
         position: 'fixed',
         top: 0,
@@ -60,8 +58,12 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
         direction
       }}
       onClick={onClose}
+      onKeyDown={(e) => e.key === 'Escape' && onClose && onClose()}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="project-manager-title"
         style={{
           background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
           borderRadius: 16,
@@ -72,7 +74,6 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
           overflow: 'auto',
           border: '2px solid #475569'
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
@@ -83,7 +84,10 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
             marginBottom: 20
           }}
         >
-          <h2 style={{ margin: 0, color: '#a78bfa', fontSize: '1.5rem' }}>
+          <h2
+            id="project-manager-title"
+            style={{ margin: 0, color: '#a78bfa', fontSize: '1.5rem' }}
+          >
             📁 Project Manager
           </h2>
           <button
@@ -199,9 +203,7 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
                 <select
                   id="project-language"
                   value={newProjectLanguage}
-                  onChange={(e) =>
-                    setNewProjectLanguage(e.target.value as 'en' | 'he' | 'mixed')
-                  }
+                  onChange={(e) => setNewProjectLanguage(e.target.value as 'en' | 'he' | 'mixed')}
                   style={{
                     width: '100%',
                     background: '#1e293b',
@@ -287,6 +289,8 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
             return (
               <div
                 key={project.id}
+                role="button"
+                tabIndex={0}
                 style={{
                   background: isActive ? 'rgba(139, 92, 246, 0.15)' : 'rgba(30, 41, 59, 0.5)',
                   border: isActive ? '2px solid #a78bfa' : '1px solid #475569',
@@ -297,6 +301,10 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
                   transition: 'all 0.2s'
                 }}
                 onClick={() => setActiveProject(isActive ? null : project.id)}
+                onKeyDown={(e) =>
+                  (e.key === 'Enter' || e.key === ' ') &&
+                  setActiveProject(isActive ? null : project.id)
+                }
               >
                 <div
                   style={{
@@ -307,9 +315,7 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
                 >
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 18 }}>
-                        {isActive ? '📂' : '📁'}
-                      </span>
+                      <span style={{ fontSize: 18 }}>{isActive ? '📂' : '📁'}</span>
                       <h4 style={{ margin: 0, color: '#e2e8f0', fontSize: '1.1rem' }}>
                         {project.name}
                       </h4>
@@ -340,9 +346,9 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
                       {project.description || 'No description'}
                     </p>
                     <div style={{ fontSize: 12, color: '#64748b' }}>
-                      {runs.length} run{runs.length !== 1 ? 's' : ''} •{' '}
-                      {project.scenarios.length} scenario{project.scenarios.length !== 1 ? 's' : ''}{' '}
-                      • Created {new Date(project.createdAt).toLocaleDateString()}
+                      {runs.length} run{runs.length !== 1 ? 's' : ''} • {project.scenarios.length}{' '}
+                      scenario{project.scenarios.length !== 1 ? 's' : ''} • Created{' '}
+                      {new Date(project.createdAt).toLocaleDateString()}
                     </div>
                   </div>
 
@@ -375,7 +381,9 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
                       borderTop: '1px solid #475569'
                     }}
                   >
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#a78bfa', marginBottom: 8 }}>
+                    <div
+                      style={{ fontSize: 13, fontWeight: 600, color: '#a78bfa', marginBottom: 8 }}
+                    >
                       Runs in this project:
                     </div>
                     {runs.map((run) => (
@@ -389,9 +397,7 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
                           fontSize: 12
                         }}
                       >
-                        <div style={{ fontWeight: 600, color: '#e2e8f0' }}>
-                          {run.name}
-                        </div>
+                        <div style={{ fontWeight: 600, color: '#e2e8f0' }}>{run.name}</div>
                         <div style={{ color: '#94a3b8', fontSize: 11 }}>
                           {run.config.architecture} • {run.status} •{' '}
                           {new Date(run.createdAt).toLocaleDateString()}
@@ -421,9 +427,9 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
             <div style={{ fontSize: 13, color: '#94a3b8' }}>
               <p style={{ margin: '0 0 8px 0' }}>{activeProject.description}</p>
               <div>
-                <strong>Language:</strong> {activeProject.language} •{' '}
-                <strong>Architecture:</strong> {activeProject.defaultArchitecture} •{' '}
-                <strong>Corpus Type:</strong> {activeProject.corpusType}
+                <strong>Language:</strong> {activeProject.language} • <strong>Architecture:</strong>{' '}
+                {activeProject.defaultArchitecture} • <strong>Corpus Type:</strong>{' '}
+                {activeProject.corpusType}
               </div>
             </div>
           </div>

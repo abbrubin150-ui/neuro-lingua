@@ -167,9 +167,7 @@ export function DecisionLedgerEditor({
               <input
                 id="ledger-expiry"
                 type="date"
-                value={
-                  ledger.expiry ? new Date(ledger.expiry).toISOString().split('T')[0] : ''
-                }
+                value={ledger.expiry ? new Date(ledger.expiry).toISOString().split('T')[0] : ''}
                 onChange={(e) =>
                   onChange({
                     ...ledger,
@@ -244,8 +242,8 @@ export function DecisionLedgerEditor({
             )}
             {status === 'ESCALATE' && (
               <>
-                🚨 <strong>ESCALATE:</strong> Missing rationale or witness. Complete all fields before
-                training.
+                🚨 <strong>ESCALATE:</strong> Missing rationale or witness. Complete all fields
+                before training.
               </>
             )}
           </div>

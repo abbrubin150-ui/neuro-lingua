@@ -1,6 +1,7 @@
 # Neuro-Lingua DOMESTICA v3.3 - Project & Run Management
 
 ## Overview
+
 Major architectural expansion implementing **Projects**, **Runs**, and **Σ-SIG Decision Ledger** governance framework. This update transforms Neuro-Lingua from single-training mode to full experiment tracking and management.
 
 ---
@@ -10,6 +11,7 @@ Major architectural expansion implementing **Projects**, **Runs**, and **Σ-SIG 
 ### 1. **Project & Run Architecture** (Axis A - Logical Structure)
 
 #### Projects
+
 - **Container for multiple training runs** with:
   - Name, description, and primary language (EN/HE/Mixed)
   - Default architecture selection
@@ -18,6 +20,7 @@ Major architectural expansion implementing **Projects**, **Runs**, and **Σ-SIG 
   - Tags for organization
 
 #### Runs
+
 - **Frozen training execution** with complete snapshot:
   - All hyperparameters (learning rate, epochs, optimizer, etc.)
   - Architecture configuration (feedforward/advanced/transformer)
@@ -32,12 +35,14 @@ Major architectural expansion implementing **Projects**, **Runs**, and **Σ-SIG 
 Implements **Σ-SIG / EXACT1** compliance framework:
 
 #### Fields
+
 - **Rationale**: Why this training run is necessary
 - **Witness**: Who authorized the training (e.g., "local-user")
 - **Expiry**: Optional expiration date (ISO 8601)
 - **Rollback**: Action after expiry (keep/delete-after-expiry/archive)
 
 #### Execution Status
+
 - **EXECUTE**: All checks passed, training permitted ✅
 - **HOLD**: Run expired or paused ⏸️
 - **ESCALATE**: Missing rationale/witness, review required 🚨
@@ -95,11 +100,13 @@ Enhanced model export format with full traceability:
 ## 📁 New Files & Components
 
 ### Type Definitions
+
 - `src/types/project.ts`: Core types for Project, Run, DecisionLedger, Scenario
   - Helper functions: `createProject`, `createRun`, `createScenario`, `createDecisionLedger`
   - Validation: `computeExecutionStatus`, `generateCorpusChecksum`
 
 ### Context Management
+
 - `src/contexts/ProjectContext.tsx`: React Context for Projects/Runs
   - CRUD operations for projects
   - CRUD operations for runs
@@ -108,6 +115,7 @@ Enhanced model export format with full traceability:
   - Hooks: `useProjects`, `useCreateScenario`, `useCreateDecisionLedger`
 
 ### UI Components
+
 - `src/components/ProjectManager.tsx`: Main project management interface
   - Create/select/delete projects
   - View runs within projects
@@ -124,6 +132,7 @@ Enhanced model export format with full traceability:
   - Integrated with project context
 
 ### Utilities
+
 - `src/lib/traceExport.ts`: Enhanced export functionality
   - `createTraceExport`: Generate full audit trail
   - `generateTraceFilename`: Consistent naming
@@ -134,12 +143,14 @@ Enhanced model export format with full traceability:
 ## 🔧 Modified Files
 
 ### App.tsx
+
 - Wrapped application in `<ProjectProvider>`
 - Added "📁 Projects" button to header
 - Added `showProjectManager` state
 - Modal overlay for ProjectManager
 
 ### components/index.ts
+
 - Exported new components: `ProjectManager`, `DecisionLedgerEditor`, `ScenarioManager`
 
 ---
@@ -165,12 +176,14 @@ Enhanced model export format with full traceability:
 ## 📊 Data Model
 
 ### Storage Keys (localStorage)
+
 - `neuro-lingua-projects-v1`: Array of projects
 - `neuro-lingua-runs-v1`: Array of runs
 - `neuro-lingua-active-project-v1`: Currently selected project ID
 - `neuro-lingua-active-run-v1`: Currently selected run ID
 
 ### Relationships
+
 ```
 Project (1) ──── (N) Run
   │
@@ -189,6 +202,7 @@ Run ──── (1) DecisionLedger
 ## 🚀 Future Enhancements (Not Implemented)
 
 ### Deferred from original plan:
+
 1. **Privacy-Guard**: PII scanner before training (skipped for personal use)
 2. **Automatic Scenario Execution**: Run scenarios every N epochs
 3. **Enhanced Tokenization**: Semantic token detection and "Propose semantic splits"
@@ -202,11 +216,13 @@ Run ──── (1) DecisionLedger
 ## 🧪 Testing
 
 ### Build Status
+
 ✅ TypeScript compilation successful
 ✅ Vite build successful
 ✅ No runtime errors in development mode
 
 ### Manual Testing Checklist
+
 - [ ] Create new project
 - [ ] View project list
 - [ ] Select active project
@@ -223,11 +239,13 @@ Run ──── (1) DecisionLedger
 ## 📝 Migration Notes
 
 ### Backward Compatibility
+
 - Existing localStorage models remain untouched
 - Projects/Runs system is **opt-in**
 - Original single-training workflow still works
 
 ### Breaking Changes
+
 None. All changes are additive.
 
 ---
@@ -235,11 +253,13 @@ None. All changes are additive.
 ## 🔒 Governance Philosophy (Σ-SIG)
 
 The Decision Ledger implements:
+
 - **Σ** (Sigma): Signature/witness - who is accountable
 - **SIG**: Signal - rationale for action
 - **EXACT1**: Expiry-based accountability with clear rollback policy
 
 This ensures:
+
 1. **Traceability**: Every training run has documented purpose
 2. **Accountability**: Clear ownership via witness field
 3. **Temporal bounds**: Expiry dates prevent indefinite model drift

@@ -50,7 +50,14 @@ import {
   ProjectManager
 } from './components';
 
-import { ProjectProvider } from './contexts/ProjectContext';
+import { ProjectProvider, useProjects } from './contexts/ProjectContext';
+import { createTraceExport, generateTraceFilename } from './lib/traceExport';
+import {
+  createDecisionLedger,
+  computeExecutionStatus,
+  generateCorpusChecksum
+} from './types/project';
+import type { TrainingConfig, ScenarioResult } from './types/project';
 
 type UiSettings = {
   architecture: Architecture;
@@ -372,6 +379,17 @@ export default function NeuroLinguaDomesticaV324() {
   const trainingRef = useRef({ running: false, currentEpoch: 0 });
   const abortControllerRef = useRef<AbortController | null>(null);
   const gpuOpsRef = useRef<GPUNeuralOps | null>(null);
+  const currentRunRef = useRef<string | null>(null);
+
+  // Project/Run Management
+  const {
+    activeProject,
+    activeProjectId,
+    activeRun,
+    createNewRun,
+    updateRun,
+    getRunExecutionStatus
+  } = useProjects();
 
   // Helper to add system messages
   const addSystemMessage = useCallback((content: string) => {
@@ -756,11 +774,78 @@ export default function NeuroLinguaDomesticaV324() {
       return;
     }
 
+    // Check Decision Ledger if we have an active run
+    if (activeRun) {
+      const status = getRunExecutionStatus(activeRun.id);
+      if (status === 'ESCALATE') {
+        addSystemMessage('🚨 Cannot train: Decision Ledger requires review (missing rationale/witness).');
+        return;
+      }
+      if (status === 'HOLD') {
+        addSystemMessage('⏸️ Cannot train: Run is on HOLD (expired or paused).');
+        return;
+      }
+    }
+
     // Create new AbortController for this training session
     abortControllerRef.current = new AbortController();
     trainingRef.current = { running: true, currentEpoch: 0 };
     setIsTraining(true);
     setProgress(0);
+
+    // Build training configuration snapshot
+    const trainingConfig: TrainingConfig = {
+      architecture,
+      hiddenSize,
+      epochs,
+      learningRate: lr,
+      optimizer,
+      momentum,
+      dropout,
+      contextSize,
+      seed,
+      tokenizerConfig,
+      useAdvanced,
+      useGPU,
+      activation,
+      leakyReluAlpha,
+      eluAlpha,
+      initialization,
+      lrSchedule,
+      lrMin,
+      lrDecayRate,
+      warmupEpochs,
+      weightDecay,
+      gradientClipNorm,
+      useLayerNorm,
+      numHeads,
+      numLayers
+    };
+
+    // Create a new Run if we have an active project and no active run
+    if (activeProjectId && !activeRun) {
+      const defaultLedger = createDecisionLedger(
+        'Training run initiated from UI',
+        'local-user',
+        null,
+        'keep'
+      );
+
+      const newRun = createNewRun(
+        activeProjectId,
+        `Training Run ${new Date().toLocaleString()}`,
+        trainingConfig,
+        trainingText,
+        defaultLedger
+      );
+
+      currentRunRef.current = newRun.id;
+      updateRun(newRun.id, { status: 'running', startedAt: Date.now() });
+      addSystemMessage(`📝 Created new Run: ${newRun.name}`);
+    } else if (activeRun) {
+      currentRunRef.current = activeRun.id;
+      updateRun(activeRun.id, { status: 'running', startedAt: Date.now() });
+    }
 
     const vocab = buildVocab(trainingText, tokenizerConfig);
     if (vocab.length < MIN_VOCAB_SIZE) {
@@ -952,6 +1037,64 @@ export default function NeuroLinguaDomesticaV324() {
         `✅ Training complete! Average accuracy: ${((aggAcc / total) * 100).toFixed(1)}%`
       );
       modelRef.current!.saveToLocalStorage(MODEL_STORAGE_KEY);
+
+      // Save results to Run if we have one
+      if (currentRunRef.current) {
+        const finalTrainingHistory = modelRef.current!.getTrainingHistory();
+
+        // Execute scenarios if we have an active project
+        const scenarioResults: ScenarioResult[] = [];
+        if (activeProject && activeProject.scenarios.length > 0) {
+          addSystemMessage('🧪 Running test scenarios...');
+          for (const scenario of activeProject.scenarios) {
+            try {
+              const response = await modelRef.current!.generate(
+                scenario.prompt,
+                50,
+                0.8,
+                0,
+                0.9
+              );
+
+              // Simple scoring: 1.0 if we got a response, 0.5 if empty
+              const score = response && response.trim().length > 0 ? 1.0 : 0.5;
+
+              scenarioResults.push({
+                scenarioId: scenario.id,
+                response,
+                score,
+                timestamp: Date.now()
+              });
+
+              addSystemMessage(`  ✓ ${scenario.name}: Score ${score.toFixed(2)}`);
+            } catch (error) {
+              console.warn(`Failed to run scenario ${scenario.name}:`, error);
+              scenarioResults.push({
+                scenarioId: scenario.id,
+                response: 'Error running scenario',
+                score: 0,
+                timestamp: Date.now()
+              });
+            }
+          }
+        }
+
+        // Update the Run with final results
+        updateRun(currentRunRef.current, {
+          results: {
+            finalLoss: stats.loss,
+            finalAccuracy: stats.acc,
+            finalPerplexity: stats.ppl,
+            trainingHistory: finalTrainingHistory,
+            scenarioResults: scenarioResults.length > 0 ? scenarioResults : undefined
+          },
+          modelData: modelRef.current!.toJSON(),
+          completedAt: Date.now(),
+          status: 'completed'
+        });
+
+        addSystemMessage('💾 Run results saved to Project');
+      }
     }
 
     setIsTraining(false);
@@ -962,6 +1105,14 @@ export default function NeuroLinguaDomesticaV324() {
     abortControllerRef.current?.abort();
     trainingRef.current.running = false;
     setIsTraining(false);
+
+    // Update Run status if we have one
+    if (currentRunRef.current) {
+      updateRun(currentRunRef.current, {
+        status: 'stopped'
+      });
+    }
+
     addSystemMessage('⏹️ Training stopped');
   }
 
@@ -985,22 +1136,53 @@ export default function NeuroLinguaDomesticaV324() {
   function onExport() {
     if (!modelRef.current) return;
     const modelData = modelRef.current.toJSON();
-    const blob = new Blob([JSON.stringify(modelData, null, 2)], {
+
+    // Create enhanced trace export if we have a Run
+    let exportData: unknown;
+    let filename: string;
+
+    if (activeRun) {
+      // Export with full trace metadata
+      exportData = createTraceExport(
+        modelData,
+        activeRun,
+        trainingHistory,
+        stats,
+        trainingText,
+        MODEL_VERSION
+      );
+
+      // Generate descriptive filename
+      const jsonStr = JSON.stringify(exportData);
+      const hash = Math.abs(
+        jsonStr.split('').reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0)
+      )
+        .toString(16)
+        .slice(0, 8);
+
+      filename = generateTraceFilename(MODEL_VERSION, activeRun.name, hash);
+      addSystemMessage('📦 Exporting with full trace metadata (Σ-SIG compliant)...');
+    } else {
+      // Export standard format (backward compatible)
+      exportData = modelData;
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      const jsonStr = JSON.stringify(modelData);
+      const hash = Math.abs(
+        jsonStr.split('').reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0)
+      )
+        .toString(16)
+        .slice(0, 8);
+      filename = `neuro-lingua-v${MODEL_VERSION.replace(/\./g, '')}-${timestamp}-${hash}.json`;
+      addSystemMessage('📦 Exporting standard format...');
+    }
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
       type: 'application/json'
     });
 
-    // Create filename with timestamp and hash
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-    const jsonStr = JSON.stringify(modelData);
-    const hash = Math.abs(
-      jsonStr.split('').reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0)
-    )
-      .toString(16)
-      .slice(0, 8);
-    const filename = `neuro-lingua-v${MODEL_VERSION.replace(/\./g, '')}-${timestamp}-${hash}.json`;
-
     downloadBlob(blob, filename);
-    addSystemMessage(`📦 Exported: ${filename}`);
+    addSystemMessage(`✅ Exported: ${filename}`);
   }
 
   function onImport(ev: React.ChangeEvent<HTMLInputElement>) {
@@ -1009,8 +1191,39 @@ export default function NeuroLinguaDomesticaV324() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const d = JSON.parse(String(reader.result));
-        StorageManager.set(MODEL_STORAGE_KEY, d);
+        const data = JSON.parse(String(reader.result));
+
+        // Check if this is a trace export format
+        let modelData: unknown;
+        if (data.modelWeights && data.config && data.tokenizer) {
+          // New trace export format
+          modelData = {
+            weights: data.modelWeights,
+            config: data.config,
+            tokenizer: data.tokenizer
+          };
+
+          // Show trace metadata if available
+          if (data.projectMeta) {
+            addSystemMessage(
+              `📥 Importing from Project: ${data.projectMeta.projectName}, Run: ${data.projectMeta.runName}`
+            );
+          }
+          if (data.decisionLedger) {
+            addSystemMessage(`📋 Rationale: ${data.decisionLedger.rationale}`);
+          }
+          if (data.trainingTrace) {
+            addSystemMessage(
+              `📊 Training: ${data.trainingTrace.epochs} epochs, Loss: ${data.trainingTrace.finalLoss.toFixed(4)}, Accuracy: ${(data.trainingTrace.finalAccuracy * 100).toFixed(1)}%`
+            );
+          }
+        } else {
+          // Standard format
+          modelData = data;
+          addSystemMessage('📥 Importing standard format model...');
+        }
+
+        StorageManager.set(MODEL_STORAGE_KEY, modelData);
         const m = loadLatestModel();
         if (m) {
           modelRef.current = m;
@@ -1018,9 +1231,10 @@ export default function NeuroLinguaDomesticaV324() {
           setTrainingHistory(m.getTrainingHistory());
           syncTokenizerFromModel(m);
           applyModelMeta(m);
-          addSystemMessage('📥 Imported model file');
+          addSystemMessage('✅ Model imported successfully');
         }
-      } catch {
+      } catch (error) {
+        console.error('Import error:', error);
         addSystemMessage('❌ Failed to import model file');
       }
     };

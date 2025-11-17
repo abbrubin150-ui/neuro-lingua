@@ -46,8 +46,11 @@ import {
   TrainingPanel,
   type Architecture,
   ErrorBoundary,
-  type Message
+  type Message,
+  ProjectManager
 } from './components';
+
+import { ProjectProvider } from './contexts/ProjectContext';
 
 type UiSettings = {
   architecture: Architecture;
@@ -363,6 +366,7 @@ export default function NeuroLinguaDomesticaV324() {
   // Model metadata and UI
   const [lastModelUpdate, setLastModelUpdate] = useState<ModelMeta | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showProjectManager, setShowProjectManager] = useState(false);
 
   const modelRef = useRef<ProNeuralLM | null>(null);
   const trainingRef = useRef({ running: false, currentEpoch: 0 });
@@ -1061,8 +1065,15 @@ export default function NeuroLinguaDomesticaV324() {
   }
 
   return (
-    <ErrorBoundary>
-      <div
+    <ProjectProvider>
+      <ErrorBoundary>
+        {showProjectManager && (
+          <ProjectManager
+            direction={direction}
+            onClose={() => setShowProjectManager(false)}
+          />
+        )}
+        <div
         dir={direction}
         style={{
           minHeight: '100vh',
@@ -1089,6 +1100,23 @@ export default function NeuroLinguaDomesticaV324() {
                 marginBottom: 16
               }}
             >
+              <button
+                type="button"
+                onClick={() => setShowProjectManager(true)}
+                aria-label="Open Project Manager"
+                style={{
+                  padding: '8px 16px',
+                  background: 'linear-gradient(90deg, #7c3aed, #6366f1)',
+                  border: 'none',
+                  borderRadius: 999,
+                  color: 'white',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  marginRight: 8
+                }}
+              >
+                📁 Projects
+              </button>
               <button
                 type="button"
                 onClick={toggleLocale}
@@ -1333,6 +1361,7 @@ export default function NeuroLinguaDomesticaV324() {
           </div>
         </div>
       </div>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </ProjectProvider>
   );
 }

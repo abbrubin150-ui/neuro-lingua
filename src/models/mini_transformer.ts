@@ -32,15 +32,11 @@ export class MiniTransformerBlock {
 
   private feedForward(inputs: Matrix, weights1: Matrix, weights2: Matrix): Matrix {
     const hidden = inputs.map((row) =>
-      weights1[0].map((_, j) =>
-        row.reduce((sum, value, idx) => sum + value * weights1[idx][j], 0)
-      )
+      weights1[0].map((_, j) => row.reduce((sum, value, idx) => sum + value * weights1[idx][j], 0))
     );
     const activated = hidden.map((row) => row.map((v) => this.activation(v)));
     const output = activated.map((row) =>
-      weights2[0].map((_, j) =>
-        row.reduce((sum, value, idx) => sum + value * weights2[idx][j], 0)
-      )
+      weights2[0].map((_, j) => row.reduce((sum, value, idx) => sum + value * weights2[idx][j], 0))
     );
     return output;
   }
@@ -59,7 +55,9 @@ export class MiniTransformerBlock {
       value: applyDropConnect(attentionWeights.value, { rate: this.config.dropConnectRate ?? 0 })
     };
 
-    const attentionOutput = this.attention.forward(inputs, dropconnectedAttention, { causal: false });
+    const attentionOutput = this.attention.forward(inputs, dropconnectedAttention, {
+      causal: false
+    });
     const residualAttention = inputs.map((row, idx) =>
       row.map((value, col) => value + attentionOutput[idx][col])
     );
@@ -67,8 +65,6 @@ export class MiniTransformerBlock {
     const { normalized: renormed } = batchRenormalize(residualAttention, this.config.renormState);
     const feedForwardOutput = this.feedForward(renormed, ffWeights1, ffWeights2);
 
-    return renormed.map((row, idx) =>
-      row.map((value, col) => value + feedForwardOutput[idx][col])
-    );
+    return renormed.map((row, idx) => row.map((value, col) => value + feedForwardOutput[idx][col]));
   }
 }

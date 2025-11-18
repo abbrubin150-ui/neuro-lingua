@@ -18,9 +18,9 @@ The core scaffolding, training script, and neural LM implementation now exist. T
 - Update the README with any workflow usage notes (e.g., required repository permissions) once the workflow exists.
 
 ## 4. Developer experience enhancements
-- Add ESLint + Prettier (or Biome) with npm scripts and CI checks to keep the TypeScript codebase consistent.
-- Introduce Vitest-based unit tests for the React UI (current tests only cover `ProNeuralLM`).
-- Provide a sample corpus in `data/corpus.txt` that is longer than a single sentence so the training script demonstrates history and perplexity changes.
+- Keep the new ESLint + Prettier setup green by running `pnpm lint`, `pnpm format:check`, or the aggregate `pnpm check` locally before opening a PR. Prettier intentionally ignores the large `docs/`, `models/`, `NEXT_STEPS.md`, and lockfile trees, so you only need to reformat source + config files that actually participate in CI.
+- Continue expanding Vitest coverage for the React UI (new specs live in `tests/components`). Prioritize complex flows like the Scenario Manager, Decision Ledger, and GPU toggles.
+- When modifying `data/corpus.txt`, maintain the multi-paragraph English sample so `scripts/train.ts` continues to emit noticeable history/perplexity shifts for demos.
 
 ## 5. Future ideas
 - Surface perplexity/accuracy history as a downloadable CSV to compare runs.

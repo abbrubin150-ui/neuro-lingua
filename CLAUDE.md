@@ -1386,6 +1386,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    - Check if better with lower temperature
 
 6. **Verify architecture**:
+
    ```typescript
    console.log('Hidden size:', this.hiddenSize);
    console.log('Context size:', this.contextSize);

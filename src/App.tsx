@@ -1277,29 +1277,28 @@ export default function NeuroLinguaDomesticaV324() {
   }
 
   return (
-    <ProjectProvider>
-      <ErrorBoundary>
-        {showProjectManager && (
-          <ProjectManager direction={direction} onClose={() => setShowProjectManager(false)} />
-        )}
-        <div
-          dir={direction}
-          style={{
-            minHeight: '100vh',
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
-            color: '#e2e8f0',
-            padding: 20,
-            fontFamily: "'Segoe UI', system-ui, sans-serif",
-            direction
-          }}
-        >
-          <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-            <OnboardingCard
-              show={showOnboarding}
-              onDismiss={() => setShowOnboarding(false)}
-              strings={t.onboarding}
-              direction={direction}
-            />
+    <ErrorBoundary>
+      {showProjectManager && (
+        <ProjectManager direction={direction} onClose={() => setShowProjectManager(false)} />
+      )}
+      <div
+        dir={direction}
+        style={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+          color: '#e2e8f0',
+          padding: 20,
+          fontFamily: "'Segoe UI', system-ui, sans-serif",
+          direction
+        }}
+      >
+        <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+          <OnboardingCard
+            show={showOnboarding}
+            onDismiss={() => setShowOnboarding(false)}
+            strings={t.onboarding}
+            direction={direction}
+          />
 
             <header style={{ marginBottom: 32 }}>
               <div
@@ -1572,6 +1571,5 @@ export default function NeuroLinguaDomesticaV324() {
           </div>
         </div>
       </ErrorBoundary>
-    </ProjectProvider>
   );
 }

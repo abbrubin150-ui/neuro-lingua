@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
   MODEL_META: 'neuro-lingua-model-meta-v1',
   TOKENIZER_CONFIG: 'neuro-lingua-tokenizer-config-v1',
   ONBOARDING_DISMISSED: 'neuro-lingua-onboarding-dismissed',
+  TRAINING_TEXT: 'neuro-lingua-training-text-v1',
   LEGACY_MODELS: ['neuro-lingua-pro-v32']
 } as const;
 

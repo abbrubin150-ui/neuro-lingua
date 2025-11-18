@@ -1,4 +1,5 @@
 export { OnboardingCard, type OnboardingCardStrings } from './OnboardingCard';
+export { OnboardingTooltip } from './OnboardingTooltip';
 export { TokenizerConfig } from './TokenizerConfig';
 export { ModelMetrics } from './ModelMetrics';
 export { ChatInterface, type Message, type ChatInterfaceStrings } from './ChatInterface';
@@ -7,3 +8,4 @@ export { ErrorBoundary } from './ErrorBoundary';
 export { ProjectManager } from './ProjectManager';
 export { DecisionLedgerEditor } from './DecisionLedgerEditor';
 export { ScenarioManager } from './ScenarioManager';
+export { ModelSnapshot } from './ModelSnapshot';

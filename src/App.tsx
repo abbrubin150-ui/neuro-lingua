@@ -42,6 +42,7 @@ import {
 import {
   OnboardingCard,
   type OnboardingCardStrings,
+  OnboardingTooltip,
   ModelMetrics,
   ChatInterface,
   type ChatInterfaceStrings,
@@ -49,7 +50,8 @@ import {
   type Architecture,
   ErrorBoundary,
   type Message,
-  ProjectManager
+  ProjectManager,
+  ModelSnapshot
 } from './components';
 
 import { useProjects } from './contexts/ProjectContext';
@@ -115,6 +117,13 @@ type AppTranslations = {
     tip: string;
     example: string;
     exampleAria: string;
+    onboardingHintLabel: string;
+    onboardingHintClose: string;
+    snapshotTitle: string;
+    snapshotLastUpdated: string;
+    snapshotVocab: string;
+    snapshotEmpty: string;
+    snapshotHint: string;
   };
   infoCards: { title: string; body: string }[];
   chat: ChatInterfaceStrings & { trainFirst: string };
@@ -135,7 +144,14 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
       words: 'Words',
       tip: '💡 Tip: Start with the example corpus, then paste your own dataset to compare results.',
       example: '📚 Example',
-      exampleAria: 'Load example corpus'
+      exampleAria: 'Load example corpus',
+      onboardingHintLabel: 'Show pause/import tips',
+      onboardingHintClose: 'Hide tips',
+      snapshotTitle: 'Stored Model Snapshot',
+      snapshotLastUpdated: 'Last updated',
+      snapshotVocab: 'Vocab size',
+      snapshotEmpty: 'No stored model yet—train to capture a baseline.',
+      snapshotHint: 'Compare this timestamp and vocab size before retraining.'
     },
     infoCards: [
       {
@@ -204,7 +220,14 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
       words: 'מילים',
       tip: '💡 טיפ: התחילו בקורפוס הדוגמה ואז הדביקו את הדאטהסט שלכם להשוואת תוצאות.',
       example: '📚 דוגמה',
-      exampleAria: 'טען קורפוס דוגמה'
+      exampleAria: 'טען קורפוס דוגמה',
+      onboardingHintLabel: 'הצג טיפים',
+      onboardingHintClose: 'הסתר טיפים',
+      snapshotTitle: 'צילום מצב מודל שמור',
+      snapshotLastUpdated: 'עודכן לאחרונה',
+      snapshotVocab: 'גודל אוצר מילים',
+      snapshotEmpty: 'אין מודל שמור — אימנו כדי ליצור נקודת פתיחה.',
+      snapshotHint: 'השוו את הזמן וגודל האוצר לפני אימון מחדש.'
     },
     infoCards: [
       {
@@ -608,6 +631,11 @@ export default function NeuroLinguaDomesticaV324() {
     if (localStorage.getItem(STORAGE_KEYS.ONBOARDING_DISMISSED) === 'true') {
       setShowOnboarding(false);
     }
+
+    const savedTrainingText = StorageManager.get<string | null>(STORAGE_KEYS.TRAINING_TEXT, null);
+    if (typeof savedTrainingText === 'string') {
+      setTrainingText(savedTrainingText);
+    }
   }, []);
 
   useEffect(() => {
@@ -800,6 +828,10 @@ export default function NeuroLinguaDomesticaV324() {
     attentionDropout,
     dropConnectRate
   ]);
+
+  useEffect(() => {
+    StorageManager.set(STORAGE_KEYS.TRAINING_TEXT, trainingText);
+  }, [trainingText]);
 
   // Persist tokenizer config separately
   useEffect(() => {
@@ -1590,9 +1622,37 @@ export default function NeuroLinguaDomesticaV324() {
                 direction
               }}
             >
-              <h3 style={{ color: '#a78bfa', marginTop: 0, marginBottom: 16 }}>
-                {t.training.heading}
-              </h3>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                  marginBottom: 12
+                }}
+              >
+                <h3 style={{ color: '#a78bfa', margin: 0 }}>{t.training.heading}</h3>
+                <OnboardingTooltip
+                  label={t.training.onboardingHintLabel}
+                  closeLabel={t.training.onboardingHintClose}
+                  direction={direction}
+                  strings={{
+                    bulletPauseResume: t.onboarding.bulletPauseResume,
+                    bulletImportExport: t.onboarding.bulletImportExport,
+                    bulletPersistence: t.onboarding.bulletPersistence
+                  }}
+                />
+              </div>
+              <ModelSnapshot
+                meta={modelMetaStore[architecture] ?? null}
+                architecture={architecture}
+                title={t.training.snapshotTitle}
+                lastUpdatedLabel={t.training.snapshotLastUpdated}
+                vocabLabel={t.training.snapshotVocab}
+                emptyLabel={t.training.snapshotEmpty}
+                hint={t.training.snapshotHint}
+              />
               <textarea
                 value={trainingText}
                 onChange={(e) => setTrainingText(e.target.value)}

@@ -1,28 +1,15 @@
 name: Train Neuro-Lingua Model
-# Automated model retraining workflow for Neuro-Lingua DOMESTICA
-# Triggers on manual dispatch with custom hyperparameters or when data/corpus.txt changes
-# Commits the updated model artifact to the repository
 
 on:
   workflow_dispatch:
     inputs:
       epochs:
-        description: 'Number of training epochs (1-200)'
+        description: 'Number of training epochs'
         required: false
         default: '30'
         type: string
-      hidden_size:
-        description: 'Hidden layer size (16-256)'
-        required: false
-        default: '64'
-        type: string
-      learning_rate:
-        description: 'Learning rate (0.001-1.0)'
-        required: false
-        default: '0.08'
-        type: string
       optimizer:
-        description: 'Optimizer (momentum or adam)'
+        description: 'Optimizer to use'
         required: false
         default: 'momentum'
         type: choice
@@ -33,11 +20,6 @@ on:
         description: 'Dropout rate (0-0.5)'
         required: false
         default: '0.1'
-        type: string
-      context_size:
-        description: 'Context window size (2-6)'
-        required: false
-        default: '3'
         type: string
   push:
     paths:
@@ -69,31 +51,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate hyperparameters
+      - name: Show hyperparameters
         env:
           EPOCHS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.epochs || '30' }}
-          HIDDEN_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.hidden_size || '64' }}
-          LEARNING_RATE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.learning_rate || '0.08' }}
           DROPOUT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dropout || '0.1' }}
-          CONTEXT_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.context_size || '3' }}
           OPTIMIZER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.optimizer || 'momentum' }}
         run: |
           echo "=== Training Configuration ==="
           echo "Epochs: $EPOCHS"
-          echo "Hidden size: $HIDDEN_SIZE"
-          echo "Learning rate: $LEARNING_RATE"
-          echo "Dropout: $DROPOUT"
-          echo "Context size: $CONTEXT_SIZE"
           echo "Optimizer: $OPTIMIZER"
+          echo "Dropout: $DROPOUT"
           echo "Trigger: ${{ github.event_name }}"
 
       - name: Run training
         env:
           EPOCHS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.epochs || '30' }}
-          HIDDEN_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.hidden_size || '64' }}
-          LEARNING_RATE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.learning_rate || '0.08' }}
           DROPOUT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dropout || '0.1' }}
-          CONTEXT_SIZE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.context_size || '3' }}
           OPTIMIZER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.optimizer || 'momentum' }}
         run: pnpm train
 
@@ -115,7 +88,7 @@ jobs:
 
           TRIGGER_TYPE="${{ github.event_name }}"
           if [[ "$TRIGGER_TYPE" == "workflow_dispatch" ]]; then
-            COMMIT_MSG="chore: update trained model (manual trigger: ${{ github.event.inputs.epochs || '30' }} epochs, ${{ github.event.inputs.optimizer || 'momentum' }} optimizer)"
+            COMMIT_MSG="chore: update trained model (manual trigger: ${{ github.event.inputs.epochs || '30' }} epochs, ${{ github.event.inputs.optimizer || 'momentum' }} optimizer, dropout ${{ github.event.inputs.dropout || '0.1' }})"
           else
             COMMIT_MSG="chore: update trained model (corpus updated)"
           fi

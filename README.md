@@ -114,9 +114,18 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 
 - **Workflow**: `.github/workflows/train-model.yml`
 - **Triggers**:
-  - `workflow_dispatch` with inputs `epochs`, `optimizer`, `dropout`
-  - `push` events that touch `data/corpus.txt`
-- **Action**: install dependencies, run `pnpm train`, commit the updated JSON artifact (if changed) with the built-in `GITHUB_TOKEN`
+  - Manual `workflow_dispatch` inputs for `epochs`, `optimizer`, `dropout`
+  - `push` events that touch `data/corpus.txt` or `scripts/train.ts`
+- **Steps**:
+  1. Checkout the repo with history so model diffs can be detected.
+  2. Install dependencies via `pnpm install --frozen-lockfile`.
+  3. Run `pnpm train` with those inputs provided as `EPOCHS`, `OPTIMIZER`, `DROPOUT` environment variables.
+  4. Commit and push `models/neuro-lingua-v324.json` if the artifact changed.
+
+Because the workflow pushes commits, the token it runs with must have `contents: write` access:
+
+- Repository → Settings → Actions → General → Workflow permissions → **Read and write permissions**
+- For forks, supply a PAT (for example `secrets.WORKFLOW_TOKEN`) and configure the job to use it before `git push`.
 
 Example manual dispatch:
 
@@ -126,10 +135,6 @@ gh workflow run train-model.yml \
   -f optimizer=adam \
   -f dropout=0.15
 ```
-
-Grant the workflow write access:
-
-- Repository → Settings → Actions → General → Workflow permissions → **Read and write permissions**
 
 ---
 

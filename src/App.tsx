@@ -52,11 +52,7 @@ import {
 
 import { ProjectProvider, useProjects } from './contexts/ProjectContext';
 import { createTraceExport, generateTraceFilename } from './lib/traceExport';
-import {
-  createDecisionLedger,
-  computeExecutionStatus,
-  generateCorpusChecksum
-} from './types/project';
+import { createDecisionLedger } from './types/project';
 import type { TrainingConfig, ScenarioResult } from './types/project';
 
 type UiSettings = {
@@ -778,7 +774,9 @@ export default function NeuroLinguaDomesticaV324() {
     if (activeRun) {
       const status = getRunExecutionStatus(activeRun.id);
       if (status === 'ESCALATE') {
-        addSystemMessage('🚨 Cannot train: Decision Ledger requires review (missing rationale/witness).');
+        addSystemMessage(
+          '🚨 Cannot train: Decision Ledger requires review (missing rationale/witness).'
+        );
         return;
       }
       if (status === 'HOLD') {
@@ -1048,13 +1046,7 @@ export default function NeuroLinguaDomesticaV324() {
           addSystemMessage('🧪 Running test scenarios...');
           for (const scenario of activeProject.scenarios) {
             try {
-              const response = await modelRef.current!.generate(
-                scenario.prompt,
-                50,
-                0.8,
-                0,
-                0.9
-              );
+              const response = await modelRef.current!.generate(scenario.prompt, 50, 0.8, 0, 0.9);
 
               // Simple scoring: 1.0 if we got a response, 0.5 if empty
               const score = response && response.trim().length > 0 ? 1.0 : 0.5;

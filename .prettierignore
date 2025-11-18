@@ -1,7 +1,7 @@
-node_modules
-models
-pnpm-lock.yaml
 dist
-docs
-NEXT_STEPS.md
+build
+coverage
+node_modules
 public
+logs
+*.log

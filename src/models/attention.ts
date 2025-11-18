@@ -42,7 +42,9 @@ function transpose(matrix: Matrix): Matrix {
 }
 
 function applyMask(matrix: Matrix, mask: Matrix): Matrix {
-  return matrix.map((row, i) => row.map((value, j) => (mask[i]?.[j] ? value : Number.NEGATIVE_INFINITY)));
+  return matrix.map((row, i) =>
+    row.map((value, j) => (mask[i]?.[j] ? value : Number.NEGATIVE_INFINITY))
+  );
 }
 
 export function scaledDotProductAttention(
@@ -108,9 +110,7 @@ export class MultiHeadAttention {
 
   combineHeads(heads: Matrix[]): Matrix {
     return heads[0].map((_, rowIndex) =>
-      heads
-        .map((head) => head[rowIndex])
-        .reduce((acc, row) => acc.concat(row), [] as number[])
+      heads.map((head) => head[rowIndex]).reduce((acc, row) => acc.concat(row), [] as number[])
     );
   }
 
@@ -121,7 +121,11 @@ export class MultiHeadAttention {
     );
   }
 
-  forward(inputs: Matrix, weights: AttentionWeights, options: ScaledDotProductAttentionOptions = {}) {
+  forward(
+    inputs: Matrix,
+    weights: AttentionWeights,
+    options: ScaledDotProductAttentionOptions = {}
+  ) {
     const projections = this.project(inputs, weights);
     const queries = this.splitHeads(projections.query);
     const keys = this.splitHeads(projections.key);

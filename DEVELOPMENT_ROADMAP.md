@@ -38,11 +38,11 @@ Neuro-Lingua has a solid foundation with comprehensive mathematical toolkit, inf
 
 **Tasks:**
 
-- [ ] Implement GPU tensor operations for forward/backward pass
-- [ ] Add WebGPU toggle in TrainingPanel UI
-- [ ] Benchmark GPU vs CPU performance
-- [ ] Implement graceful fallback for unsupported browsers
-- [ ] Add GPU utilization metrics to ModelMetrics panel
+- [x] Implement GPU tensor operations for forward/backward pass
+- [x] Add WebGPU toggle in TrainingPanel UI
+- [x] Benchmark GPU vs CPU performance
+- [x] Implement graceful fallback for unsupported browsers
+- [x] Add GPU utilization metrics to ModelMetrics panel
 - [ ] Test on multiple browsers (Chrome, Edge, Firefox)
 
 **Success Criteria:**
@@ -57,6 +57,12 @@ Neuro-Lingua has a solid foundation with comprehensive mathematical toolkit, inf
 - `src/components/TrainingPanel.tsx` (add GPU toggle)
 - `src/lib/ProNeuralLM.ts` (use GPU tensors)
 - `src/components/ModelMetrics.tsx` (display GPU stats)
+
+**Benchmark Summary (Chrome 125 + RTX 3060 Ti):**
+
+- CPU baseline (20 epochs, 500-word corpus): ~25s
+- GPU run (identical config): ~9s
+- Speedup: **2.8×** faster training throughput【F:GPU_ACCELERATION_GUIDE.md†L322-L347】
 
 ---
 

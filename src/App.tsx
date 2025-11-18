@@ -20,7 +20,7 @@ import { TransformerLM } from './lib/TransformerLM';
 
 import { StorageManager } from './lib/storage';
 import { buildVocab, parseTokenizerConfig, downloadBlob } from './lib/utils';
-import type { GPUNeuralOps } from './backend/gpu_neural_ops';
+import type { GPUNeuralOps, GPUMetrics } from './backend/gpu_neural_ops';
 import {
   computeSimulatedEdgeLearningDiagnostics,
   type EdgeLearningDiagnostics
@@ -348,14 +348,7 @@ export default function NeuroLinguaDomesticaV324() {
   // GPU acceleration
   const [useGPU, setUseGPU] = useState(false);
   const [gpuAvailable, setGpuAvailable] = useState(false);
-  const [gpuMetrics, setGpuMetrics] = useState<{
-    enabled: boolean;
-    available: boolean;
-    totalOperations: number;
-    totalTimeMs: number;
-    averageTimeMs: number;
-    deviceInfo?: string;
-  } | null>(null);
+  const [gpuMetrics, setGpuMetrics] = useState<GPUMetrics | null>(null);
 
   // Edge Learning diagnostics
   const [edgeLearningDiagnostics, setEdgeLearningDiagnostics] =
@@ -591,62 +584,41 @@ export default function NeuroLinguaDomesticaV324() {
             if (initialized) {
               gpuOpsRef.current = ops;
               setGpuAvailable(true);
-              setGpuMetrics({
-                enabled: false,
-                available: true,
-                totalOperations: 0,
-                totalTimeMs: 0,
-                averageTimeMs: 0,
-                deviceInfo: 'WebGPU Device'
-              });
+              setGpuMetrics(ops.getMetrics());
               console.log('✅ WebGPU is available and GPUNeuralOps initialized');
             } else {
               setGpuAvailable(false);
-              setGpuMetrics({
-                enabled: false,
-                available: false,
-                totalOperations: 0,
-                totalTimeMs: 0,
-                averageTimeMs: 0
-              });
+              gpuOpsRef.current = null;
+              setGpuMetrics(null);
               console.log('⚠️ GPUNeuralOps initialization failed');
             }
           } else {
             setGpuAvailable(false);
-            setGpuMetrics({
-              enabled: false,
-              available: false,
-              totalOperations: 0,
-              totalTimeMs: 0,
-              averageTimeMs: 0
-            });
+            gpuOpsRef.current = null;
+            setGpuMetrics(null);
             console.log('⚠️ WebGPU adapter not available');
           }
         } else {
           setGpuAvailable(false);
-          setGpuMetrics({
-            enabled: false,
-            available: false,
-            totalOperations: 0,
-            totalTimeMs: 0,
-            averageTimeMs: 0
-          });
+          gpuOpsRef.current = null;
+          setGpuMetrics(null);
           console.log('⚠️ WebGPU is not supported in this browser');
         }
       } catch (error) {
         setGpuAvailable(false);
-        setGpuMetrics({
-          enabled: false,
-          available: false,
-          totalOperations: 0,
-          totalTimeMs: 0,
-          averageTimeMs: 0
-        });
+        gpuOpsRef.current = null;
+        setGpuMetrics(null);
         console.warn('⚠️ Error checking WebGPU availability:', error);
       }
     };
     checkGPU();
   }, []);
+
+  useEffect(() => {
+    if (!gpuOpsRef.current) return;
+    gpuOpsRef.current.setEnabled(useGPU && gpuAvailable);
+    setGpuMetrics(gpuOpsRef.current.getMetrics());
+  }, [useGPU, gpuAvailable]);
 
   // Keyboard shortcuts
   useEffect(() => {

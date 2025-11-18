@@ -30,6 +30,7 @@
 **Neuro-Lingua DOMESTICA** is a browser-native neural language model built entirely in React + TypeScript. It runs completely client-side without requiring a server, featuring WebGPU acceleration for 2-5x faster training on compatible hardware.
 
 ### Core Purpose
+
 - Educational demonstration of neural language models
 - Browser-native implementation (no server required)
 - Multiple neural architectures (Feedforward, Advanced, Transformer)
@@ -37,9 +38,11 @@
 - WebGPU hardware acceleration with automatic CPU fallback
 
 ### Live Demo
+
 🌐 **[https://abbrubin150-ui.github.io/neuro-lingua/](https://abbrubin150-ui.github.io/neuro-lingua/)**
 
 ### Key Features
+
 - **3 Neural Architectures**: ProNeuralLM (baseline), AdvancedNeuralLM (enhanced), TransformerLM (attention-based)
 - **WebGPU Acceleration**: Automatic GPU detection with graceful CPU fallback
 - **4 Optimizers**: SGD with momentum, Adam, Damped Newton, L-BFGS
@@ -54,26 +57,31 @@
 ## Technology Stack
 
 ### Frontend
+
 - **React** 18.2 - UI framework
 - **TypeScript** 5.2 - Type-safe development
 - **Vite** 4.4 - Build tool and dev server
 - **WebGPU** - Hardware acceleration (via @webgpu/types)
 
 ### Testing
+
 - **Vitest** 1.5 - Test runner (Vite-native)
 - **@testing-library/react** 14.2 - React component testing
 - **jsdom** 24.0 - DOM environment for tests
 
 ### Code Quality
+
 - **ESLint** 8.57 - Linting with TypeScript, React, JSX-a11y plugins
 - **Prettier** 3.2 - Code formatting
 - **TypeScript** strict mode - Enhanced type safety
 
 ### Dependencies
+
 - **tsne-js** ^1.0.3 - t-SNE embedding visualization
 - **umap-js** ^1.3.3 - UMAP dimensionality reduction
 
 ### Build & Package Management
+
 - **pnpm** (preferred) or npm/yarn
 - **tsx** 3.12 - TypeScript execution for scripts
 - **GitHub Actions** - CI/CD automation
@@ -202,11 +210,13 @@
 ### 1. Neural Network Core (`src/lib/`)
 
 #### **ProNeuralLM.ts** - Base Feedforward Model
+
 **Location**: `/home/user/neuro-lingua/src/lib/ProNeuralLM.ts`
 
 **Purpose**: Foundation neural language model with basic feedforward architecture
 
 **Key Features**:
+
 - Character-level language modeling
 - Embedding layer → Hidden layer → Output layer
 - ReLU activation
@@ -216,6 +226,7 @@
 - Import/export with optimizer state serialization
 
 **Interface**:
+
 ```typescript
 class ProNeuralLM {
   constructor(
@@ -233,16 +244,19 @@ class ProNeuralLM {
 ```
 
 **When to Use**:
+
 - Default/baseline implementation
 - Educational purposes
 - When simplicity is preferred
 
 #### **AdvancedNeuralLM.ts** - Enhanced Feedforward Model
+
 **Location**: `/home/user/neuro-lingua/src/lib/AdvancedNeuralLM.ts`
 
 **Purpose**: Extends ProNeuralLM with state-of-the-art training enhancements
 
 **Key Features**:
+
 - Advanced activations: LeakyReLU, ELU, GELU, Swish
 - He/Xavier weight initialization
 - Learning rate scheduling: cosine annealing, exponential decay, warmup
@@ -255,16 +269,19 @@ class ProNeuralLM {
 **Interface**: Extends ProNeuralLM with additional config options
 
 **When to Use**:
+
 - Production use cases
 - When better convergence is needed
 - For comparing advanced techniques
 
 #### **TransformerLM.ts** - Transformer Architecture
+
 **Location**: `/home/user/neuro-lingua/src/lib/TransformerLM.ts`
 
 **Purpose**: Full transformer implementation with multi-head self-attention
 
 **Key Features**:
+
 - Multi-head self-attention (1-16 heads configurable)
 - Position embeddings
 - Residual connections
@@ -274,6 +291,7 @@ class ProNeuralLM {
 - Compatible with ProNeuralLM interface
 
 **When to Use**:
+
 - When attention mechanisms are needed
 - For sequence modeling tasks
 - Research and experimentation
@@ -281,26 +299,31 @@ class ProNeuralLM {
 ### 2. WebGPU Backend (`src/backend/`)
 
 #### **webgpu.ts** - GPU Backend
+
 **Location**: `/home/user/neuro-lingua/src/backend/webgpu.ts`
 
 **Purpose**: WebGPU device management and tensor operations
 
 **Key Classes**:
+
 - `WebGPUBackend`: Device initialization and management
 - `WebGPUTensor`: GPU tensor with operations (matmul, add, ReLU)
 
 **Features**:
+
 - Automatic GPU detection
 - Shader compilation for operations
 - Memory management
 - Error handling with graceful fallback
 
 #### **gpu_neural_ops.ts** - Neural Operations
+
 **Location**: `/home/user/neuro-lingua/src/backend/gpu_neural_ops.ts`
 
 **Purpose**: High-level neural network operations on GPU
 
 **Key Features**:
+
 - Matrix-vector multiplication
 - Matrix multiplication
 - ReLU activation
@@ -308,6 +331,7 @@ class ProNeuralLM {
 - Automatic CPU fallback
 
 **Usage Pattern**:
+
 ```typescript
 const gpuOps = new GPUNeuralOps(webgpuBackend);
 model.setGPUOps(gpuOps);
@@ -317,11 +341,13 @@ model.setGPUOps(gpuOps);
 ### 3. React Components (`src/components/`)
 
 #### **TrainingPanel.tsx** - Main Training UI
+
 **Location**: `/home/user/neuro-lingua/src/components/TrainingPanel.tsx` (40KB)
 
 **Purpose**: Primary interface for model configuration and training
 
 **Features**:
+
 - Architecture selection (ProNeuralLM, AdvancedNeuralLM, TransformerLM)
 - Hyperparameter controls
 - Corpus input
@@ -331,11 +357,13 @@ model.setGPUOps(gpuOps);
 - Session persistence
 
 #### **ProjectManager.tsx** - Experiment Tracking
+
 **Location**: `/home/user/neuro-lingua/src/components/ProjectManager.tsx`
 
 **Purpose**: Σ-SIG compliant project and run management
 
 **Features**:
+
 - Create/edit/delete projects
 - Track training runs with frozen configs
 - Run comparison and analysis
@@ -343,11 +371,13 @@ model.setGPUOps(gpuOps);
 - Decision Ledger integration
 
 #### **ChatInterface.tsx** - Generation UI
+
 **Location**: `/home/user/neuro-lingua/src/components/ChatInterface.tsx`
 
 **Purpose**: Chat-style text generation interface
 
 **Features**:
+
 - Multi-turn conversation
 - Temperature, top-k, top-p controls
 - Beam search toggle
@@ -356,11 +386,13 @@ model.setGPUOps(gpuOps);
 ### 4. Context Providers (`src/contexts/`)
 
 #### **ProjectContext.tsx** - State Management
+
 **Location**: `/home/user/neuro-lingua/src/contexts/ProjectContext.tsx`
 
 **Purpose**: Centralized project and run state management
 
 **Provides**:
+
 - Project CRUD operations
 - Run tracking and management
 - Scenario testing framework
@@ -368,6 +400,7 @@ model.setGPUOps(gpuOps);
 - Decision Ledger governance
 
 **Usage**:
+
 ```typescript
 import { useProjects } from '../contexts/ProjectContext';
 
@@ -380,9 +413,11 @@ function MyComponent() {
 ### 5. Configuration (`src/config/`)
 
 #### **constants.ts** - Application Defaults
+
 **Location**: `/home/user/neuro-lingua/src/config/constants.ts`
 
 **Contains**:
+
 - `DEFAULT_HYPERPARAMETERS`: hiddenSize=64, epochs=20, lr=0.08, etc.
 - `DEFAULT_GENERATION`: temperature=0.8, topK=20, topP=0.9
 - `DEFAULT_ADVANCED_CONFIG`: activation, initialization, scheduling
@@ -391,6 +426,7 @@ function MyComponent() {
 - `SPECIAL_TOKENS`: `<PAD>`, `<BOS>`, `<EOS>`, `<UNK>`
 
 **When to Modify**:
+
 - Changing default hyperparameters
 - Adding new configuration options
 - Adjusting validation constraints
@@ -455,16 +491,19 @@ pnpm benchmark:gpu
 ### Typical Development Workflow
 
 1. **Create feature branch**:
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
 
 2. **Make changes** with hot reload:
+
    ```bash
    pnpm dev
    ```
 
 3. **Verify code quality**:
+
    ```bash
    pnpm lint
    pnpm format
@@ -473,6 +512,7 @@ pnpm benchmark:gpu
    ```
 
 4. **Build and test**:
+
    ```bash
    pnpm build
    pnpm preview
@@ -488,11 +528,13 @@ pnpm benchmark:gpu
 ### File Watching
 
 Vite automatically watches and hot-reloads:
+
 - TypeScript/TSX files in `src/`
 - CSS files
 - `index.html`
 
 For test watching:
+
 ```bash
 pnpm test:watch
 ```
@@ -502,6 +544,7 @@ pnpm test:watch
 ## Testing Guidelines
 
 ### Test Framework
+
 - **Vitest** with jsdom environment
 - **@testing-library/react** for component tests
 - **TypeScript** for type-safe tests
@@ -527,6 +570,7 @@ tests/
 ### Writing Tests
 
 **Example test structure**:
+
 ```typescript
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ProNeuralLM } from '../src/lib/ProNeuralLM';
@@ -555,6 +599,7 @@ describe('ProNeuralLM', () => {
 ### Test Coverage Focus
 
 **Critical areas to test**:
+
 1. **Neural network math**: Forward/backward passes, gradient computation
 2. **Numerical stability**: Softmax, log-sum-exp, overflow/underflow
 3. **Serialization**: Model export/import, optimizer state preservation
@@ -583,6 +628,7 @@ pnpm test --coverage
 **Location**: `tests/setup.ts`
 
 Provides:
+
 - Mock localStorage implementation
 - Global test utilities
 - Matrix/vector comparison helpers
@@ -594,6 +640,7 @@ Provides:
 ### TypeScript Style
 
 #### Naming Conventions
+
 - **Classes**: PascalCase (`ProNeuralLM`, `WebGPUBackend`)
 - **Interfaces/Types**: PascalCase (`SerializedModel`, `Optimizer`)
 - **Functions/Methods**: camelCase (`trainModel`, `computeLoss`)
@@ -601,12 +648,14 @@ Provides:
 - **Files**: camelCase for utilities, PascalCase for components (`utils.ts`, `TrainingPanel.tsx`)
 
 #### Type Annotations
+
 - Always use explicit return types for functions
 - Prefer `interface` over `type` for object shapes
 - Use `const` assertions for readonly data: `as const`
 - Enable strict mode (already configured)
 
 **Example**:
+
 ```typescript
 // Good
 function computeLoss(predictions: number[], targets: number[]): number {
@@ -624,7 +673,8 @@ const CONSTANTS = {
 } as const;
 
 // Avoid
-function computeLoss(predictions, targets) { // Missing types
+function computeLoss(predictions, targets) {
+  // Missing types
   // implementation
 }
 ```
@@ -632,6 +682,7 @@ function computeLoss(predictions, targets) { // Missing types
 ### React Conventions
 
 #### Component Structure
+
 ```typescript
 import React, { useState, useEffect } from 'react';
 
@@ -664,6 +715,7 @@ export function MyComponent({ title, onSave }: ComponentProps) {
 ```
 
 #### Hooks Usage
+
 - Always use functional components
 - Define custom hooks in separate files if reusable
 - Follow Rules of Hooks (no conditionals, consistent order)
@@ -673,12 +725,14 @@ export function MyComponent({ title, onSave }: ComponentProps) {
 ### File Organization
 
 #### Import Order
+
 1. External libraries (React, third-party)
 2. Internal modules (lib/, components/)
 3. Types (if separate from implementation)
 4. CSS/styles (if applicable)
 
 **Example**:
+
 ```typescript
 import React, { useState } from 'react';
 import { ProNeuralLM } from '../lib/ProNeuralLM';
@@ -687,6 +741,7 @@ import type { ModelConfig } from '../types';
 ```
 
 #### Export Patterns
+
 - Named exports for utilities and components
 - Default exports avoided (except for main App component)
 - Re-export from index files when creating module boundaries
@@ -694,6 +749,7 @@ import type { ModelConfig } from '../types';
 ### Code Formatting
 
 **Prettier Configuration** (`.prettierrc`):
+
 ```json
 {
   "singleQuote": true,
@@ -704,6 +760,7 @@ import type { ModelConfig } from '../types';
 ```
 
 **Rules**:
+
 - Single quotes for strings
 - No trailing commas
 - 100 character line width
@@ -711,6 +768,7 @@ import type { ModelConfig } from '../types';
 - 2-space indentation
 
 **Apply formatting**:
+
 ```bash
 pnpm format
 ```
@@ -718,6 +776,7 @@ pnpm format
 ### Comments and Documentation
 
 #### When to Comment
+
 - Complex algorithms (neural network forward/backward passes)
 - Non-obvious optimizations
 - Mathematical formulas (include references)
@@ -725,6 +784,7 @@ pnpm format
 - TODOs with context
 
 **Example**:
+
 ```typescript
 /**
  * Compute softmax with numerical stability using log-sum-exp trick.
@@ -735,13 +795,14 @@ pnpm format
  */
 function stableSoftmax(logits: number[]): number[] {
   const maxLogit = Math.max(...logits);
-  const exps = logits.map(x => Math.exp(x - maxLogit));
+  const exps = logits.map((x) => Math.exp(x - maxLogit));
   const sumExps = exps.reduce((a, b) => a + b, 0);
-  return exps.map(e => e / sumExps);
+  return exps.map((e) => e / sumExps);
 }
 ```
 
 #### JSDoc for Public APIs
+
 ```typescript
 /**
  * Train the neural language model on provided corpus.
@@ -765,6 +826,7 @@ public train(
 ### Error Handling
 
 #### Principles
+
 - Validate inputs early
 - Provide descriptive error messages
 - Fail fast on unrecoverable errors
@@ -772,12 +834,13 @@ public train(
 - Graceful degradation where possible (e.g., GPU fallback)
 
 **Example**:
+
 ```typescript
 if (vocabSize < MIN_VOCAB_SIZE) {
   throw new Error(
     `Vocabulary size ${vocabSize} is too small. ` +
-    `Minimum required: ${MIN_VOCAB_SIZE}. ` +
-    `Provide a larger or more diverse corpus.`
+      `Minimum required: ${MIN_VOCAB_SIZE}. ` +
+      `Provide a larger or more diverse corpus.`
   );
 }
 
@@ -794,12 +857,14 @@ try {
 ### Performance Considerations
 
 #### Neural Network Code
+
 - Minimize array allocations in hot loops
 - Reuse buffers where possible
 - Use typed arrays for large numerical data
 - Batch operations on GPU when available
 
 **Example**:
+
 ```typescript
 // Good: Reuse buffer
 const activations = new Float32Array(this.hiddenSize);
@@ -815,6 +880,7 @@ for (let epoch = 0; epoch < epochs; epoch++) {
 ```
 
 #### React Performance
+
 - Use `React.memo` for expensive components
 - Avoid inline function definitions in render
 - Use `useCallback`/`useMemo` appropriately
@@ -826,24 +892,25 @@ for (let epoch = 0; epoch < epochs; epoch++) {
 
 ### Architecture Comparison
 
-| Feature | ProNeuralLM | AdvancedNeuralLM | TransformerLM |
-|---------|-------------|------------------|---------------|
-| **Architecture** | Feedforward | Enhanced Feedforward | Multi-head Attention |
-| **Layers** | 2 (hidden + output) | 2 (hidden + output) | Configurable (1-8) |
-| **Activation** | ReLU | ReLU/LeakyReLU/ELU/GELU/Swish | GELU |
-| **Attention** | None | None | Multi-head (1-16 heads) |
-| **Position Encoding** | None | None | Learned embeddings |
-| **Normalization** | Optional dropout | Dropout + Layer norm | Batch renorm + dropout |
-| **Initialization** | Random | He/Xavier | Xavier |
-| **LR Scheduling** | Constant | Cosine/Exponential/Warmup | Constant |
-| **Regularization** | Dropout | Dropout + Weight decay | Dropout |
-| **Generation** | Greedy/Sampling | Greedy/Sampling/Beam | Greedy/Sampling/Beam |
-| **Complexity** | Low | Medium | High |
-| **Speed** | Fast | Medium | Slower |
+| Feature               | ProNeuralLM         | AdvancedNeuralLM              | TransformerLM           |
+| --------------------- | ------------------- | ----------------------------- | ----------------------- |
+| **Architecture**      | Feedforward         | Enhanced Feedforward          | Multi-head Attention    |
+| **Layers**            | 2 (hidden + output) | 2 (hidden + output)           | Configurable (1-8)      |
+| **Activation**        | ReLU                | ReLU/LeakyReLU/ELU/GELU/Swish | GELU                    |
+| **Attention**         | None                | None                          | Multi-head (1-16 heads) |
+| **Position Encoding** | None                | None                          | Learned embeddings      |
+| **Normalization**     | Optional dropout    | Dropout + Layer norm          | Batch renorm + dropout  |
+| **Initialization**    | Random              | He/Xavier                     | Xavier                  |
+| **LR Scheduling**     | Constant            | Cosine/Exponential/Warmup     | Constant                |
+| **Regularization**    | Dropout             | Dropout + Weight decay        | Dropout                 |
+| **Generation**        | Greedy/Sampling     | Greedy/Sampling/Beam          | Greedy/Sampling/Beam    |
+| **Complexity**        | Low                 | Medium                        | High                    |
+| **Speed**             | Fast                | Medium                        | Slower                  |
 
 ### Architecture Selection Guide
 
 **Use ProNeuralLM when**:
+
 - Learning neural network basics
 - Need fast training/inference
 - Working with small datasets
@@ -851,6 +918,7 @@ for (let epoch = 0; epoch < epochs; epoch++) {
 - Baseline comparison needed
 
 **Use AdvancedNeuralLM when**:
+
 - Production use case
 - Need better convergence
 - Experimenting with training techniques
@@ -858,6 +926,7 @@ for (let epoch = 0; epoch < epochs; epoch++) {
 - Moderate dataset size
 
 **Use TransformerLM when**:
+
 - Attention mechanisms needed
 - Long-range dependencies important
 - Sequence modeling tasks
@@ -867,6 +936,7 @@ for (let epoch = 0; epoch < epochs; epoch++) {
 ### Hyperparameter Recommendations
 
 #### ProNeuralLM Baseline
+
 ```typescript
 {
   hiddenSize: 64,
@@ -880,6 +950,7 @@ for (let epoch = 0; epoch < epochs; epoch++) {
 ```
 
 #### AdvancedNeuralLM Optimized
+
 ```typescript
 {
   hiddenSize: 128,
@@ -900,6 +971,7 @@ for (let epoch = 0; epoch < epochs; epoch++) {
 ```
 
 #### TransformerLM Configuration
+
 ```typescript
 {
   embeddingDim: 128,
@@ -917,6 +989,7 @@ for (let epoch = 0; epoch < epochs; epoch++) {
 ### Mathematical Details
 
 #### Forward Pass (ProNeuralLM)
+
 ```
 Input: context tokens [t₁, t₂, ..., tₙ]
 1. Embedding lookup: E ∈ ℝ^(V×d)
@@ -927,6 +1000,7 @@ Input: context tokens [t₁, t₂, ..., tₙ]
 ```
 
 #### Backward Pass (Gradient Computation)
+
 ```
 1. Loss: L = -log(p[target])
 2. Output gradient: ∂L/∂logits = p - onehot(target)
@@ -936,6 +1010,7 @@ Input: context tokens [t₁, t₂, ..., tₙ]
 ```
 
 #### Attention Mechanism (TransformerLM)
+
 ```
 Q = XWq  (queries)
 K = XWk  (keys)
@@ -958,6 +1033,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
 **Steps**:
 
 1. **Update type definition** in `src/lib/ProNeuralLM.ts`:
+
    ```typescript
    export interface TrainingOptions {
      // ... existing options
@@ -966,6 +1042,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    ```
 
 2. **Add to constants** in `src/config/constants.ts`:
+
    ```typescript
    export const DEFAULT_HYPERPARAMETERS = {
      // ... existing defaults
@@ -979,6 +1056,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    ```
 
 3. **Update UI** in `src/components/TrainingPanel.tsx`:
+
    ```typescript
    const [myNewParam, setMyNewParam] = useState(DEFAULT_HYPERPARAMETERS.myNewParam);
 
@@ -997,6 +1075,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    ```
 
 4. **Use in training logic** in `src/lib/ProNeuralLM.ts`:
+
    ```typescript
    public train(corpus: string, epochs: number, lr: number, options?: TrainingOptions) {
      const myNewParam = options?.myNewParam ?? DEFAULT_HYPERPARAMETERS.myNewParam;
@@ -1020,14 +1099,12 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
 **Steps**:
 
 1. **Create implementation** in `src/generation/typical_sampling.ts`:
+
    ```typescript
    /**
     * Typical sampling (entropy-based truncation)
     */
-   export function typicalSampling(
-     logits: number[],
-     tau: number = 0.9
-   ): number {
+   export function typicalSampling(logits: number[], tau: number = 0.9): number {
      const probs = softmax(logits);
      const entropy = -probs.reduce((sum, p) => sum + p * Math.log(p), 0);
 
@@ -1037,6 +1114,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    ```
 
 2. **Add to generation config** in `src/config/constants.ts`:
+
    ```typescript
    export const DEFAULT_GENERATION = {
      // ... existing options
@@ -1046,6 +1124,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    ```
 
 3. **Integrate into model** in `src/lib/ProNeuralLM.ts`:
+
    ```typescript
    import { typicalSampling } from '../generation/typical_sampling';
 
@@ -1059,6 +1138,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    ```
 
 4. **Add UI controls** in `src/components/ChatInterface.tsx`:
+
    ```typescript
    <select value={samplingMode} onChange={(e) => setSamplingMode(e.target.value)}>
      <option value="off">Greedy</option>
@@ -1069,6 +1149,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    ```
 
 5. **Write tests** in `tests/generation/typical_sampling.test.ts`:
+
    ```typescript
    import { typicalSampling } from '../../src/generation/typical_sampling';
 
@@ -1089,6 +1170,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
 **Steps**:
 
 1. **Add shader** in `src/backend/webgpu.ts`:
+
    ```typescript
    private createMyOpShader(): GPUShaderModule {
      const code = `
@@ -1106,6 +1188,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    ```
 
 2. **Add operation method** in `src/backend/gpu_neural_ops.ts`:
+
    ```typescript
    public async myGPUOperation(input: number[]): Promise<number[]> {
      if (!this.backend.isInitialized()) {
@@ -1125,6 +1208,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    ```
 
 3. **Integrate into model** in `src/lib/ProNeuralLM.ts`:
+
    ```typescript
    private async forwardPass(context: number[]): Promise<number[]> {
      if (this.gpuOps) {
@@ -1136,12 +1220,13 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    ```
 
 4. **Add benchmarks** in `scripts/benchmark_gpu.ts`:
+
    ```typescript
    async function benchmarkMyOp() {
      const input = Array.from({ length: 1000 }, () => Math.random());
 
      const cpuStart = performance.now();
-     const cpuResult = input.map(x => myCPUOperation(x));
+     const cpuResult = input.map((x) => myCPUOperation(x));
      const cpuTime = performance.now() - cpuStart;
 
      const gpuStart = performance.now();
@@ -1160,6 +1245,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
 **Steps**:
 
 1. **Create component file** in `src/components/MyNewComponent.tsx`:
+
    ```typescript
    import React, { useState } from 'react';
 
@@ -1191,11 +1277,13 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    ```
 
 2. **Export from index** in `src/components/index.ts`:
+
    ```typescript
    export { MyNewComponent } from './MyNewComponent';
    ```
 
 3. **Use in App** in `src/App.tsx`:
+
    ```typescript
    import { MyNewComponent } from './components';
 
@@ -1214,6 +1302,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    ```
 
 4. **Add tests** in `tests/MyNewComponent.test.tsx`:
+
    ```typescript
    import { render, screen, fireEvent } from '@testing-library/react';
    import { MyNewComponent } from '../src/components/MyNewComponent';
@@ -1241,49 +1330,57 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
 **Debugging Checklist**:
 
 1. **Verify data**:
+
    ```typescript
    console.log('Corpus length:', corpus.length);
    console.log('Vocabulary size:', this.vocabSize);
    console.log('Unique tokens:', new Set(corpus).size);
    ```
+
    - Ensure corpus is non-empty
    - Check vocabulary size >= MIN_VOCAB_SIZE (8)
    - Verify corpus has sufficient diversity
 
 2. **Check learning rate**:
+
    ```typescript
    console.log('Learning rate:', lr);
    console.log('Effective LR:', effectiveLR);
    ```
+
    - Too high (>0.5): Loss may diverge or oscillate
    - Too low (<0.001): Learning too slow
    - Try lr=0.08 (default) as baseline
 
 3. **Monitor gradients**:
+
    ```typescript
-   const gradNorm = Math.sqrt(
-     gradients.reduce((sum, g) => sum + g * g, 0)
-   );
+   const gradNorm = Math.sqrt(gradients.reduce((sum, g) => sum + g * g, 0));
    console.log('Gradient norm:', gradNorm);
    ```
+
    - Near 0: Dead ReLU, poor initialization
    - Very large (>100): Exploding gradients, reduce LR
    - Use gradient clipping if needed
 
 4. **Inspect loss curve**:
+
    ```typescript
    console.log('Loss history:', this.trainingHistory.losses);
    ```
+
    - Increasing: LR too high or gradient issues
    - Flat: LR too low or saturated
    - Noisy: Normal for small batches
    - Should generally decrease over epochs
 
 5. **Test generation**:
+
    ```typescript
    const sample = model.generate('test', 10, 1.0);
    console.log('Generated:', sample);
    ```
+
    - Repetitive: Model not learning diversity
    - Random: Model hasn't converged
    - Check if better with lower temperature
@@ -1293,6 +1390,7 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    console.log('Hidden size:', this.hiddenSize);
    console.log('Context size:', this.contextSize);
    ```
+
    - Too small: Insufficient capacity
    - Too large: Overfitting on small corpus
 
@@ -1302,51 +1400,51 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
 
 ### Configuration Files
 
-| File | Purpose | When to Modify |
-|------|---------|----------------|
-| `package.json` | Dependencies, scripts | Adding packages, scripts |
-| `tsconfig.json` | TypeScript compiler | Type checking rules |
-| `vite.config.ts` | Build configuration | Build settings, base path |
-| `.eslintrc.cjs` | Linting rules | Code quality standards |
-| `.prettierrc` | Formatting rules | Code style preferences |
-| `src/config/constants.ts` | App defaults | Default hyperparameters |
+| File                      | Purpose               | When to Modify            |
+| ------------------------- | --------------------- | ------------------------- |
+| `package.json`            | Dependencies, scripts | Adding packages, scripts  |
+| `tsconfig.json`           | TypeScript compiler   | Type checking rules       |
+| `vite.config.ts`          | Build configuration   | Build settings, base path |
+| `.eslintrc.cjs`           | Linting rules         | Code quality standards    |
+| `.prettierrc`             | Formatting rules      | Code style preferences    |
+| `src/config/constants.ts` | App defaults          | Default hyperparameters   |
 
 ### Core Implementation Files
 
-| File | Lines | Purpose | Modify For |
-|------|-------|---------|------------|
-| `src/lib/ProNeuralLM.ts` | ~900 | Base neural LM | Core model changes |
-| `src/lib/AdvancedNeuralLM.ts` | ~750 | Enhanced LM | Advanced features |
-| `src/lib/TransformerLM.ts` | ~550 | Transformer | Attention mechanisms |
-| `src/lib/MathUtils.ts` | ~600 | Math utilities | Numerical operations |
-| `src/backend/webgpu.ts` | ~400 | GPU backend | GPU operations |
-| `src/backend/gpu_neural_ops.ts` | ~300 | Neural GPU ops | GPU integration |
+| File                            | Lines | Purpose        | Modify For           |
+| ------------------------------- | ----- | -------------- | -------------------- |
+| `src/lib/ProNeuralLM.ts`        | ~900  | Base neural LM | Core model changes   |
+| `src/lib/AdvancedNeuralLM.ts`   | ~750  | Enhanced LM    | Advanced features    |
+| `src/lib/TransformerLM.ts`      | ~550  | Transformer    | Attention mechanisms |
+| `src/lib/MathUtils.ts`          | ~600  | Math utilities | Numerical operations |
+| `src/backend/webgpu.ts`         | ~400  | GPU backend    | GPU operations       |
+| `src/backend/gpu_neural_ops.ts` | ~300  | Neural GPU ops | GPU integration      |
 
 ### UI Component Files
 
-| File | Lines | Purpose | Modify For |
-|------|-------|---------|------------|
-| `src/App.tsx` | ~500 | Main application | App structure |
-| `src/components/TrainingPanel.tsx` | ~1400 | Training UI | Training controls |
-| `src/components/ModelMetrics.tsx` | ~450 | Metrics display | Visualization |
-| `src/components/ProjectManager.tsx` | ~550 | Project management | Experiment tracking |
-| `src/components/ChatInterface.tsx` | ~200 | Generation UI | Chat features |
+| File                                | Lines | Purpose            | Modify For          |
+| ----------------------------------- | ----- | ------------------ | ------------------- |
+| `src/App.tsx`                       | ~500  | Main application   | App structure       |
+| `src/components/TrainingPanel.tsx`  | ~1400 | Training UI        | Training controls   |
+| `src/components/ModelMetrics.tsx`   | ~450  | Metrics display    | Visualization       |
+| `src/components/ProjectManager.tsx` | ~550  | Project management | Experiment tracking |
+| `src/components/ChatInterface.tsx`  | ~200  | Generation UI      | Chat features       |
 
 ### Workflow Files
 
-| File | Purpose | Triggers |
-|------|---------|----------|
-| `.github/workflows/ci.yml` | CI pipeline | Push, PR |
-| `.github/workflows/train-model.yml` | Model training | Manual, corpus changes |
-| `.github/workflows/deploy-pages.yml` | GitHub Pages | Push to main |
+| File                                 | Purpose        | Triggers               |
+| ------------------------------------ | -------------- | ---------------------- |
+| `.github/workflows/ci.yml`           | CI pipeline    | Push, PR               |
+| `.github/workflows/train-model.yml`  | Model training | Manual, corpus changes |
+| `.github/workflows/deploy-pages.yml` | GitHub Pages   | Push to main           |
 
 ### Data Files
 
-| File | Purpose | Format |
-|------|---------|--------|
-| `data/corpus.txt` | Training data | Plain text |
-| `models/neuro-lingua-v324.json` | Trained model | JSON (3MB) |
-| `docs/experiments/runs/*.json` | Experiment results | JSON |
+| File                            | Purpose            | Format     |
+| ------------------------------- | ------------------ | ---------- |
+| `data/corpus.txt`               | Training data      | Plain text |
+| `models/neuro-lingua-v324.json` | Trained model      | JSON (3MB) |
+| `docs/experiments/runs/*.json`  | Experiment results | JSON       |
 
 ---
 
@@ -1359,12 +1457,14 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
 **Implementation**: `src/lib/storage.ts`
 
 **Stored Data**:
+
 - UI settings (theme, layout)
 - Tokenizer configuration
 - Project and run metadata
 - Onboarding dismissal state
 
 **Storage Keys** (from `src/config/constants.ts`):
+
 ```typescript
 const STORAGE_KEYS = {
   UI_SETTINGS: 'neuro-lingua-ui-settings-v1',
@@ -1375,6 +1475,7 @@ const STORAGE_KEYS = {
 ```
 
 **Usage**:
+
 ```typescript
 import { loadFromStorage, saveToStorage } from './lib/storage';
 
@@ -1386,6 +1487,7 @@ const settings = loadFromStorage<UISettings>(STORAGE_KEYS.UI_SETTINGS);
 ```
 
 **Important Notes**:
+
 - Not encrypted - do not store sensitive data
 - Subject to browser quotas (~5-10MB)
 - Cleared when user clears browser data
@@ -1396,6 +1498,7 @@ const settings = loadFromStorage<UISettings>(STORAGE_KEYS.UI_SETTINGS);
 **Purpose**: Hardware-accelerated matrix operations for 2-5x faster training
 
 **Architecture**:
+
 ```
 ProNeuralLM
     ↓ (optional)
@@ -1407,6 +1510,7 @@ GPU Hardware
 ```
 
 **Initialization**:
+
 ```typescript
 // In App.tsx or training code
 const backend = new WebGPUBackend();
@@ -1421,11 +1525,13 @@ try {
 ```
 
 **Automatic Fallback**:
+
 - GPU unavailable: Falls back to CPU
 - Operation fails: Retries on CPU
 - Transparent to model code
 
 **Performance Monitoring**:
+
 ```typescript
 const metrics = gpuOps.getMetrics();
 console.log('GPU operations:', metrics.gpuOpsCount);
@@ -1434,6 +1540,7 @@ console.log('Average time:', metrics.averageTimeMs);
 ```
 
 **Browser Support**:
+
 - Chrome 113+ (enabled by default)
 - Edge 113+
 - Firefox (experimental, behind flag)
@@ -1446,6 +1553,7 @@ console.log('Average time:', metrics.averageTimeMs);
 **Provider**: `src/contexts/ProjectContext.tsx`
 
 **Structure**:
+
 ```typescript
 Project
   ├── id: string
@@ -1468,18 +1576,13 @@ Scenario
 ```
 
 **Usage**:
+
 ```typescript
 import { useProjects } from '../contexts/ProjectContext';
 
 function MyComponent() {
-  const {
-    projects,
-    createProject,
-    updateProject,
-    deleteProject,
-    addRun,
-    addScenario
-  } = useProjects();
+  const { projects, createProject, updateProject, deleteProject, addRun, addScenario } =
+    useProjects();
 
   const handleCreateProject = () => {
     const project = createProject('My Experiment', 'Testing dropout');
@@ -1489,6 +1592,7 @@ function MyComponent() {
 ```
 
 **Decision Ledger**:
+
 - Records governance decisions
 - Links decisions to experiments
 - Ensures reproducibility
@@ -1502,6 +1606,7 @@ function MyComponent() {
 **Triggers**:
 
 **1. Manual Dispatch**:
+
 ```bash
 gh workflow run train-model.yml \
   -f epochs=40 \
@@ -1513,10 +1618,12 @@ gh workflow run train-model.yml \
 ```
 
 **2. Automatic on Push**:
+
 - Changes to `data/corpus.txt`
 - Changes to `scripts/train.ts`
 
 **Process**:
+
 1. Checkout repository
 2. Install dependencies (pnpm)
 3. Validate hyperparameters
@@ -1526,6 +1633,7 @@ gh workflow run train-model.yml \
 7. Upload artifacts (30-day retention)
 
 **Environment Variables** (used by `scripts/train.ts`):
+
 ```bash
 EPOCHS=30
 HIDDEN_SIZE=64
@@ -1537,6 +1645,7 @@ TOKENIZER_MODE=unicode  # or ascii, custom
 ```
 
 **Permissions Required**:
+
 - Repository → Settings → Actions → Workflow permissions
 - Enable: **Read and write permissions**
 
@@ -1549,30 +1658,34 @@ TOKENIZER_MODE=unicode  # or ascii, custom
 **Modes**:
 
 **1. Unicode** (default):
+
 ```typescript
-mode: 'unicode'
+mode: 'unicode';
 // Splits on: \p{L}\d\s'-
 // Preserves: Letters, digits, whitespace, apostrophes, hyphens
 // Use for: Multi-language, proper names, contractions
 ```
 
 **2. ASCII**:
+
 ```typescript
-mode: 'ascii'
+mode: 'ascii';
 // Splits on: [^a-zA-Z0-9\s'-]
 // Preserves: Only ASCII letters and digits
 // Use for: English-only, simple tokenization
 ```
 
 **3. Custom**:
+
 ```typescript
-mode: 'custom'
-pattern: "[^\\p{L}\\d\\s'-]"  // Custom regex
+mode: 'custom';
+pattern: "[^\\p{L}\\d\\s'-]"; // Custom regex
 // User-defined splitting logic
 // Use for: Domain-specific tokenization
 ```
 
 **Export/Import**:
+
 ```typescript
 // Export tokenizer config
 const config = model.getTokenizerConfig();
@@ -1585,9 +1698,11 @@ model.setTokenizerConfig(imported);
 ```
 
 **Special Tokens**:
+
 ```typescript
 const SPECIAL_TOKENS = ['<PAD>', '<BOS>', '<EOS>', '<UNK>'];
 ```
+
 - `<PAD>`: Padding for batching
 - `<BOS>`: Beginning of sequence
 - `<EOS>`: End of sequence
@@ -1602,6 +1717,7 @@ const SPECIAL_TOKENS = ['<PAD>', '<BOS>', '<EOS>', '<UNK>'];
 **Σ-SIG** (Sigma-SIG: Scientific Infrastructure for Governance) is a framework for reproducible experiment tracking.
 
 **Core Principles**:
+
 1. **Immutability**: Run configs are frozen after creation
 2. **Traceability**: All decisions and changes are logged
 3. **Reproducibility**: Complete experiment metadata preserved
@@ -1612,6 +1728,7 @@ const SPECIAL_TOKENS = ['<PAD>', '<BOS>', '<EOS>', '<UNK>'];
 ### Project Lifecycle
 
 **1. Create Project**:
+
 ```typescript
 const project = createProject(
   'Dropout Experiment',
@@ -1620,6 +1737,7 @@ const project = createProject(
 ```
 
 **2. Add Run**:
+
 ```typescript
 const run = addRun(project.id, {
   architecture: 'AdvancedNeuralLM',
@@ -1636,6 +1754,7 @@ const run = addRun(project.id, {
 ```
 
 **3. Record Results**:
+
 ```typescript
 updateRun(project.id, run.id, {
   results: {
@@ -1648,6 +1767,7 @@ updateRun(project.id, run.id, {
 ```
 
 **4. Add Test Scenarios**:
+
 ```typescript
 const scenario = addScenario(project.id, {
   prompt: 'The quick brown',
@@ -1664,6 +1784,7 @@ evaluateScenario(project.id, scenario.id, run.id, {
 ```
 
 **5. Decision Ledger**:
+
 ```typescript
 addDecision(project.id, {
   title: 'Increase dropout to 0.2',
@@ -1677,9 +1798,10 @@ addDecision(project.id, {
 ### Experiment Comparison
 
 **Compare Runs**:
+
 ```typescript
-const runs = project.runs.filter(r => r.config.dropout > 0.1);
-const comparison = runs.map(r => ({
+const runs = project.runs.filter((r) => r.config.dropout > 0.1);
+const comparison = runs.map((r) => ({
   id: r.id,
   dropout: r.config.dropout,
   finalLoss: r.results.finalLoss,
@@ -1691,10 +1813,11 @@ const best = comparison.sort((a, b) => a.perplexity - b.perplexity)[0];
 ```
 
 **Export for Analysis**:
+
 ```typescript
 const exportData = {
   project: project.name,
-  runs: project.runs.map(r => ({
+  runs: project.runs.map((r) => ({
     config: r.config,
     results: r.results,
     timestamp: r.timestamp
@@ -1712,11 +1835,13 @@ downloadJSON(`${project.name}-export.json`, exportData);
 ### Common Pitfalls
 
 #### 1. Vocabulary Too Small
+
 **Problem**: Training fails with "Vocabulary size too small" error
 
 **Cause**: Corpus doesn't have enough unique tokens (min: 8)
 
 **Solution**:
+
 ```typescript
 // Check vocabulary size before training
 const tokens = new Set(corpus.split(/\s+/));
@@ -1727,11 +1852,13 @@ if (tokens.size < MIN_VOCAB_SIZE) {
 ```
 
 #### 2. Learning Rate Too High
+
 **Problem**: Loss oscillates or diverges (NaN)
 
 **Cause**: LR > 0.5 causes unstable training
 
 **Solution**:
+
 ```typescript
 // Clamp learning rate
 const safeLR = Math.min(Math.max(lr, 0.001), 0.5);
@@ -1741,11 +1868,13 @@ lrSchedule: 'cosine',  // Gradually reduces LR
 ```
 
 #### 3. Memory Issues with Large Models
+
 **Problem**: Browser crashes or becomes unresponsive
 
 **Cause**: Model too large for browser memory (hidden size > 256)
 
 **Solution**:
+
 ```typescript
 // Enforce constraints
 if (hiddenSize > HYPERPARAMETER_CONSTRAINTS.hiddenSize.max) {
@@ -1758,11 +1887,13 @@ trainInBatches(corpus, batchSize);
 ```
 
 #### 4. WebGPU Not Available
+
 **Problem**: GPU acceleration doesn't work
 
 **Cause**: Browser doesn't support WebGPU
 
 **Solution**:
+
 ```typescript
 // Always check availability
 if (!navigator.gpu) {
@@ -1779,11 +1910,13 @@ if (this.gpuOps) {
 ```
 
 #### 5. localStorage Quota Exceeded
+
 **Problem**: Can't save large models to localStorage
 
 **Cause**: Browser quota ~5-10MB, models can exceed this
 
 **Solution**:
+
 ```typescript
 try {
   saveToStorage(STORAGE_KEYS.MODEL_META, modelData);
@@ -1797,11 +1930,13 @@ try {
 ```
 
 #### 6. Base Path Issues in Deployment
+
 **Problem**: Routes don't work on GitHub Pages
 
 **Cause**: Base path `/neuro-lingua/` not configured
 
 **Solution**:
+
 ```typescript
 // vite.config.ts already has:
 base: '/neuro-lingua/',
@@ -1814,11 +1949,13 @@ const imagePath = '/assets/logo.png';  // Wrong on GitHub Pages
 ```
 
 #### 7. Training Freezes UI
+
 **Problem**: Browser becomes unresponsive during training
 
 **Cause**: Long synchronous training loop blocks main thread
 
 **Solution**:
+
 ```typescript
 // Use setTimeout to yield to browser
 private async trainWithYield(corpus: string, epochs: number) {
@@ -1835,11 +1972,13 @@ private async trainWithYield(corpus: string, epochs: number) {
 ```
 
 #### 8. Type Errors with Model State
+
 **Problem**: TypeScript errors when updating model config
 
 **Cause**: Type mismatch between UI state and model config
 
 **Solution**:
+
 ```typescript
 // Use proper typing for state
 const [config, setConfig] = useState<ModelConfig>({
@@ -1849,26 +1988,29 @@ const [config, setConfig] = useState<ModelConfig>({
 });
 
 // Don't use partial updates without spreading
-setConfig({ hiddenSize: 128 });  // Wrong: loses other fields
+setConfig({ hiddenSize: 128 }); // Wrong: loses other fields
 
-setConfig(prev => ({ ...prev, hiddenSize: 128 }));  // Correct
+setConfig((prev) => ({ ...prev, hiddenSize: 128 })); // Correct
 ```
 
 ### Security Considerations
 
 #### Do NOT Use With Sensitive Data
+
 - App stores data in unencrypted localStorage
 - No server-side security
 - Browser extensions can access localStorage
 - Data may sync across devices
 
 #### Safe Data Types
+
 - Public text (books, articles)
 - Generated/synthetic text
 - Educational examples
 - Non-confidential research data
 
 #### Unsafe Data Types
+
 - Personally Identifiable Information (PII)
 - Medical records
 - Financial information
@@ -1879,6 +2021,7 @@ setConfig(prev => ({ ...prev, hiddenSize: 128 }));  // Correct
 ### Performance Tips
 
 #### Optimize Training Speed
+
 ```typescript
 // 1. Use WebGPU when available (2-5x faster)
 await enableGPU(model);
@@ -1899,18 +2042,19 @@ lrSchedule: 'constant'
 ```
 
 #### Optimize Generation Speed
+
 ```typescript
 // 1. Use greedy decoding (fastest)
-samplingMode: 'off'
+samplingMode: 'off';
 
 // 2. Limit max tokens
-maxTokens: 25
+maxTokens: 25;
 
 // 3. Disable beam search
-useBeamSearch: false
+useBeamSearch: false;
 
 // 4. Use higher temperature for less computation
-temperature: 1.5  // More randomness, less argmax computation
+temperature: 1.5; // More randomness, less argmax computation
 ```
 
 ---
@@ -1922,10 +2066,12 @@ temperature: 1.5  // More randomness, less argmax computation
 **Workflow**: `.github/workflows/deploy-pages.yml`
 
 **Triggered By**:
+
 - Push to `main` or `master` branch
 - Manual workflow dispatch
 
 **Process**:
+
 1. Install dependencies
 2. Run tests (`pnpm test`)
 3. Build production bundle (`pnpm build`)
@@ -1933,12 +2079,14 @@ temperature: 1.5  // More randomness, less argmax computation
 5. Deploy to `https://abbrubin150-ui.github.io/neuro-lingua/`
 
 **Configuration**:
+
 ```typescript
 // vite.config.ts
 base: '/neuro-lingua/',  // Must match repo name
 ```
 
 **Setup Requirements**:
+
 1. Repository → Settings → Pages
 2. Source: **GitHub Actions**
 3. Workflow: **deploy-pages.yml**
@@ -1948,10 +2096,12 @@ base: '/neuro-lingua/',  // Must match repo name
 **Workflow**: `.github/workflows/ci.yml`
 
 **Runs On**:
+
 - Every push to any branch
 - Every pull request
 
 **Checks**:
+
 1. **Type checking**: `tsc --noEmit`
 2. **Linting**: `pnpm lint`
 3. **Formatting**: `pnpm format:check`
@@ -1961,6 +2111,7 @@ base: '/neuro-lingua/',  // Must match repo name
 **All must pass** for PR to be merged
 
 **Local Check** (run before pushing):
+
 ```bash
 # Run all CI checks locally
 tsc --noEmit && \
@@ -1980,6 +2131,7 @@ pnpm build
 **Purpose**: Automatically retrain model when corpus changes or manually triggered
 
 **Manual Trigger**:
+
 ```bash
 # Using GitHub CLI
 gh workflow run train-model.yml \
@@ -1995,22 +2147,26 @@ gh workflow run train-model.yml \
 ```
 
 **Automatic Trigger**:
+
 - Edit `data/corpus.txt`
 - Commit and push
 - Workflow runs automatically
 - Commits updated `models/neuro-lingua-v324.json` if model changes
 
 **Artifacts**:
+
 - Training results uploaded for 30 days
 - Download via: Actions → Workflow run → Artifacts
 
 **Permissions**:
+
 - Workflow needs `contents: write` to commit model
 - Enable in: Settings → Actions → Workflow permissions
 
 ### Release Process
 
 **Versioning**: Semantic versioning (vX.Y.Z)
+
 - **Major (X)**: Breaking changes to model architecture or API
 - **Minor (Y)**: New features (new optimizer, generation method)
 - **Patch (Z)**: Bug fixes, performance improvements
@@ -2020,6 +2176,7 @@ gh workflow run train-model.yml \
 **Creating a Release**:
 
 1. **Update version** in `package.json`:
+
    ```json
    "version": "3.3.0"
    ```
@@ -2027,23 +2184,29 @@ gh workflow run train-model.yml \
 2. **Update README** with new features
 
 3. **Update CHANGELOG** (if exists):
+
    ```markdown
    ## [3.3.0] - 2025-11-18
+
    ### Added
+
    - New typical sampling generation method
    - GPU performance dashboard
 
    ### Fixed
+
    - Learning rate scheduling bug in TransformerLM
    ```
 
 4. **Commit changes**:
+
    ```bash
    git add package.json README.md CHANGELOG.md
    git commit -m "chore: bump version to 3.3.0"
    ```
 
 5. **Tag release**:
+
    ```bash
    git tag -a v3.3.0 -m "Release v3.3.0: Typical sampling and GPU dashboard"
    git push origin main --tags
@@ -2074,20 +2237,24 @@ gh workflow run train-model.yml \
 ### External References
 
 **Neural Networks**:
+
 - [Deep Learning Book](https://www.deeplearningbook.org/) - Comprehensive theory
 - [Neural Network from Scratch](http://neuralnetworksanddeeplearning.com/) - Beginner-friendly
 - [Attention Is All You Need](https://arxiv.org/abs/1706.03762) - Transformer paper
 
 **WebGPU**:
+
 - [WebGPU Spec](https://www.w3.org/TR/webgpu/) - Official specification
 - [WebGPU Fundamentals](https://webgpufundamentals.org/) - Tutorials
 - [Chrome WebGPU Samples](https://austin-eng.com/webgpu-samples/) - Code examples
 
 **Testing**:
+
 - [Vitest Docs](https://vitest.dev/) - Test framework
 - [Testing Library](https://testing-library.com/) - React testing
 
 **TypeScript**:
+
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
 - [React TypeScript Cheatsheet](https://react-typescript-cheatsheet.netlify.app/)
 
@@ -2129,4 +2296,4 @@ Before submitting changes:
 
 **End of CLAUDE.md**
 
-*This document is maintained for AI assistants working on Neuro-Lingua DOMESTICA. Keep it updated as the codebase evolves.*
+_This document is maintained for AI assistants working on Neuro-Lingua DOMESTICA. Keep it updated as the codebase evolves._

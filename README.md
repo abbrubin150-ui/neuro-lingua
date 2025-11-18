@@ -2,7 +2,7 @@
 
 **Browser‑native neural language model** built in React + TypeScript.
 
-🌐 **[Try the live demo →](https://abbrubin150-ui.github.io/neuro-lingua/)**
+🌐 **[Try the live demo →](https://abbrubin150-ui.github.io/neuro-lingua/)** — includes an English ↔ Hebrew toggle for the UI
 
 ## Core Features
 
@@ -11,7 +11,7 @@
 - SGD with **Momentum**, **Adam**, **Damped Newton**, or **L-BFGS** optimization
 - **Dropout** (train‑only)
 - **Advanced Text Generation**: Greedy, Sampling (Top-p/Top-k), Beam Search, and Contrastive decoding
-- **Session persistence**, onboarding tips, and downloadable **training-history CSVs**
+- **Session persistence**, onboarding tips, and downloadable **training-history CSVs** (localized labels)
 - **Tokenizer presets** (Unicode/ASCII/custom) with import/export support
 - **Agent** workflow: a single GitHub Action retrains the model and commits the updated JSON artifact
 
@@ -50,8 +50,14 @@
 
 📚 **[See full mathematical documentation →](./MATHEMATICAL_ENHANCEMENTS.md)**
 
-> This repository is intentionally simple: the only thing your agent does is **train** and **update** the model JSON.  
-> UI and code are entirely in English. The tokenizer is language‑agnostic.
+> This repository is intentionally simple: the only thing your agent does is **train** and **update** the model JSON.
+> The tokenizer is language‑agnostic, while the UI strings are available in English and Hebrew.
+
+### Localization & translations
+
+- Use the language toggle in the navbar to switch between English (LTR) and Hebrew (RTL) for the training editor, onboarding card, info cards, and chat console labels.
+- Advanced configuration options, chart axes, and logs are currently English-only. Contributions that extend localization to those areas are welcome.
+- Translations live directly in [`src/App.tsx`](./src/App.tsx) inside the `TRANSLATIONS` map so you can add new locales without touching other components.
 
 ---
 

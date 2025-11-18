@@ -124,15 +124,14 @@ export class TransformerLM extends ProNeuralLM {
     this.renormStates = [];
 
     for (let i = 0; i < numLayers; i++) {
-      const renormState: BatchRenormState =
-        existing?.renormStates?.[i] ?? {
-          runningMean: new Array(modelDim).fill(0),
-          runningVar: new Array(modelDim).fill(1),
-          momentum: 0.99,
-          epsilon: 1e-5,
-          rMax: 3.0,
-          dMax: 5.0
-        };
+      const renormState: BatchRenormState = existing?.renormStates?.[i] ?? {
+        runningMean: new Array(modelDim).fill(0),
+        runningVar: new Array(modelDim).fill(1),
+        momentum: 0.99,
+        epsilon: 1e-5,
+        rMax: 3.0,
+        dMax: 5.0
+      };
 
       const config: MiniTransformerConfig = {
         modelDim,
@@ -229,8 +228,6 @@ export class TransformerLM extends ProNeuralLM {
       residual1: number[][];
       ffOut: number[][];
     }> = [];
-
-    const modelDim = this.getHiddenSize();
 
     // Pass through each transformer layer
     for (let layerIdx = 0; layerIdx < this.transformerConfig.numLayers; layerIdx++) {
@@ -636,9 +633,10 @@ export class TransformerLM extends ProNeuralLM {
     if (typeof data.rngSeed === 'number') {
       (model as any).rngSeed = data.rngSeed >>> 0;
     }
-    const rngState = typeof (data as BaseModelJson).rngState === 'number'
-      ? ((data as BaseModelJson).rngState as number) >>> 0
-      : undefined;
+    const rngState =
+      typeof (data as BaseModelJson).rngState === 'number'
+        ? ((data as BaseModelJson).rngState as number) >>> 0
+        : undefined;
     (model as any).rng = createTransformerRng((model as any).rngSeed, rngState);
     (model as any).rngState = (model as any).rng.getState();
 

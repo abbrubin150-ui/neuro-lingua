@@ -125,11 +125,22 @@ describe('TransformerLM', () => {
 
   it('serializes transformer-specific state', () => {
     const vocab = ['<BOS>', '<EOS>', '<UNK>', '<PAD>', 'a'];
-    const model = new TransformerLM(vocab, 16, 0.05, 2, 'adam', 0.9, 0.1, 42, { mode: 'unicode' }, {
-      numLayers: 1,
-      numHeads: 2,
-      ffHiddenDim: 32
-    });
+    const model = new TransformerLM(
+      vocab,
+      16,
+      0.05,
+      2,
+      'adam',
+      0.9,
+      0.1,
+      42,
+      { mode: 'unicode' },
+      {
+        numLayers: 1,
+        numHeads: 2,
+        ffHiddenDim: 32
+      }
+    );
 
     const json = model.toJSON() as unknown as {
       architecture?: string;

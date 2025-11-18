@@ -368,7 +368,8 @@ export function ModelMetrics({
             }}
           >
             {comparisonEntries.map(({ architecture, meta }) => {
-              const isBest = bestEntry?.architecture === architecture && meta.perplexity !== undefined;
+              const isBest =
+                bestEntry?.architecture === architecture && meta.perplexity !== undefined;
               const isActive = architecture === activeArchitecture;
               return (
                 <div

@@ -291,10 +291,14 @@ export function TrainingPanel(props: TrainingPanelProps) {
                   fontSize: 12
                 }}
               />
-              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>xHidden (default: 2×)</div>
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>
+                xHidden (default: 2×)
+              </div>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>Attention Dropout</div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                Attention Dropout
+              </div>
               <input
                 aria-label="Attention dropout"
                 type="number"
@@ -321,7 +325,9 @@ export function TrainingPanel(props: TrainingPanelProps) {
                   fontSize: 12
                 }}
               />
-              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>Stabilize attention</div>
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>
+                Stabilize attention
+              </div>
             </div>
             <div>
               <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>DropConnect</div>
@@ -351,11 +357,14 @@ export function TrainingPanel(props: TrainingPanelProps) {
                   fontSize: 12
                 }}
               />
-              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>Regularize FF layers</div>
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>
+                Regularize FF layers
+              </div>
             </div>
           </div>
           <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 8 }}>
-            💡 Tune heads/layers for capacity, FF dim for expressiveness, dropout/dropconnect for stability
+            💡 Tune heads/layers for capacity, FF dim for expressiveness, dropout/dropconnect for
+            stability
           </div>
         </div>
       )}

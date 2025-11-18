@@ -408,38 +408,35 @@ export default function NeuroLinguaDomesticaV324() {
     setMessages((m) => [...m, { type: 'system' as const, content, timestamp: Date.now() }]);
   }, []);
 
-  const applyModelMeta = useCallback(
-    (model: ProNeuralLM, overrides: ModelMetaOverrides = {}) => {
-      setModelMetaStore((prev) => {
-        const architectureKey: Architecture =
-          model instanceof TransformerLM
-            ? 'transformer'
-            : model instanceof AdvancedNeuralLM
+  const applyModelMeta = useCallback((model: ProNeuralLM, overrides: ModelMetaOverrides = {}) => {
+    setModelMetaStore((prev) => {
+      const architectureKey: Architecture =
+        model instanceof TransformerLM
+          ? 'transformer'
+          : model instanceof AdvancedNeuralLM
             ? 'advanced'
             : 'feedforward';
 
-        const existing = prev[architectureKey];
-        const timestamp =
-          overrides.timestamp ?? model.getLastUpdatedAt() ?? existing?.timestamp ?? Date.now();
+      const existing = prev[architectureKey];
+      const timestamp =
+        overrides.timestamp ?? model.getLastUpdatedAt() ?? existing?.timestamp ?? Date.now();
 
-        const nextMeta: ModelMeta = {
-          architecture: architectureKey,
-          timestamp,
-          vocab: model.getVocabSize(),
-          loss: overrides.loss ?? existing?.loss,
-          accuracy: overrides.accuracy ?? existing?.accuracy,
-          perplexity: overrides.perplexity ?? existing?.perplexity,
-          tokensPerSec: overrides.tokensPerSec ?? existing?.tokensPerSec,
-          trainingDurationMs: overrides.trainingDurationMs ?? existing?.trainingDurationMs
-        };
+      const nextMeta: ModelMeta = {
+        architecture: architectureKey,
+        timestamp,
+        vocab: model.getVocabSize(),
+        loss: overrides.loss ?? existing?.loss,
+        accuracy: overrides.accuracy ?? existing?.accuracy,
+        perplexity: overrides.perplexity ?? existing?.perplexity,
+        tokensPerSec: overrides.tokensPerSec ?? existing?.tokensPerSec,
+        trainingDurationMs: overrides.trainingDurationMs ?? existing?.trainingDurationMs
+      };
 
-        const nextStore: ModelMetaStore = { ...prev, [architectureKey]: nextMeta };
-        StorageManager.set(STORAGE_KEYS.MODEL_META, nextStore);
-        return nextStore;
-      });
-    },
-    []
-  );
+      const nextStore: ModelMetaStore = { ...prev, [architectureKey]: nextMeta };
+      StorageManager.set(STORAGE_KEYS.MODEL_META, nextStore);
+      return nextStore;
+    });
+  }, []);
 
   const clearModelMetaStore = useCallback(() => {
     setModelMetaStore({});
@@ -630,13 +627,10 @@ export default function NeuroLinguaDomesticaV324() {
         architecture === 'transformer'
           ? 'TransformerLM'
           : architecture === 'advanced'
-          ? 'AdvancedNeuralLM'
-          : 'ProNeuralLM';
+            ? 'AdvancedNeuralLM'
+            : 'ProNeuralLM';
       addSystemMessage(`📀 ${architectureLabel} loaded from local storage`);
-    } else if (
-      modelRef.current &&
-      detectModelArchitecture(modelRef.current) !== architecture
-    ) {
+    } else if (modelRef.current && detectModelArchitecture(modelRef.current) !== architecture) {
       modelRef.current = null;
       setInfo({ V: 0, P: 0 });
       setTrainingHistory([]);

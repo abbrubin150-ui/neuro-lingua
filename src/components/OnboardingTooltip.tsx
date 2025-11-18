@@ -5,10 +5,18 @@ interface OnboardingTooltipProps {
   label: string;
   closeLabel: string;
   direction: 'ltr' | 'rtl';
-  strings: Pick<OnboardingCardStrings, 'bulletPauseResume' | 'bulletImportExport' | 'bulletPersistence'>;
+  strings: Pick<
+    OnboardingCardStrings,
+    'bulletPauseResume' | 'bulletImportExport' | 'bulletPersistence'
+  >;
 }
 
-export function OnboardingTooltip({ label, closeLabel, direction, strings }: OnboardingTooltipProps) {
+export function OnboardingTooltip({
+  label,
+  closeLabel,
+  direction,
+  strings
+}: OnboardingTooltipProps) {
   const [open, setOpen] = useState(false);
   const alignmentStyle = direction === 'rtl' ? { right: 0 } : { left: 0 };
 

@@ -50,7 +50,7 @@ import {
   ProjectManager
 } from './components';
 
-import { ProjectProvider, useProjects } from './contexts/ProjectContext';
+import { useProjects } from './contexts/ProjectContext';
 import { createTraceExport, generateTraceFilename } from './lib/traceExport';
 import { createDecisionLedger } from './types/project';
 import type { TrainingConfig, ScenarioResult } from './types/project';
@@ -1277,301 +1277,298 @@ export default function NeuroLinguaDomesticaV324() {
   }
 
   return (
-    <ProjectProvider>
-      <ErrorBoundary>
-        {showProjectManager && (
-          <ProjectManager direction={direction} onClose={() => setShowProjectManager(false)} />
-        )}
-        <div
-          dir={direction}
-          style={{
-            minHeight: '100vh',
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
-            color: '#e2e8f0',
-            padding: 20,
-            fontFamily: "'Segoe UI', system-ui, sans-serif",
-            direction
-          }}
-        >
-          <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-            <OnboardingCard
-              show={showOnboarding}
-              onDismiss={() => setShowOnboarding(false)}
-              strings={t.onboarding}
-              direction={direction}
-            />
+    <ErrorBoundary>
+      {showProjectManager && (
+        <ProjectManager direction={direction} onClose={() => setShowProjectManager(false)} />
+      )}
+      <div
+        dir={direction}
+        style={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+          color: '#e2e8f0',
+          padding: 20,
+          fontFamily: "'Segoe UI', system-ui, sans-serif",
+          direction
+        }}
+      >
+        <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+          <OnboardingCard
+            show={showOnboarding}
+            onDismiss={() => setShowOnboarding(false)}
+            strings={t.onboarding}
+            direction={direction}
+          />
 
-            <header style={{ marginBottom: 32 }}>
-              <div
+          <header style={{ marginBottom: 32 }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: direction === 'rtl' ? 'flex-start' : 'flex-end',
+                marginBottom: 16
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowProjectManager(true)}
+                aria-label="Open Project Manager"
                 style={{
-                  display: 'flex',
-                  justifyContent: direction === 'rtl' ? 'flex-start' : 'flex-end',
-                  marginBottom: 16
+                  padding: '8px 16px',
+                  background: 'linear-gradient(90deg, #7c3aed, #6366f1)',
+                  border: 'none',
+                  borderRadius: 999,
+                  color: 'white',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  marginRight: 8
                 }}
               >
+                📁 Projects
+              </button>
+              <button
+                type="button"
+                onClick={toggleLocale}
+                aria-label={t.toggle.aria}
+                style={{
+                  padding: '8px 16px',
+                  background: 'linear-gradient(90deg, #22d3ee, #818cf8)',
+                  border: 'none',
+                  borderRadius: 999,
+                  color: '#0f172a',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                {t.toggle.button}
+              </button>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <h1
+                style={{
+                  fontSize: '2.8rem',
+                  fontWeight: 800,
+                  background: 'linear-gradient(90deg, #a78bfa 0%, #34d399 50%, #60a5fa 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  marginBottom: 8
+                }}
+              >
+                {t.title.replace('{version}', MODEL_VERSION)}
+              </h1>
+              <p style={{ color: '#94a3b8', fontSize: '1.05rem', margin: 0 }}>{t.subtitle}</p>
+            </div>
+          </header>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 20,
+              marginBottom: 20
+            }}
+          >
+            <TrainingPanel
+              architecture={architecture}
+              hiddenSize={hiddenSize}
+              epochs={epochs}
+              lr={lr}
+              optimizer={optimizer}
+              momentum={momentum}
+              dropout={dropout}
+              contextSize={contextSize}
+              temperature={temperature}
+              topK={topK}
+              topP={topP}
+              samplingMode={samplingMode}
+              seed={seed}
+              resume={resume}
+              tokenizerConfig={tokenizerConfig}
+              customTokenizerPattern={customTokenizerPattern}
+              tokenizerError={tokenizerError}
+              isTraining={isTraining}
+              progress={progress}
+              currentEpoch={trainingRef.current.currentEpoch}
+              // Advanced features
+              useAdvanced={useAdvanced}
+              useGPU={useGPU}
+              gpuAvailable={gpuAvailable}
+              activation={activation}
+              leakyReluAlpha={leakyReluAlpha}
+              eluAlpha={eluAlpha}
+              initialization={initialization}
+              lrSchedule={lrSchedule}
+              lrMin={lrMin}
+              lrDecayRate={lrDecayRate}
+              warmupEpochs={warmupEpochs}
+              weightDecay={weightDecay}
+              gradientClipNorm={gradientClipNorm}
+              useLayerNorm={useLayerNorm}
+              useBeamSearch={useBeamSearch}
+              beamWidth={beamWidth}
+              numHeads={numHeads}
+              numLayers={numLayers}
+              // Callbacks
+              onArchitectureChange={setArchitecture}
+              onHiddenSizeChange={setHiddenSize}
+              onEpochsChange={setEpochs}
+              onLrChange={setLr}
+              onOptimizerChange={setOptimizer}
+              onMomentumChange={setMomentum}
+              onDropoutChange={setDropout}
+              onContextSizeChange={setContextSize}
+              onTemperatureChange={setTemperature}
+              onTopKChange={setTopK}
+              onTopPChange={setTopP}
+              onSamplingModeChange={setSamplingMode}
+              onSeedChange={setSeed}
+              onResumeChange={setResume}
+              // Advanced callbacks
+              onUseAdvancedChange={setUseAdvanced}
+              onUseGPUChange={setUseGPU}
+              onActivationChange={setActivation}
+              onLeakyReluAlphaChange={setLeakyReluAlpha}
+              onEluAlphaChange={setEluAlpha}
+              onInitializationChange={setInitialization}
+              onLrScheduleChange={setLrSchedule}
+              onLrMinChange={setLrMin}
+              onLrDecayRateChange={setLrDecayRate}
+              onWarmupEpochsChange={setWarmupEpochs}
+              onWeightDecayChange={setWeightDecay}
+              onGradientClipNormChange={setGradientClipNorm}
+              onUseLayerNormChange={setUseLayerNorm}
+              onUseBeamSearchChange={setUseBeamSearch}
+              onBeamWidthChange={setBeamWidth}
+              onNumHeadsChange={setNumHeads}
+              onNumLayersChange={setNumLayers}
+              onTokenizerConfigChange={setTokenizerConfig}
+              onCustomPatternChange={setCustomTokenizerPattern}
+              onTokenizerError={setTokenizerError}
+              onTrain={onTrain}
+              onStop={onStopTraining}
+              onReset={onReset}
+              onSave={onSave}
+              onLoad={onLoad}
+              onExport={onExport}
+              onImport={onImport}
+              onMessage={addSystemMessage}
+            />
+
+            <ModelMetrics
+              stats={stats}
+              info={info}
+              lastModelUpdate={lastModelUpdate}
+              trainingHistory={trainingHistory}
+              gpuMetrics={gpuMetrics}
+              edgeLearningDiagnostics={edgeLearningDiagnostics}
+              onMessage={addSystemMessage}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div
+              style={{
+                background: 'rgba(30,41,59,0.9)',
+                border: '1px solid #334155',
+                borderRadius: 16,
+                padding: 20,
+                display: 'flex',
+                flexDirection: 'column',
+                direction
+              }}
+            >
+              <h3 style={{ color: '#a78bfa', marginTop: 0, marginBottom: 16 }}>
+                {t.training.heading}
+              </h3>
+              <textarea
+                value={trainingText}
+                onChange={(e) => setTrainingText(e.target.value)}
+                placeholder={t.training.placeholder}
+                aria-label={t.training.textareaAria}
+                style={{
+                  width: '100%',
+                  minHeight: 200,
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 12,
+                  padding: 16,
+                  color: '#e2e8f0',
+                  fontSize: 14,
+                  resize: 'vertical',
+                  flex: 1,
+                  fontFamily: 'inherit'
+                }}
+              />
+              <div
+                style={{
+                  fontSize: 12,
+                  color: '#94a3b8',
+                  marginTop: 8,
+                  display: 'flex',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <span>
+                  {t.training.characters}: {trainingText.length}
+                </span>
+                <span>
+                  {t.training.words}: {trainingText.split(/\s+/).filter((w) => w.length > 0).length}
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: '#cbd5f5', marginTop: 8 }}>{t.training.tip}</div>
+              <div style={{ marginTop: 12 }}>
                 <button
                   type="button"
-                  onClick={() => setShowProjectManager(true)}
-                  aria-label="Open Project Manager"
+                  onClick={onExample}
+                  aria-label={t.training.exampleAria}
                   style={{
-                    padding: '8px 16px',
-                    background: 'linear-gradient(90deg, #7c3aed, #6366f1)',
+                    padding: '10px 14px',
+                    background: '#6366f1',
                     border: 'none',
-                    borderRadius: 999,
+                    borderRadius: 10,
                     color: 'white',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    marginRight: 8
-                  }}
-                >
-                  📁 Projects
-                </button>
-                <button
-                  type="button"
-                  onClick={toggleLocale}
-                  aria-label={t.toggle.aria}
-                  style={{
-                    padding: '8px 16px',
-                    background: 'linear-gradient(90deg, #22d3ee, #818cf8)',
-                    border: 'none',
-                    borderRadius: 999,
-                    color: '#0f172a',
-                    fontWeight: 700,
+                    fontWeight: 600,
                     cursor: 'pointer'
                   }}
                 >
-                  {t.toggle.button}
+                  {t.training.example}
                 </button>
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <h1
-                  style={{
-                    fontSize: '2.8rem',
-                    fontWeight: 800,
-                    background: 'linear-gradient(90deg, #a78bfa 0%, #34d399 50%, #60a5fa 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    marginBottom: 8
-                  }}
-                >
-                  {t.title.replace('{version}', MODEL_VERSION)}
-                </h1>
-                <p style={{ color: '#94a3b8', fontSize: '1.05rem', margin: 0 }}>{t.subtitle}</p>
-              </div>
-            </header>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 20,
-                marginBottom: 20
-              }}
-            >
-              <TrainingPanel
-                architecture={architecture}
-                hiddenSize={hiddenSize}
-                epochs={epochs}
-                lr={lr}
-                optimizer={optimizer}
-                momentum={momentum}
-                dropout={dropout}
-                contextSize={contextSize}
-                temperature={temperature}
-                topK={topK}
-                topP={topP}
-                samplingMode={samplingMode}
-                seed={seed}
-                resume={resume}
-                tokenizerConfig={tokenizerConfig}
-                customTokenizerPattern={customTokenizerPattern}
-                tokenizerError={tokenizerError}
-                isTraining={isTraining}
-                progress={progress}
-                currentEpoch={trainingRef.current.currentEpoch}
-                // Advanced features
-                useAdvanced={useAdvanced}
-                useGPU={useGPU}
-                gpuAvailable={gpuAvailable}
-                activation={activation}
-                leakyReluAlpha={leakyReluAlpha}
-                eluAlpha={eluAlpha}
-                initialization={initialization}
-                lrSchedule={lrSchedule}
-                lrMin={lrMin}
-                lrDecayRate={lrDecayRate}
-                warmupEpochs={warmupEpochs}
-                weightDecay={weightDecay}
-                gradientClipNorm={gradientClipNorm}
-                useLayerNorm={useLayerNorm}
-                useBeamSearch={useBeamSearch}
-                beamWidth={beamWidth}
-                numHeads={numHeads}
-                numLayers={numLayers}
-                // Callbacks
-                onArchitectureChange={setArchitecture}
-                onHiddenSizeChange={setHiddenSize}
-                onEpochsChange={setEpochs}
-                onLrChange={setLr}
-                onOptimizerChange={setOptimizer}
-                onMomentumChange={setMomentum}
-                onDropoutChange={setDropout}
-                onContextSizeChange={setContextSize}
-                onTemperatureChange={setTemperature}
-                onTopKChange={setTopK}
-                onTopPChange={setTopP}
-                onSamplingModeChange={setSamplingMode}
-                onSeedChange={setSeed}
-                onResumeChange={setResume}
-                // Advanced callbacks
-                onUseAdvancedChange={setUseAdvanced}
-                onUseGPUChange={setUseGPU}
-                onActivationChange={setActivation}
-                onLeakyReluAlphaChange={setLeakyReluAlpha}
-                onEluAlphaChange={setEluAlpha}
-                onInitializationChange={setInitialization}
-                onLrScheduleChange={setLrSchedule}
-                onLrMinChange={setLrMin}
-                onLrDecayRateChange={setLrDecayRate}
-                onWarmupEpochsChange={setWarmupEpochs}
-                onWeightDecayChange={setWeightDecay}
-                onGradientClipNormChange={setGradientClipNorm}
-                onUseLayerNormChange={setUseLayerNorm}
-                onUseBeamSearchChange={setUseBeamSearch}
-                onBeamWidthChange={setBeamWidth}
-                onNumHeadsChange={setNumHeads}
-                onNumLayersChange={setNumLayers}
-                onTokenizerConfigChange={setTokenizerConfig}
-                onCustomPatternChange={setCustomTokenizerPattern}
-                onTokenizerError={setTokenizerError}
-                onTrain={onTrain}
-                onStop={onStopTraining}
-                onReset={onReset}
-                onSave={onSave}
-                onLoad={onLoad}
-                onExport={onExport}
-                onImport={onImport}
-                onMessage={addSystemMessage}
-              />
-
-              <ModelMetrics
-                stats={stats}
-                info={info}
-                lastModelUpdate={lastModelUpdate}
-                trainingHistory={trainingHistory}
-                gpuMetrics={gpuMetrics}
-                edgeLearningDiagnostics={edgeLearningDiagnostics}
-                onMessage={addSystemMessage}
-              />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-              <div
-                style={{
-                  background: 'rgba(30,41,59,0.9)',
-                  border: '1px solid #334155',
-                  borderRadius: 16,
-                  padding: 20,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  direction
-                }}
-              >
-                <h3 style={{ color: '#a78bfa', marginTop: 0, marginBottom: 16 }}>
-                  {t.training.heading}
-                </h3>
-                <textarea
-                  value={trainingText}
-                  onChange={(e) => setTrainingText(e.target.value)}
-                  placeholder={t.training.placeholder}
-                  aria-label={t.training.textareaAria}
-                  style={{
-                    width: '100%',
-                    minHeight: 200,
-                    background: '#1e293b',
-                    border: '1px solid #475569',
-                    borderRadius: 12,
-                    padding: 16,
-                    color: '#e2e8f0',
-                    fontSize: 14,
-                    resize: 'vertical',
-                    flex: 1,
-                    fontFamily: 'inherit'
-                  }}
-                />
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: '#94a3b8',
-                    marginTop: 8,
-                    display: 'flex',
-                    justifyContent: 'space-between'
-                  }}
-                >
-                  <span>
-                    {t.training.characters}: {trainingText.length}
-                  </span>
-                  <span>
-                    {t.training.words}:{' '}
-                    {trainingText.split(/\s+/).filter((w) => w.length > 0).length}
-                  </span>
-                </div>
-                <div style={{ fontSize: 12, color: '#cbd5f5', marginTop: 8 }}>{t.training.tip}</div>
-                <div style={{ marginTop: 12 }}>
-                  <button
-                    type="button"
-                    onClick={onExample}
-                    aria-label={t.training.exampleAria}
-                    style={{
-                      padding: '10px 14px',
-                      background: '#6366f1',
-                      border: 'none',
-                      borderRadius: 10,
-                      color: 'white',
-                      fontWeight: 600,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {t.training.example}
-                  </button>
-                </div>
-              </div>
+            <ChatInterface
+              messages={messages}
+              input={input}
+              modelExists={!!modelRef.current}
+              onInputChange={setInput}
+              onGenerate={onGenerate}
+              strings={t.chat}
+              direction={direction}
+              locale={locale}
+            />
+          </div>
 
-              <ChatInterface
-                messages={messages}
-                input={input}
-                modelExists={!!modelRef.current}
-                onInputChange={setInput}
-                onGenerate={onGenerate}
-                strings={t.chat}
-                direction={direction}
-                locale={locale}
-              />
-            </div>
-
-            <div
-              style={{
-                marginTop: 20,
-                padding: 20,
-                background: 'rgba(30,41,59,0.9)',
-                border: '1px solid #334155',
-                borderRadius: 12,
-                fontSize: 13,
-                color: '#94a3b8'
-              }}
-            >
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-                {t.infoCards.map((card) => (
-                  <div key={card.title}>
-                    <strong>{card.title}</strong>
-                    <div style={{ fontSize: 12, marginTop: 4 }}>{card.body}</div>
-                  </div>
-                ))}
-              </div>
+          <div
+            style={{
+              marginTop: 20,
+              padding: 20,
+              background: 'rgba(30,41,59,0.9)',
+              border: '1px solid #334155',
+              borderRadius: 12,
+              fontSize: 13,
+              color: '#94a3b8'
+            }}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+              {t.infoCards.map((card) => (
+                <div key={card.title}>
+                  <strong>{card.title}</strong>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>{card.body}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
-      </ErrorBoundary>
-    </ProjectProvider>
+      </div>
+    </ErrorBoundary>
   );
 }

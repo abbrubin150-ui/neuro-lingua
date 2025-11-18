@@ -3,16 +3,28 @@ import { formatTimestamp, createTrainingHistoryCsv, downloadBlob } from '../lib/
 import { EXPORT_FILENAMES } from '../config/constants';
 import type { GPUMetrics } from '../backend/gpu_neural_ops';
 import type { EdgeLearningDiagnostics } from '../backend/edgeLearning';
+import type { Architecture } from '../types/architecture';
+import type { ModelMeta, ModelMetaStore } from '../types/modelMeta';
 
 interface ModelMetricsProps {
   stats: { loss: number; acc: number; ppl: number; lossEMA: number; tokensPerSec: number };
   info: { V: number; P: number };
-  lastModelUpdate: { timestamp: number; vocab: number } | null;
+  activeArchitecture: Architecture;
+  activeModelMeta: ModelMeta | null;
+  modelComparisons: ModelMetaStore;
   trainingHistory: { loss: number; accuracy: number; timestamp: number }[];
   gpuMetrics?: GPUMetrics | null;
   edgeLearningDiagnostics?: EdgeLearningDiagnostics | null;
   onMessage: (message: string) => void;
 }
+
+type ComparisonEntry = { architecture: Architecture; meta: ModelMeta };
+
+const ARCHITECTURE_LABELS: Record<Architecture, string> = {
+  feedforward: 'Standard (ProNeural)',
+  advanced: 'AdvancedNeuralLM',
+  transformer: 'TransformerLM'
+};
 
 /**
  * TrainingChart displays loss and accuracy progression over epochs
@@ -227,7 +239,9 @@ function GPUMetricsPanel({ metrics }: { metrics: GPUMetrics }) {
 export function ModelMetrics({
   stats,
   info,
-  lastModelUpdate,
+  activeArchitecture,
+  activeModelMeta,
+  modelComparisons,
   trainingHistory,
   gpuMetrics,
   edgeLearningDiagnostics,
@@ -241,6 +255,23 @@ export function ModelMetrics({
     const blob = createTrainingHistoryCsv(trainingHistory);
     downloadBlob(blob, EXPORT_FILENAMES.TRAINING_HISTORY);
   };
+
+  const comparisonEntries = Object.entries(modelComparisons).reduce<ComparisonEntry[]>(
+    (entries, [architecture, meta]) => {
+      if (meta) entries.push({ architecture: architecture as Architecture, meta });
+      return entries;
+    },
+    []
+  );
+
+  const bestEntry = comparisonEntries.reduce<ComparisonEntry | null>((best, entry) => {
+    const entryPpl = typeof entry.meta.perplexity === 'number' ? entry.meta.perplexity : Infinity;
+    if (!best) return entry;
+    const bestPpl = typeof best.meta.perplexity === 'number' ? best.meta.perplexity : Infinity;
+    return entryPpl < bestPpl ? entry : best;
+  }, null);
+
+  const activeArchitectureLabel = ARCHITECTURE_LABELS[activeArchitecture];
 
   return (
     <div
@@ -296,12 +327,130 @@ export function ModelMetrics({
           </div>
         </div>
       </div>
-      <div style={{ marginTop: 12, fontSize: 12, color: '#cbd5f5' }}>
-        {lastModelUpdate
-          ? `Last update: ${formatTimestamp(lastModelUpdate.timestamp)} • Vocab ${lastModelUpdate.vocab}`
-          : 'Last update: No trained model yet.'}
+      <div
+        style={{
+          marginTop: 12,
+          fontSize: 12,
+          color: '#94a3b8',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 12,
+          justifyContent: 'space-between'
+        }}
+      >
+        <div>
+          Active architecture:{' '}
+          <span style={{ fontWeight: 600, color: '#a78bfa' }}>{activeArchitectureLabel}</span>
+        </div>
+        <div style={{ color: '#cbd5f5' }}>
+          {activeModelMeta
+            ? `Last update: ${formatTimestamp(activeModelMeta.timestamp)} • Vocab ${activeModelMeta.vocab}`
+            : 'Last update: No trained model yet.'}
+        </div>
       </div>
       <TrainingChart history={trainingHistory} />
+      {comparisonEntries.length > 0 && (
+        <div
+          style={{
+            marginTop: 16,
+            background: 'rgba(167, 139, 250, 0.08)',
+            border: '1px solid rgba(167, 139, 250, 0.2)',
+            borderRadius: 12,
+            padding: 16
+          }}
+        >
+          <h4 style={{ color: '#c4b5fd', margin: '0 0 12px 0' }}>🏗️ Architecture Comparison</h4>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: 12
+            }}
+          >
+            {comparisonEntries.map(({ architecture, meta }) => {
+              const isBest =
+                bestEntry?.architecture === architecture && meta.perplexity !== undefined;
+              const isActive = architecture === activeArchitecture;
+              return (
+                <div
+                  key={architecture}
+                  style={{
+                    padding: 12,
+                    borderRadius: 10,
+                    border: `1px solid ${isActive ? '#a78bfa' : 'rgba(148,163,184,0.4)'}`,
+                    background: isActive ? 'rgba(167, 139, 250, 0.12)' : 'rgba(15,23,42,0.6)'
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#e0e7ff', marginBottom: 6 }}>
+                    {ARCHITECTURE_LABELS[architecture]}
+                    {isBest && (
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          fontSize: 10,
+                          padding: '2px 6px',
+                          borderRadius: 999,
+                          background: '#facc15',
+                          color: '#0f172a'
+                        }}
+                      >
+                        BEST PPL
+                      </span>
+                    )}
+                    {isActive && (
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          fontSize: 10,
+                          padding: '2px 6px',
+                          borderRadius: 999,
+                          background: '#a78bfa',
+                          color: '#0f172a'
+                        }}
+                      >
+                        ACTIVE
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#cbd5f5' }}>
+                    Perplexity:{' '}
+                    <strong>
+                      {typeof meta.perplexity === 'number' ? meta.perplexity.toFixed(2) : '—'}
+                    </strong>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#cbd5f5' }}>
+                    Accuracy:{' '}
+                    <strong>
+                      {typeof meta.accuracy === 'number'
+                        ? `${(meta.accuracy * 100).toFixed(1)}%`
+                        : '—'}
+                    </strong>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#cbd5f5' }}>
+                    Tokens/sec:{' '}
+                    <strong>
+                      {typeof meta.tokensPerSec === 'number' ? meta.tokensPerSec.toFixed(1) : '—'}
+                    </strong>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#cbd5f5' }}>
+                    Train time:{' '}
+                    <strong>
+                      {typeof meta.trainingDurationMs === 'number'
+                        ? `${(meta.trainingDurationMs / 1000).toFixed(1)}s`
+                        : '—'}
+                    </strong>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {comparisonEntries.length === 1 && (
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 8 }}>
+              Train a second architecture to unlock full comparisons.
+            </div>
+          )}
+        </div>
+      )}
       {gpuMetrics && gpuMetrics.available && <GPUMetricsPanel metrics={gpuMetrics} />}
       {edgeLearningDiagnostics && (
         <div

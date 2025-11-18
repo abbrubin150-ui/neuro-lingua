@@ -104,7 +104,14 @@ export const HYPERPARAMETER_CONSTRAINTS = {
   lrDecayRate: { min: 0.8, max: 0.99 },
   warmupEpochs: { min: 0, max: 50 },
   weightDecay: { min: 0, max: 0.01 },
-  gradientClipNorm: { min: 1, max: 10 }
+  gradientClipNorm: { min: 1, max: 10 },
+  transformer: {
+    numHeads: { min: 1, max: 16 },
+    numLayers: { min: 1, max: 8 },
+    ffHiddenDim: { min: 32, max: 2048 },
+    attentionDropout: { min: 0, max: 0.5 },
+    dropConnectRate: { min: 0, max: 0.5 }
+  }
 } as const;
 
 /**

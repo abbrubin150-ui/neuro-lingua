@@ -5,7 +5,7 @@
 
 import type { Optimizer, TokenizerConfig } from '../lib/ProNeuralLM';
 import type { ActivationFunction, LRSchedule, InitializationScheme } from '../lib/AdvancedNeuralLM';
-import type { Architecture } from '../components/TrainingPanel';
+import type { Architecture } from './architecture';
 
 /**
  * Decision Ledger - Tracks rationale and governance for each run
@@ -95,6 +95,9 @@ export interface TrainingConfig {
   // Transformer-specific
   numHeads?: number;
   numLayers?: number;
+  ffHiddenDim?: number;
+  attentionDropout?: number;
+  dropConnectRate?: number;
 }
 
 /**

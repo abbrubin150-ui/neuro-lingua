@@ -6,7 +6,8 @@ import {
   type TokenizerConfig,
   clamp,
   MODEL_VERSION,
-  MODEL_STORAGE_KEY
+  MODEL_STORAGE_KEY,
+  TRANSFORMER_MODEL_STORAGE_KEY
 } from './lib/ProNeuralLM';
 
 import {
@@ -54,6 +55,7 @@ import { useProjects } from './contexts/ProjectContext';
 import { createTraceExport, generateTraceFilename } from './lib/traceExport';
 import { createDecisionLedger } from './types/project';
 import type { TrainingConfig, ScenarioResult } from './types/project';
+import type { ModelMeta, ModelMetaStore } from './types/modelMeta';
 
 type UiSettings = {
   architecture: Architecture;
@@ -90,9 +92,12 @@ type UiSettings = {
   // Transformer-specific
   numHeads: number;
   numLayers: number;
+  ffHiddenDim: number;
+  attentionDropout: number;
+  dropConnectRate: number;
 };
 
-type ModelMeta = { timestamp: number; vocab: number };
+type ModelMetaOverrides = Partial<Omit<ModelMeta, 'architecture' | 'vocab'>>;
 
 type Locale = 'en' | 'he';
 
@@ -256,7 +261,15 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
   }
 } as const;
 
-function loadLatestModel(): ProNeuralLM | null {
+function getStorageKeyForArchitecture(architecture: Architecture): string {
+  return architecture === 'transformer' ? TRANSFORMER_MODEL_STORAGE_KEY : MODEL_STORAGE_KEY;
+}
+
+function loadLatestModel(architecture: Architecture = 'feedforward'): ProNeuralLM | null {
+  if (architecture === 'transformer') {
+    return TransformerLM.loadFromLocalStorage(TRANSFORMER_MODEL_STORAGE_KEY);
+  }
+
   const primary = ProNeuralLM.loadFromLocalStorage(MODEL_STORAGE_KEY);
   if (primary) return primary;
 
@@ -274,6 +287,12 @@ function loadLatestModel(): ProNeuralLM | null {
   }
 
   return null;
+}
+
+function detectModelArchitecture(model: ProNeuralLM): Architecture {
+  if (model instanceof TransformerLM) return 'transformer';
+  if (model instanceof AdvancedNeuralLM) return 'advanced';
+  return 'feedforward';
 }
 
 export default function NeuroLinguaDomesticaV324() {
@@ -344,6 +363,9 @@ export default function NeuroLinguaDomesticaV324() {
   // Transformer-specific parameters
   const [numHeads, setNumHeads] = useState(4);
   const [numLayers, setNumLayers] = useState(2);
+  const [ffHiddenDim, setFfHiddenDim] = useState(DEFAULT_HYPERPARAMETERS.hiddenSize * 2);
+  const [attentionDropout, setAttentionDropout] = useState(0.1);
+  const [dropConnectRate, setDropConnectRate] = useState(0.1);
 
   // GPU acceleration
   const [useGPU, setUseGPU] = useState(false);
@@ -360,7 +382,7 @@ export default function NeuroLinguaDomesticaV324() {
   const [tokenizerError, setTokenizerError] = useState<string | null>(null);
 
   // Model metadata and UI
-  const [lastModelUpdate, setLastModelUpdate] = useState<ModelMeta | null>(null);
+  const [modelMetaStore, setModelMetaStore] = useState<ModelMetaStore>({});
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showProjectManager, setShowProjectManager] = useState(false);
 
@@ -385,25 +407,43 @@ export default function NeuroLinguaDomesticaV324() {
     setMessages((m) => [...m, { type: 'system' as const, content, timestamp: Date.now() }]);
   }, []);
 
-  const persistModelMeta = useCallback((meta: ModelMeta | null) => {
-    if (!meta) {
-      StorageManager.remove(STORAGE_KEYS.MODEL_META);
-      setLastModelUpdate(null);
-      return;
-    }
-    StorageManager.set(STORAGE_KEYS.MODEL_META, meta);
-    setLastModelUpdate(meta);
-  }, []);
-
   const applyModelMeta = useCallback(
-    (model: ProNeuralLM) => {
-      const updatedAt = model.getLastUpdatedAt();
-      if (updatedAt) {
-        persistModelMeta({ timestamp: updatedAt, vocab: model.getVocabSize() });
-      }
+    (model: ProNeuralLM, overrides: ModelMetaOverrides = {}) => {
+      setModelMetaStore((prev) => {
+        const architectureKey: Architecture =
+          model instanceof TransformerLM
+            ? 'transformer'
+            : model instanceof AdvancedNeuralLM
+            ? 'advanced'
+            : 'feedforward';
+
+        const existing = prev[architectureKey];
+        const timestamp =
+          overrides.timestamp ?? model.getLastUpdatedAt() ?? existing?.timestamp ?? Date.now();
+
+        const nextMeta: ModelMeta = {
+          architecture: architectureKey,
+          timestamp,
+          vocab: model.getVocabSize(),
+          loss: overrides.loss ?? existing?.loss,
+          accuracy: overrides.accuracy ?? existing?.accuracy,
+          perplexity: overrides.perplexity ?? existing?.perplexity,
+          tokensPerSec: overrides.tokensPerSec ?? existing?.tokensPerSec,
+          trainingDurationMs: overrides.trainingDurationMs ?? existing?.trainingDurationMs
+        };
+
+        const nextStore: ModelMetaStore = { ...prev, [architectureKey]: nextMeta };
+        StorageManager.set(STORAGE_KEYS.MODEL_META, nextStore);
+        return nextStore;
+      });
     },
-    [persistModelMeta]
+    []
   );
+
+  const clearModelMetaStore = useCallback(() => {
+    setModelMetaStore({});
+    StorageManager.remove(STORAGE_KEYS.MODEL_META);
+  }, []);
 
   const syncTokenizerFromModel = useCallback((model: ProNeuralLM) => {
     const config = model.getTokenizerConfig();
@@ -537,6 +577,9 @@ export default function NeuroLinguaDomesticaV324() {
     if (typeof saved.beamWidth === 'number') setBeamWidth(saved.beamWidth);
     if (typeof saved.numHeads === 'number') setNumHeads(saved.numHeads);
     if (typeof saved.numLayers === 'number') setNumLayers(saved.numLayers);
+    if (typeof saved.ffHiddenDim === 'number') setFfHiddenDim(saved.ffHiddenDim);
+    if (typeof saved.attentionDropout === 'number') setAttentionDropout(saved.attentionDropout);
+    if (typeof saved.dropConnectRate === 'number') setDropConnectRate(saved.dropConnectRate);
 
     const tokenizerRaw = StorageManager.get<unknown>(STORAGE_KEYS.TOKENIZER_CONFIG, null);
     if (tokenizerRaw) {
@@ -545,9 +588,23 @@ export default function NeuroLinguaDomesticaV324() {
       if (parsed.mode === 'custom') setCustomTokenizerPattern(parsed.pattern ?? '');
     }
 
-    const meta = StorageManager.get<ModelMeta | null>(STORAGE_KEYS.MODEL_META, null);
-    if (meta && typeof meta.timestamp === 'number' && typeof meta.vocab === 'number') {
-      setLastModelUpdate(meta);
+    const storedMeta = StorageManager.get<ModelMetaStore | ModelMeta | null>(
+      STORAGE_KEYS.MODEL_META,
+      null
+    );
+    if (storedMeta && typeof storedMeta === 'object') {
+      const maybeLegacy = storedMeta as { timestamp?: unknown; vocab?: unknown };
+      if (typeof maybeLegacy.timestamp === 'number' && typeof maybeLegacy.vocab === 'number') {
+        setModelMetaStore({
+          feedforward: {
+            architecture: 'feedforward',
+            timestamp: maybeLegacy.timestamp,
+            vocab: maybeLegacy.vocab
+          }
+        });
+      } else {
+        setModelMetaStore(storedMeta as ModelMetaStore);
+      }
     }
 
     if (localStorage.getItem(STORAGE_KEYS.ONBOARDING_DISMISSED) === 'true') {
@@ -555,19 +612,35 @@ export default function NeuroLinguaDomesticaV324() {
     }
   }, []);
 
-  // Load model on mount
   useEffect(() => {
     runSelfTests();
-    const saved = loadLatestModel();
+  }, []);
+
+  // Load model for the active architecture
+  useEffect(() => {
+    const saved = loadLatestModel(architecture);
     if (saved) {
       modelRef.current = saved;
       setInfo({ V: saved.getVocabSize(), P: saved.getParametersCount() });
       setTrainingHistory(saved.getTrainingHistory());
       syncTokenizerFromModel(saved);
       applyModelMeta(saved);
-      addSystemMessage(`📀 Model v${MODEL_VERSION} loaded from local storage`);
+      const architectureLabel =
+        architecture === 'transformer'
+          ? 'TransformerLM'
+          : architecture === 'advanced'
+          ? 'AdvancedNeuralLM'
+          : 'ProNeuralLM';
+      addSystemMessage(`📀 ${architectureLabel} loaded from local storage`);
+    } else if (
+      modelRef.current &&
+      detectModelArchitecture(modelRef.current) !== architecture
+    ) {
+      modelRef.current = null;
+      setInfo({ V: 0, P: 0 });
+      setTrainingHistory([]);
     }
-  }, [applyModelMeta, syncTokenizerFromModel, addSystemMessage]);
+  }, [architecture, applyModelMeta, syncTokenizerFromModel, addSystemMessage]);
 
   // Check WebGPU availability and initialize GPU metrics
   useEffect(() => {
@@ -689,7 +762,10 @@ export default function NeuroLinguaDomesticaV324() {
       useBeamSearch,
       beamWidth,
       numHeads,
-      numLayers
+      numLayers,
+      ffHiddenDim,
+      attentionDropout,
+      dropConnectRate
     };
     StorageManager.set(STORAGE_KEYS.UI_SETTINGS, settings);
   }, [
@@ -724,7 +800,10 @@ export default function NeuroLinguaDomesticaV324() {
     useBeamSearch,
     beamWidth,
     numHeads,
-    numLayers
+    numLayers,
+    ffHiddenDim,
+    attentionDropout,
+    dropConnectRate
   ]);
 
   // Persist tokenizer config separately
@@ -789,7 +868,10 @@ export default function NeuroLinguaDomesticaV324() {
       gradientClipNorm,
       useLayerNorm,
       numHeads,
-      numLayers
+      numLayers,
+      ffHiddenDim,
+      attentionDropout,
+      dropConnectRate
     };
 
     // Create a new Run if we have an active project and no active run
@@ -832,6 +914,31 @@ export default function NeuroLinguaDomesticaV324() {
     if (shouldReinit) {
       if (architecture === 'transformer') {
         // Use TransformerLM
+        const normalizedHeads = clamp(
+          numHeads,
+          HYPERPARAMETER_CONSTRAINTS.transformer.numHeads.min,
+          HYPERPARAMETER_CONSTRAINTS.transformer.numHeads.max
+        );
+        const normalizedLayers = clamp(
+          numLayers,
+          HYPERPARAMETER_CONSTRAINTS.transformer.numLayers.min,
+          HYPERPARAMETER_CONSTRAINTS.transformer.numLayers.max
+        );
+        const normalizedFfHidden = clamp(
+          ffHiddenDim,
+          HYPERPARAMETER_CONSTRAINTS.transformer.ffHiddenDim.min,
+          HYPERPARAMETER_CONSTRAINTS.transformer.ffHiddenDim.max
+        );
+        const normalizedAttentionDropout = clamp(
+          attentionDropout,
+          HYPERPARAMETER_CONSTRAINTS.transformer.attentionDropout.min,
+          HYPERPARAMETER_CONSTRAINTS.transformer.attentionDropout.max
+        );
+        const normalizedDropConnect = clamp(
+          dropConnectRate,
+          HYPERPARAMETER_CONSTRAINTS.transformer.dropConnectRate.min,
+          HYPERPARAMETER_CONSTRAINTS.transformer.dropConnectRate.max
+        );
         modelRef.current = new TransformerLM(
           vocab,
           hiddenSize,
@@ -843,15 +950,15 @@ export default function NeuroLinguaDomesticaV324() {
           seed,
           tokenizerConfig,
           {
-            numLayers: clamp(numLayers, 1, 8),
-            numHeads: clamp(numHeads, 1, 16),
-            ffHiddenDim: hiddenSize * 2,
-            attentionDropout: dropout,
-            dropConnectRate: 0.1
+            numLayers: normalizedLayers,
+            numHeads: normalizedHeads,
+            ffHiddenDim: normalizedFfHidden,
+            attentionDropout: normalizedAttentionDropout,
+            dropConnectRate: normalizedDropConnect
           }
         );
         addSystemMessage(
-          `🔮 Starting fresh training with TransformerLM (${vocab.length} vocabulary tokens, ${numLayers} layers, ${numHeads} heads)…`
+          `🔮 Starting fresh training with TransformerLM (${vocab.length} vocabulary tokens, ${normalizedLayers} layers, ${normalizedHeads} heads)…`
         );
       } else if (architecture === 'advanced' || useAdvanced) {
         // Use AdvancedNeuralLM with advanced configuration
@@ -920,6 +1027,8 @@ export default function NeuroLinguaDomesticaV324() {
     const emaAlpha = 0.1; // EMA smoothing factor
     const tokens = ProNeuralLM.tokenizeText(trainingText, tokenizerConfig);
     const totalTokens = tokens.length;
+    const trainingStartTime = Date.now();
+    let latestTokensPerSec = 0;
 
     for (let e = 0; e < total; e++) {
       // Check both AbortController and running flag
@@ -939,6 +1048,7 @@ export default function NeuroLinguaDomesticaV324() {
       // Calculate tokens/sec for this epoch
       const epochDuration = (epochEndTime - epochStartTime) / 1000; // in seconds
       const tokensPerSec = epochDuration > 0 ? totalTokens / epochDuration : 0;
+      latestTokensPerSec = tokensPerSec;
 
       const meanLoss = aggLoss / (e + 1);
       setStats({
@@ -963,8 +1073,18 @@ export default function NeuroLinguaDomesticaV324() {
     }
 
     if (trainingRef.current.running) {
+      const finalLoss = aggLoss / Math.max(1, total);
+      const finalAccuracy = aggAcc / Math.max(1, total);
+      const finalPerplexity = Math.exp(Math.max(1e-8, finalLoss));
+      const trainingDurationMs = Date.now() - trainingStartTime;
       setInfo({ V: modelRef.current!.getVocabSize(), P: modelRef.current!.getParametersCount() });
-      applyModelMeta(modelRef.current!);
+      applyModelMeta(modelRef.current!, {
+        loss: finalLoss,
+        accuracy: finalAccuracy,
+        perplexity: finalPerplexity,
+        tokensPerSec: latestTokensPerSec,
+        trainingDurationMs
+      });
 
       // Collect and display GPU metrics if available
       if (gpuOpsRef.current && useGPU) {
@@ -1004,9 +1124,10 @@ export default function NeuroLinguaDomesticaV324() {
       }
 
       addSystemMessage(
-        `✅ Training complete! Average accuracy: ${((aggAcc / total) * 100).toFixed(1)}%`
+        `✅ Training complete! Average accuracy: ${(finalAccuracy * 100).toFixed(1)}%`
       );
-      modelRef.current!.saveToLocalStorage(MODEL_STORAGE_KEY);
+      const activeModelArchitecture = detectModelArchitecture(modelRef.current!);
+      modelRef.current!.saveToLocalStorage(getStorageKeyForArchitecture(activeModelArchitecture));
 
       // Save results to Run if we have one
       if (currentRunRef.current) {
@@ -1081,13 +1202,19 @@ export default function NeuroLinguaDomesticaV324() {
   }
 
   function onSave() {
-    modelRef.current?.saveToLocalStorage(MODEL_STORAGE_KEY);
+    if (!modelRef.current) return;
+    const arch = detectModelArchitecture(modelRef.current);
+    modelRef.current.saveToLocalStorage(getStorageKeyForArchitecture(arch));
     addSystemMessage('💾 Saved locally');
   }
 
   function onLoad() {
-    const m = loadLatestModel();
+    const m = loadLatestModel(architecture);
     if (m) {
+      const detectedArch = detectModelArchitecture(m);
+      if (detectedArch !== architecture) {
+        setArchitecture(detectedArch);
+      }
       modelRef.current = m;
       setInfo({ V: m.getVocabSize(), P: m.getParametersCount() });
       setTrainingHistory(m.getTrainingHistory());
@@ -1159,6 +1286,14 @@ export default function NeuroLinguaDomesticaV324() {
 
         // Check if this is a trace export format
         let modelData: unknown;
+        let importedArchitecture: Architecture = 'feedforward';
+
+        if (data.architecture === 'transformer' || data?.config?.architecture === 'transformer') {
+          importedArchitecture = 'transformer';
+        } else if (data.architecture === 'advanced' || data?.config?.architecture === 'advanced') {
+          importedArchitecture = 'advanced';
+        }
+
         if (data.modelWeights && data.config && data.tokenizer) {
           // New trace export format
           modelData = {
@@ -1187,9 +1322,10 @@ export default function NeuroLinguaDomesticaV324() {
           addSystemMessage('📥 Importing standard format model...');
         }
 
-        StorageManager.set(MODEL_STORAGE_KEY, modelData);
-        const m = loadLatestModel();
+        StorageManager.set(getStorageKeyForArchitecture(importedArchitecture), modelData);
+        const m = loadLatestModel(importedArchitecture);
         if (m) {
+          setArchitecture(importedArchitecture);
           modelRef.current = m;
           setInfo({ V: m.getVocabSize(), P: m.getParametersCount() });
           setTrainingHistory(m.getTrainingHistory());
@@ -1207,9 +1343,12 @@ export default function NeuroLinguaDomesticaV324() {
 
   function onReset() {
     modelRef.current = null;
-    StorageManager.remove(MODEL_STORAGE_KEY);
-    StorageManager.removeMultiple([...STORAGE_KEYS.LEGACY_MODELS]);
-    persistModelMeta(null);
+    StorageManager.removeMultiple([
+      ...STORAGE_KEYS.LEGACY_MODELS,
+      MODEL_STORAGE_KEY,
+      TRANSFORMER_MODEL_STORAGE_KEY
+    ]);
+    clearModelMetaStore();
     setInfo({ V: 0, P: 0 });
     setStats({ loss: 0, acc: 0, ppl: 0, lossEMA: 0, tokensPerSec: 0 });
     setTrainingHistory([]);
@@ -1379,6 +1518,9 @@ export default function NeuroLinguaDomesticaV324() {
               beamWidth={beamWidth}
               numHeads={numHeads}
               numLayers={numLayers}
+              ffHiddenDim={ffHiddenDim}
+              attentionDropout={attentionDropout}
+              dropConnectRate={dropConnectRate}
               // Callbacks
               onArchitectureChange={setArchitecture}
               onHiddenSizeChange={setHiddenSize}
@@ -1412,6 +1554,9 @@ export default function NeuroLinguaDomesticaV324() {
               onBeamWidthChange={setBeamWidth}
               onNumHeadsChange={setNumHeads}
               onNumLayersChange={setNumLayers}
+              onFfHiddenDimChange={setFfHiddenDim}
+              onAttentionDropoutChange={setAttentionDropout}
+              onDropConnectRateChange={setDropConnectRate}
               onTokenizerConfigChange={setTokenizerConfig}
               onCustomPatternChange={setCustomTokenizerPattern}
               onTokenizerError={setTokenizerError}
@@ -1428,7 +1573,9 @@ export default function NeuroLinguaDomesticaV324() {
             <ModelMetrics
               stats={stats}
               info={info}
-              lastModelUpdate={lastModelUpdate}
+              activeArchitecture={architecture}
+              activeModelMeta={modelMetaStore[architecture] ?? null}
+              modelComparisons={modelMetaStore}
               trainingHistory={trainingHistory}
               gpuMetrics={gpuMetrics}
               edgeLearningDiagnostics={edgeLearningDiagnostics}

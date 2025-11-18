@@ -47,6 +47,9 @@ interface TrainingPanelProps {
   // Transformer-specific
   numHeads: number;
   numLayers: number;
+  ffHiddenDim: number;
+  attentionDropout: number;
+  dropConnectRate: number;
 
   // Tokenizer
   tokenizerConfig: TokenizerConfigType;
@@ -94,6 +97,9 @@ interface TrainingPanelProps {
   // Transformer-specific callbacks
   onNumHeadsChange: (value: number) => void;
   onNumLayersChange: (value: number) => void;
+  onFfHiddenDimChange: (value: number) => void;
+  onAttentionDropoutChange: (value: number) => void;
+  onDropConnectRateChange: (value: number) => void;
 
   onTokenizerConfigChange: (config: TokenizerConfigType) => void;
   onCustomPatternChange: (pattern: string) => void;
@@ -205,7 +211,13 @@ export function TrainingPanel(props: TrainingPanelProps) {
           <div style={{ fontSize: 12, fontWeight: 600, color: '#a78bfa', marginBottom: 8 }}>
             🔮 Transformer Configuration
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gap: 12
+            }}
+          >
             <div>
               <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>Attention Heads</div>
               <input
@@ -252,9 +264,98 @@ export function TrainingPanel(props: TrainingPanelProps) {
               />
               <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>1-8 (default: 2)</div>
             </div>
+            <div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>FF Hidden Dim</div>
+              <input
+                aria-label="Transformer feed-forward hidden dimension"
+                type="number"
+                min={HYPERPARAMETER_CONSTRAINTS.transformer.ffHiddenDim.min}
+                max={HYPERPARAMETER_CONSTRAINTS.transformer.ffHiddenDim.max}
+                value={props.ffHiddenDim}
+                onChange={(e) =>
+                  props.onFfHiddenDimChange(
+                    clamp(
+                      parseInt(e.target.value || `${props.ffHiddenDim}`, 10) || props.ffHiddenDim,
+                      HYPERPARAMETER_CONSTRAINTS.transformer.ffHiddenDim.min,
+                      HYPERPARAMETER_CONSTRAINTS.transformer.ffHiddenDim.max
+                    )
+                  )
+                }
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white',
+                  fontSize: 12
+                }}
+              />
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>xHidden (default: 2×)</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>Attention Dropout</div>
+              <input
+                aria-label="Attention dropout"
+                type="number"
+                step="0.01"
+                min={HYPERPARAMETER_CONSTRAINTS.transformer.attentionDropout.min}
+                max={HYPERPARAMETER_CONSTRAINTS.transformer.attentionDropout.max}
+                value={props.attentionDropout}
+                onChange={(e) =>
+                  props.onAttentionDropoutChange(
+                    clamp(
+                      parseFloat(e.target.value || `${props.attentionDropout}`),
+                      HYPERPARAMETER_CONSTRAINTS.transformer.attentionDropout.min,
+                      HYPERPARAMETER_CONSTRAINTS.transformer.attentionDropout.max
+                    )
+                  )
+                }
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white',
+                  fontSize: 12
+                }}
+              />
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>Stabilize attention</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>DropConnect</div>
+              <input
+                aria-label="Transformer DropConnect rate"
+                type="number"
+                step="0.01"
+                min={HYPERPARAMETER_CONSTRAINTS.transformer.dropConnectRate.min}
+                max={HYPERPARAMETER_CONSTRAINTS.transformer.dropConnectRate.max}
+                value={props.dropConnectRate}
+                onChange={(e) =>
+                  props.onDropConnectRateChange(
+                    clamp(
+                      parseFloat(e.target.value || `${props.dropConnectRate}`),
+                      HYPERPARAMETER_CONSTRAINTS.transformer.dropConnectRate.min,
+                      HYPERPARAMETER_CONSTRAINTS.transformer.dropConnectRate.max
+                    )
+                  )
+                }
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white',
+                  fontSize: 12
+                }}
+              />
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>Regularize FF layers</div>
+            </div>
           </div>
           <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 8 }}>
-            💡 More heads/layers = more expressive but slower training
+            💡 Tune heads/layers for capacity, FF dim for expressiveness, dropout/dropconnect for stability
           </div>
         </div>
       )}

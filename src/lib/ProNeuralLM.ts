@@ -26,6 +26,7 @@ const DEFAULT_TOKENIZER_CONFIG: TokenizerConfig = { mode: 'unicode' };
 export const MODEL_VERSION = '3.2.4';
 export const MODEL_COMPACT_VERSION = MODEL_VERSION.replace(/\./g, '');
 export const MODEL_STORAGE_KEY = `neuro-lingua-pro-v${MODEL_COMPACT_VERSION}`;
+export const TRANSFORMER_MODEL_STORAGE_KEY = `neuro-lingua-transformer-v${MODEL_COMPACT_VERSION}`;
 export const MODEL_EXPORT_FILENAME = `neuro-lingua-v${MODEL_COMPACT_VERSION}.json`;
 
 type Rng = {

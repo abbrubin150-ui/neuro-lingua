@@ -122,4 +122,22 @@ describe('TransformerLM', () => {
     // At least the trend should be downward or final loss should be reasonable
     expect(lastLoss).toBeLessThan(firstLoss * 1.5); // Allow some variance
   });
+
+  it('serializes transformer-specific state', () => {
+    const vocab = ['<BOS>', '<EOS>', '<UNK>', '<PAD>', 'a'];
+    const model = new TransformerLM(vocab, 16, 0.05, 2, 'adam', 0.9, 0.1, 42, { mode: 'unicode' }, {
+      numLayers: 1,
+      numHeads: 2,
+      ffHiddenDim: 32
+    });
+
+    const json = model.toJSON() as unknown as {
+      architecture?: string;
+      transformer?: { config: { numHeads: number } };
+    };
+
+    expect(json.architecture).toBe('transformer');
+    expect(json.transformer).toBeDefined();
+    expect(json.transformer?.config.numHeads).toBe(2);
+  });
 });

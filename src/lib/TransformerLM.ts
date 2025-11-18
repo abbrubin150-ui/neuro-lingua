@@ -14,6 +14,7 @@
 import { ProNeuralLM, type Optimizer, type TokenizerConfig } from './ProNeuralLM';
 import { MiniTransformerBlock, type MiniTransformerConfig } from '../models/mini_transformer';
 import type { BatchRenormState } from '../models/regularizers';
+import type { AttentionWeights, Matrix } from '../models/attention';
 import { stableSoftmax } from './MathUtils';
 
 export type TransformerConfig = {
@@ -32,6 +33,35 @@ const DEFAULT_TRANSFORMER_CONFIG: Required<TransformerConfig> = {
   dropConnectRate: 0.1
 };
 
+type BaseModelJson = ReturnType<ProNeuralLM['toJSON']>;
+type TransformerSerializedModel = BaseModelJson & {
+  architecture: 'transformer';
+  transformer: {
+    config: Required<TransformerConfig>;
+    attentionWeights: AttentionWeights[];
+    ffWeights1: Matrix[];
+    ffWeights2: Matrix[];
+    renormStates: BatchRenormState[];
+  };
+};
+
+type TransformerRng = { next(): number; getState(): number };
+function createTransformerRng(seed: number, state?: number): TransformerRng {
+  const baseSeed = seed >>> 0;
+  let t = (state !== undefined ? state : baseSeed) >>> 0;
+  return {
+    next() {
+      t = (t + 0x6d2b79f5) >>> 0;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    },
+    getState() {
+      return t >>> 0;
+    }
+  };
+}
+
 /**
  * TransformerLM - Full transformer language model
  */
@@ -42,14 +72,10 @@ export class TransformerLM extends ProNeuralLM {
   private maxSeqLength = 128;
 
   // Transformer-specific weights (stored in addition to base embeddings)
-  private attentionWeights: {
-    query: number[][][];
-    key: number[][][];
-    value: number[][][];
-  }[] = [];
+  private attentionWeights: AttentionWeights[] = [];
 
-  private ffWeights1: number[][][] = [];
-  private ffWeights2: number[][][] = [];
+  private ffWeights1: Matrix[] = [];
+  private ffWeights2: Matrix[] = [];
 
   // Batch renorm state for each layer
   private renormStates: BatchRenormState[] = [];
@@ -77,10 +103,19 @@ export class TransformerLM extends ProNeuralLM {
   /**
    * Initialize transformer layers
    */
-  private initializeTransformerLayers(): void {
+  private initializeTransformerLayers(existing?: {
+    attention?: AttentionWeights[];
+    ff1?: Matrix[];
+    ff2?: Matrix[];
+    renormStates?: BatchRenormState[];
+  }): void {
     const { numLayers, numHeads, ffHiddenDim, attentionDropout, dropConnectRate } =
       this.transformerConfig;
     const modelDim = this.getHiddenSize();
+    const normalizedHeads = this.normalizeHeadCount(modelDim, numHeads);
+    if (normalizedHeads !== this.transformerConfig.numHeads) {
+      this.transformerConfig = { ...this.transformerConfig, numHeads: normalizedHeads };
+    }
 
     this.transformerLayers = [];
     this.attentionWeights = [];
@@ -89,18 +124,19 @@ export class TransformerLM extends ProNeuralLM {
     this.renormStates = [];
 
     for (let i = 0; i < numLayers; i++) {
-      const renormState: BatchRenormState = {
-        runningMean: new Array(modelDim).fill(0),
-        runningVar: new Array(modelDim).fill(1),
-        momentum: 0.99,
-        epsilon: 1e-5,
-        rMax: 3.0,
-        dMax: 5.0
-      };
+      const renormState: BatchRenormState =
+        existing?.renormStates?.[i] ?? {
+          runningMean: new Array(modelDim).fill(0),
+          runningVar: new Array(modelDim).fill(1),
+          momentum: 0.99,
+          epsilon: 1e-5,
+          rMax: 3.0,
+          dMax: 5.0
+        };
 
       const config: MiniTransformerConfig = {
         modelDim,
-        heads: numHeads,
+        heads: this.transformerConfig.numHeads,
         ff: {
           hiddenDim: ffHiddenDim,
           activation: (x: number) => Math.max(0, x) // ReLU
@@ -113,17 +149,16 @@ export class TransformerLM extends ProNeuralLM {
       this.transformerLayers.push(new MiniTransformerBlock(config));
       this.renormStates.push(renormState);
 
-      // Initialize attention weights (Q, K, V)
-      const headDim = modelDim / numHeads;
-      this.attentionWeights.push({
-        query: this.initWeightMatrix([numHeads, modelDim, headDim]),
-        key: this.initWeightMatrix([numHeads, modelDim, headDim]),
-        value: this.initWeightMatrix([numHeads, modelDim, headDim])
-      });
+      this.attentionWeights.push(
+        existing?.attention?.[i] ?? {
+          query: this.initWeightMatrix([modelDim, modelDim]),
+          key: this.initWeightMatrix([modelDim, modelDim]),
+          value: this.initWeightMatrix([modelDim, modelDim])
+        }
+      );
 
-      // Initialize feedforward weights
-      this.ffWeights1.push(this.initWeightMatrix([modelDim, ffHiddenDim]));
-      this.ffWeights2.push(this.initWeightMatrix([ffHiddenDim, modelDim]));
+      this.ffWeights1.push(existing?.ff1?.[i] ?? this.initWeightMatrix([modelDim, ffHiddenDim]));
+      this.ffWeights2.push(existing?.ff2?.[i] ?? this.initWeightMatrix([ffHiddenDim, modelDim]));
     }
   }
 
@@ -201,20 +236,10 @@ export class TransformerLM extends ProNeuralLM {
     for (let layerIdx = 0; layerIdx < this.transformerConfig.numLayers; layerIdx++) {
       const layer = this.transformerLayers[layerIdx];
 
-      // The attention weights need to be in the format:
-      // { query: Matrix, key: Matrix, value: Matrix }
-      // Each matrix should be [modelDim x (modelDim)]
-      // We'll use a simple combined weight matrix for all heads
-      const attentionWeightsMatrix = {
-        query: this.initWeightMatrix([modelDim, modelDim]),
-        key: this.initWeightMatrix([modelDim, modelDim]),
-        value: this.initWeightMatrix([modelDim, modelDim])
-      };
-
       // Forward through transformer block
       const output = layer.forward(
         hidden,
-        attentionWeightsMatrix as any,
+        this.attentionWeights[layerIdx],
         this.ffWeights1[layerIdx],
         this.ffWeights2[layerIdx]
       );
@@ -310,6 +335,38 @@ export class TransformerLM extends ProNeuralLM {
     } as const;
     (this as any).lastUpdatedAt = Date.now();
     return payload;
+  }
+
+  async generate(
+    seedText: string,
+    maxLen = 25,
+    temperature = 0.9,
+    topK = 0,
+    topP = 0
+  ): Promise<string> {
+    const tokenize = (this as any).tokenize.bind(this);
+    const toIndex = (this as any).toIndex.bind(this);
+    const contextSize = (this as any).contextSize as number;
+    const bosToken = (this as any).bos as string;
+    const bosIdx = toIndex(bosToken);
+    const eosToken = (this as any).eos as string;
+    const sampleFromLogits = (this as any).sampleFromLogits.bind(this);
+    const idxToWord = (this as any).idxToWord as Map<number, string>;
+
+    const ctx: number[] = new Array(contextSize).fill(bosIdx);
+    for (const tok of tokenize(seedText)) ctx.push(toIndex(tok));
+
+    const out: string[] = [];
+    while (out.length < maxLen) {
+      const window = ctx.slice(-contextSize);
+      const { logits } = await this.transformerForwardPass(window, false);
+      const idx = sampleFromLogits(logits, temperature, topK, topP);
+      const token = idxToWord.get(idx) ?? eosToken;
+      if (token === eosToken) break;
+      out.push(token);
+      ctx.push(idx);
+    }
+    return out.join(' ');
   }
 
   /**
@@ -430,17 +487,13 @@ export class TransformerLM extends ProNeuralLM {
     for (let layerIdx = 0; layerIdx < this.transformerConfig.numLayers; layerIdx++) {
       // Update attention weights with small gradient step
       // Using finite differences approximation for simplicity
-      for (let h = 0; h < this.transformerConfig.numHeads; h++) {
-        const headDim = H / this.transformerConfig.numHeads;
-
-        for (let i = 0; i < H; i++) {
-          for (let j = 0; j < headDim; j++) {
-            // Simplified gradient estimate based on hidden state gradients
-            const gradScale = dHidden[i] * 0.01; // Small scale factor
-            this.attentionWeights[layerIdx].query[h][i][j] -= lr * gradScale * 0.1;
-            this.attentionWeights[layerIdx].key[h][i][j] -= lr * gradScale * 0.1;
-            this.attentionWeights[layerIdx].value[h][i][j] -= lr * gradScale * 0.1;
-          }
+      const attention = this.attentionWeights[layerIdx];
+      for (let i = 0; i < attention.query.length; i++) {
+        for (let j = 0; j < attention.query[i].length; j++) {
+          const gradScale = dHidden[i % H] * 0.01;
+          attention.query[i][j] -= lr * gradScale * 0.1;
+          attention.key[i][j] -= lr * gradScale * 0.1;
+          attention.value[i][j] -= lr * gradScale * 0.1;
         }
       }
 
@@ -449,6 +502,12 @@ export class TransformerLM extends ProNeuralLM {
         for (let j = 0; j < this.ffWeights1[layerIdx][i].length; j++) {
           const grad = dHidden[i % H] * 0.01;
           this.ffWeights1[layerIdx][i][j] -= lr * grad * 0.1;
+        }
+      }
+      for (let i = 0; i < this.ffWeights2[layerIdx].length; i++) {
+        for (let j = 0; j < this.ffWeights2[layerIdx][i].length; j++) {
+          const grad = dHidden[j % H] * 0.01;
+          this.ffWeights2[layerIdx][i][j] -= lr * grad * 0.1;
         }
       }
     }
@@ -508,10 +567,105 @@ export class TransformerLM extends ProNeuralLM {
     return new Array(r).fill(0).map(() => new Array(c).fill(0));
   }
 
+  toJSON() {
+    const base = super.toJSON() as BaseModelJson;
+    return {
+      ...base,
+      architecture: 'transformer' as const,
+      transformer: {
+        config: this.transformerConfig,
+        attentionWeights: this.attentionWeights,
+        ffWeights1: this.ffWeights1,
+        ffWeights2: this.ffWeights2,
+        renormStates: this.renormStates
+      }
+    } satisfies TransformerSerializedModel;
+  }
+
+  static loadFromLocalStorage(key: string): TransformerLM | null {
+    try {
+      if (typeof localStorage === 'undefined') return null;
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const data = JSON.parse(raw) as TransformerSerializedModel;
+      if (data.architecture !== 'transformer' || !data.transformer) return null;
+      return TransformerLM.fromSerialized(data);
+    } catch (error) {
+      console.warn('Failed to load transformer model', error);
+      return null;
+    }
+  }
+
+  private static fromSerialized(data: TransformerSerializedModel): TransformerLM {
+    const model = new TransformerLM(
+      data.vocab,
+      data.hiddenSize,
+      data.learningRate ?? 0.08,
+      data.contextSize ?? 3,
+      (data.optimizer as Optimizer) ?? 'momentum',
+      data.momentum ?? 0.9,
+      data.dropout ?? 0,
+      data.rngSeed ?? 1337,
+      data.tokenizerConfig,
+      data.transformer.config
+    );
+
+    (model as any).embedding = data.embedding;
+    (model as any).wHidden = data.wHidden;
+    (model as any).wOutput = data.wOutput;
+    (model as any).bHidden = data.bHidden;
+    (model as any).bOutput = data.bOutput;
+    if (typeof data.adamT === 'number') (model as any).adamT = data.adamT;
+    if (data.mEmbedding) (model as any).mEmbedding = data.mEmbedding;
+    if (data.mWHidden) (model as any).mWHidden = data.mWHidden;
+    if (data.mWOutput) (model as any).mWOutput = data.mWOutput;
+    if (data.mBHidden) (model as any).mBHidden = data.mBHidden;
+    if (data.mBOutput) (model as any).mBOutput = data.mBOutput;
+    if (data.aEmbedding) (model as any).aEmbedding = { m: data.aEmbedding.m, v: data.aEmbedding.v };
+    if (data.aWHidden) (model as any).aWHidden = { m: data.aWHidden.m, v: data.aWHidden.v };
+    if (data.aWOutput) (model as any).aWOutput = { m: data.aWOutput.m, v: data.aWOutput.v };
+    if (data.aBHidden) (model as any).aBHidden = { m: data.aBHidden.m, v: data.aBHidden.v };
+    if (data.aBOutput) (model as any).aBOutput = { m: data.aBOutput.m, v: data.aBOutput.v };
+    (model as any).wordToIdx = new Map(data.wordToIdx);
+    (model as any).idxToWord = new Map(data.idxToWord);
+    (model as any).trainingHistory = data.trainingHistory || [];
+    if (typeof data.lastUpdatedAt === 'number') {
+      (model as any).lastUpdatedAt = data.lastUpdatedAt;
+    }
+
+    if (typeof data.rngSeed === 'number') {
+      (model as any).rngSeed = data.rngSeed >>> 0;
+    }
+    const rngState = typeof (data as BaseModelJson).rngState === 'number'
+      ? ((data as BaseModelJson).rngState as number) >>> 0
+      : undefined;
+    (model as any).rng = createTransformerRng((model as any).rngSeed, rngState);
+    (model as any).rngState = (model as any).rng.getState();
+
+    model.transformerConfig = data.transformer.config;
+    model.initializeTransformerLayers({
+      attention: data.transformer.attentionWeights,
+      ff1: data.transformer.ffWeights1,
+      ff2: data.transformer.ffWeights2,
+      renormStates: data.transformer.renormStates
+    });
+
+    return model;
+  }
+
   /**
    * Get hidden size (model dimension)
    */
   private getHiddenSize(): number {
     return (this as any).hiddenSize;
+  }
+
+  private normalizeHeadCount(modelDim: number, requestedHeads: number): number {
+    if (requestedHeads <= 0) return 1;
+    if (modelDim % requestedHeads === 0) return requestedHeads;
+    for (let candidate = requestedHeads; candidate >= 1; candidate--) {
+      if (modelDim % candidate === 0) return candidate;
+    }
+    return 1;
   }
 }

@@ -95,6 +95,9 @@ export interface TrainingConfig {
   // Transformer-specific
   numHeads?: number;
   numLayers?: number;
+  ffHiddenDim?: number;
+  attentionDropout?: number;
+  dropConnectRate?: number;
 }
 
 /**

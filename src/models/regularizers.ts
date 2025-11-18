@@ -64,11 +64,11 @@ export function batchRenormalize(inputs: Matrix, state: BatchRenormState): Batch
     batchVar[i] = batchVar[i] / batchSize - batchMean[i] ** 2;
   }
 
-  state.runningMean = state.runningMean.map((mean, idx) =>
-    state.momentum * mean + (1 - state.momentum) * batchMean[idx]
+  state.runningMean = state.runningMean.map(
+    (mean, idx) => state.momentum * mean + (1 - state.momentum) * batchMean[idx]
   );
-  state.runningVar = state.runningVar.map((variance, idx) =>
-    state.momentum * variance + (1 - state.momentum) * batchVar[idx]
+  state.runningVar = state.runningVar.map(
+    (variance, idx) => state.momentum * variance + (1 - state.momentum) * batchVar[idx]
   );
 
   const r: number[] = [];
@@ -77,13 +77,19 @@ export function batchRenormalize(inputs: Matrix, state: BatchRenormState): Batch
     const std = Math.sqrt(batchVar[i] + state.epsilon);
     const runningStd = Math.sqrt(state.runningVar[i] + state.epsilon);
     const rVal = Math.min(state.rMax, Math.max(1 / state.rMax, std / runningStd));
-    const dVal = Math.max(-state.dMax, Math.min(state.dMax, (batchMean[i] - state.runningMean[i]) / runningStd));
+    const dVal = Math.max(
+      -state.dMax,
+      Math.min(state.dMax, (batchMean[i] - state.runningMean[i]) / runningStd)
+    );
     r.push(rVal);
     d.push(dVal);
   }
 
   const normalized = inputs.map((row) =>
-    row.map((value, idx) => ((value - batchMean[idx]) / Math.sqrt(batchVar[idx] + state.epsilon)) * r[idx] + d[idx])
+    row.map(
+      (value, idx) =>
+        ((value - batchMean[idx]) / Math.sqrt(batchVar[idx] + state.epsilon)) * r[idx] + d[idx]
+    )
   );
 
   return { normalized, r, d };

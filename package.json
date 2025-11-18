@@ -9,9 +9,11 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint . --ext .ts,.tsx",
+    "lint": "eslint . --ext .ts,.tsx --max-warnings=0",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "check": "pnpm run lint && pnpm run format:check && pnpm run test",
     "train": "tsx scripts/train.ts",
     "benchmark:gpu": "tsx scripts/benchmark_gpu.ts"
   },

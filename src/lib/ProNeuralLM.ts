@@ -498,14 +498,13 @@ export class ProNeuralLM {
     }
     for (let j = 0; j < V; j++) dBout[j] += dLogits[j];
 
-    const dHidden = new Array(H).fill(0);
-    for (let i = 0; i < H; i++) {
-      let s = 0;
-      for (let j = 0; j < V; j++) s += this.wOutput[i][j] * dLogits[j];
+    const rawHiddenGrad = await this.matrixVectorMul(this.wOutput, dLogits);
+    const dHidden = rawHiddenGrad.map((value, i) => {
+      let s = value;
       s *= preAct[i] > 0 ? 1 : 0;
       if (dropMask) s *= dropMask[i];
-      dHidden[i] = s;
-    }
+      return s;
+    });
 
     clipVectorInPlace(dHidden, 5);
 
@@ -529,11 +528,9 @@ export class ProNeuralLM {
     const wHiddenSnap = this.wHidden.map((r) => r.slice());
 
     const scale = 1 / Math.max(1, inputs.length);
-    const dEmb = new Array(H).fill(0);
-    for (let i = 0; i < H; i++) {
-      let s = 0;
-      for (let k = 0; k < H; k++) s += wHiddenSnap[k][i] * dHidden[k];
-      dEmb[i] = s * scale;
+    let dEmb = await this.matrixVectorMulTranspose(wHiddenSnap, dHidden);
+    if (scale !== 1) {
+      dEmb = dEmb.map((value) => value * scale);
     }
     let adamB1t: number | null = null;
     let adamB2t: number | null = null;

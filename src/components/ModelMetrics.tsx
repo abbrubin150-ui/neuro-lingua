@@ -105,6 +105,8 @@ function GPUMetricsPanel({ metrics }: { metrics: GPUMetrics }) {
     return null;
   }
 
+  const utilization = Math.max(0, Math.min(100, metrics.utilizationPercent ?? 0));
+
   return (
     <div
       style={{
@@ -171,9 +173,48 @@ function GPUMetricsPanel({ metrics }: { metrics: GPUMetrics }) {
           </div>
         </div>
       </div>
+      <div style={{ marginTop: 12 }}>
+        <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 6 }}>Utilization</div>
+        <div
+          style={{
+            height: 10,
+            borderRadius: 999,
+            background: 'rgba(59, 130, 246, 0.25)',
+            overflow: 'hidden'
+          }}
+          aria-label={`GPU utilization ${utilization.toFixed(0)} percent`}
+        >
+          <div
+            style={{
+              width: `${utilization}%`,
+              height: '100%',
+              borderRadius: 999,
+              background: 'linear-gradient(90deg, #22d3ee, #3b82f6)',
+              transition: 'width 0.3s ease'
+            }}
+          />
+        </div>
+        <div style={{ fontSize: 12, color: '#cbd5f5', marginTop: 4 }}>
+          {utilization.toFixed(0)}% of training time spent on GPU kernels
+        </div>
+      </div>
       {metrics.deviceInfo && (
         <div style={{ marginTop: 8, fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
           Device: {metrics.deviceInfo}
+        </div>
+      )}
+      {!metrics.enabled && metrics.lastError && (
+        <div
+          style={{
+            marginTop: 12,
+            fontSize: 11,
+            color: '#fca5a5',
+            background: 'rgba(239, 68, 68, 0.08)',
+            borderRadius: 8,
+            padding: '8px 10px'
+          }}
+        >
+          ⚠️ GPU fallback activated: {metrics.lastError}
         </div>
       )}
     </div>

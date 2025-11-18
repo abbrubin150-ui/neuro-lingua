@@ -7,13 +7,17 @@
 
 import { WebGPUBackend } from './webgpu';
 
+const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
+
 export interface GPUMetrics {
   enabled: boolean;
   available: boolean;
   totalOperations: number;
   totalTimeMs: number;
   averageTimeMs: number;
+  utilizationPercent: number;
   deviceInfo?: string;
+  lastError?: string;
 }
 
 export class GPUNeuralOps {
@@ -22,6 +26,9 @@ export class GPUNeuralOps {
   private available: boolean = false;
   private totalOperations: number = 0;
   private totalTimeMs: number = 0;
+  private firstOperationTimestamp: number | null = null;
+  private lastOperationTimestamp: number | null = null;
+  private lastErrorMessage: string | undefined;
 
   /**
    * Initialize GPU backend
@@ -31,12 +38,15 @@ export class GPUNeuralOps {
       this.backend = await WebGPUBackend.create();
       this.available = true;
       this.enabled = true;
+      this.resetMetrics();
+      this.lastErrorMessage = undefined;
       console.log('✅ WebGPU backend initialized successfully');
       return true;
     } catch (error) {
       console.warn('⚠️ WebGPU not available, falling back to CPU:', error);
       this.available = false;
       this.enabled = false;
+      this.lastErrorMessage = error instanceof Error ? error.message : String(error);
       return false;
     }
   }
@@ -56,7 +66,7 @@ export class GPUNeuralOps {
       console.warn('⚠️ Cannot enable GPU: WebGPU is not available');
       return;
     }
-    this.enabled = enabled;
+    this.enabled = enabled && this.available;
   }
 
   /**
@@ -76,7 +86,9 @@ export class GPUNeuralOps {
       totalOperations: this.totalOperations,
       totalTimeMs: this.totalTimeMs,
       averageTimeMs: this.totalOperations > 0 ? this.totalTimeMs / this.totalOperations : 0,
-      deviceInfo: this.backend ? 'WebGPU Device' : undefined
+      utilizationPercent: this.computeUtilizationPercent(),
+      deviceInfo: this.backend ? 'WebGPU Device' : undefined,
+      lastError: this.lastErrorMessage
     };
   }
 
@@ -86,6 +98,38 @@ export class GPUNeuralOps {
   resetMetrics(): void {
     this.totalOperations = 0;
     this.totalTimeMs = 0;
+    this.firstOperationTimestamp = null;
+    this.lastOperationTimestamp = null;
+  }
+
+  private recordOperation(startTime: number, endTime: number) {
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) return;
+    const duration = Math.max(0, endTime - startTime);
+    this.totalOperations++;
+    this.totalTimeMs += duration;
+    if (this.firstOperationTimestamp === null) {
+      this.firstOperationTimestamp = startTime;
+    }
+    this.lastOperationTimestamp = endTime;
+  }
+
+  private recordFailure(error: unknown) {
+    this.enabled = false;
+    this.lastErrorMessage = error instanceof Error ? error.message : String(error);
+  }
+
+  private computeUtilizationPercent(): number {
+    if (
+      this.firstOperationTimestamp === null ||
+      this.lastOperationTimestamp === null ||
+      this.lastOperationTimestamp <= this.firstOperationTimestamp
+    ) {
+      return 0;
+    }
+    const elapsed = this.lastOperationTimestamp - this.firstOperationTimestamp;
+    if (elapsed <= 0) return 0;
+    const utilization = (this.totalTimeMs / elapsed) * 100;
+    return clamp(utilization, 0, 100);
   }
 
   /**
@@ -129,13 +173,12 @@ export class GPUNeuralOps {
       result.dispose();
 
       const endTime = performance.now();
-      this.totalOperations++;
-      this.totalTimeMs += endTime - startTime;
+      this.recordOperation(startTime, endTime);
 
       return Array.from(resultArray);
     } catch (error) {
       console.warn('⚠️ GPU operation failed, falling back to CPU:', error);
-      this.enabled = false;
+      this.recordFailure(error);
       return this.cpuMatrixVectorMul(A, x);
     }
   }
@@ -177,13 +220,12 @@ export class GPUNeuralOps {
       result.dispose();
 
       const endTime = performance.now();
-      this.totalOperations++;
-      this.totalTimeMs += endTime - startTime;
+      this.recordOperation(startTime, endTime);
 
       return Array.from(resultArray);
     } catch (error) {
       console.warn('⚠️ GPU operation failed, falling back to CPU:', error);
-      this.enabled = false;
+      this.recordFailure(error);
       return this.cpuMatrixVectorMulTranspose(A, x);
     }
   }
@@ -209,13 +251,12 @@ export class GPUNeuralOps {
       result.dispose();
 
       const endTime = performance.now();
-      this.totalOperations++;
-      this.totalTimeMs += endTime - startTime;
+      this.recordOperation(startTime, endTime);
 
       return Array.from(resultArray);
     } catch (error) {
       console.warn('⚠️ GPU operation failed, falling back to CPU:', error);
-      this.enabled = false;
+      this.recordFailure(error);
       return this.cpuVectorAdd(x, y);
     }
   }
@@ -241,13 +282,12 @@ export class GPUNeuralOps {
       result.dispose();
 
       const endTime = performance.now();
-      this.totalOperations++;
-      this.totalTimeMs += endTime - startTime;
+      this.recordOperation(startTime, endTime);
 
       return Array.from(resultArray);
     } catch (error) {
       console.warn('⚠️ GPU operation failed, falling back to CPU:', error);
-      this.enabled = false;
+      this.recordFailure(error);
       return this.cpuVectorMul(x, y);
     }
   }

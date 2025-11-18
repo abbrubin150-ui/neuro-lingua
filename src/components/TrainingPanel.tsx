@@ -620,46 +620,66 @@ export function TrainingPanel(props: TrainingPanelProps) {
       </div>
 
       {/* GPU Acceleration Toggle */}
-      <div style={{ marginBottom: 12 }}>
+      <div
+        style={{
+          marginBottom: 12,
+          padding: 12,
+          borderRadius: 12,
+          border: '1px solid rgba(99,102,241,0.3)',
+          background: 'rgba(99,102,241,0.08)'
+        }}
+      >
         <label
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
+            gap: 10,
             fontSize: 14,
             fontWeight: 600,
             cursor: props.gpuAvailable ? 'pointer' : 'not-allowed',
-            opacity: props.gpuAvailable ? 1 : 0.5
+            opacity: props.gpuAvailable ? 1 : 0.6
           }}
-          title={
-            props.gpuAvailable
-              ? 'Enable WebGPU acceleration for faster training'
-              : 'WebGPU is not available in your browser'
-          }
         >
           <input
             type="checkbox"
             checked={props.useGPU}
             onChange={(e) => props.onUseGPUChange(e.target.checked)}
             disabled={!props.gpuAvailable}
+            aria-label={
+              props.gpuAvailable
+                ? 'Toggle WebGPU acceleration'
+                : 'WebGPU not available on this device'
+            }
           />
-          <span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             ⚡ GPU Acceleration (WebGPU)
-            {!props.gpuAvailable && ' - Not Available'}
+            <span
+              style={{
+                fontSize: 11,
+                padding: '2px 8px',
+                borderRadius: 999,
+                background: props.gpuAvailable ? 'rgba(34,197,94,0.2)' : 'rgba(248,113,113,0.2)',
+                color: props.gpuAvailable ? '#34d399' : '#f87171'
+              }}
+            >
+              {props.gpuAvailable ? 'Available' : 'Unavailable'}
+            </span>
           </span>
         </label>
-        {props.useGPU && props.gpuAvailable && (
-          <div
-            style={{
-              fontSize: 11,
-              color: '#94a3b8',
-              marginInlineStart: 24,
-              marginTop: 4
-            }}
-          >
-            WebGPU acceleration enabled. Training may be 2-5x faster on compatible hardware.
-          </div>
-        )}
+        <div
+          style={{
+            fontSize: 11,
+            color: props.gpuAvailable ? '#cbd5f5' : '#fca5a5',
+            marginInlineStart: 24,
+            marginTop: 6
+          }}
+        >
+          {props.gpuAvailable
+            ? props.useGPU
+              ? 'WebGPU acceleration enabled. Expect 2-5x faster epochs on compatible hardware.'
+              : 'WebGPU detected. Enable the toggle to accelerate matrix operations during training.'
+            : 'WebGPU is not available in this browser. Training will safely fall back to CPU.'}
+        </div>
       </div>
 
       {/* Advanced Features Panel */}

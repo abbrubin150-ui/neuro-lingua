@@ -4,10 +4,18 @@ import { describe, expect, it, beforeEach } from 'vitest';
 
 import App from '../src/App';
 import { DEFAULT_TRAINING_TEXT, STORAGE_KEYS } from '../src/config/constants';
+import { ProjectProvider } from '../src/contexts/ProjectContext';
 
 const UI_SETTINGS_KEY = STORAGE_KEYS.UI_SETTINGS;
 const TOKENIZER_STORAGE_KEY = STORAGE_KEYS.TOKENIZER_CONFIG;
 const ONBOARDING_STORAGE_KEY = STORAGE_KEYS.ONBOARDING_DISMISSED;
+
+// Wrapper component that includes ProjectProvider
+const AppWithProvider = () => (
+  <ProjectProvider>
+    <App />
+  </ProjectProvider>
+);
 
 describe('Neuro-Lingua App UI', () => {
   beforeEach(() => {
@@ -34,7 +42,7 @@ describe('Neuro-Lingua App UI', () => {
     };
     localStorage.setItem(UI_SETTINGS_KEY, JSON.stringify(saved));
 
-    render(<App />);
+    render(<AppWithProvider />);
 
     await waitFor(() => {
       expect(screen.getByLabelText('Hidden size')).toHaveValue(96);
@@ -47,7 +55,7 @@ describe('Neuro-Lingua App UI', () => {
   });
 
   it('persists updated hyperparameters to localStorage', async () => {
-    render(<App />);
+    render(<AppWithProvider />);
 
     fireEvent.change(screen.getByLabelText('Hidden size'), { target: { value: '72' } });
     fireEvent.change(screen.getByLabelText('Training corpus'), {
@@ -64,7 +72,7 @@ describe('Neuro-Lingua App UI', () => {
   });
 
   it('allows onboarding panel dismissal and records preference', async () => {
-    render(<App />);
+    render(<AppWithProvider />);
 
     expect(screen.getByText(/welcome!/i)).toBeInTheDocument();
 
@@ -77,7 +85,7 @@ describe('Neuro-Lingua App UI', () => {
   });
 
   it('saves tokenizer selections, including custom patterns', async () => {
-    render(<App />);
+    render(<AppWithProvider />);
 
     fireEvent.change(screen.getByLabelText('Tokenizer mode'), { target: { value: 'ascii' } });
 

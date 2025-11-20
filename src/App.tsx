@@ -51,7 +51,8 @@ import {
   ErrorBoundary,
   type Message,
   ProjectManager,
-  ModelSnapshot
+  ModelSnapshot,
+  ExplainabilityPanel
 } from './components';
 
 import { useProjects } from './contexts/ProjectContext';
@@ -403,6 +404,9 @@ export default function NeuroLinguaDomesticaV324() {
   // Bayesian inference
   const [useBayesian, setUseBayesian] = useState(false);
   const [confidence, setConfidence] = useState<number | null>(null);
+
+  // Explainability
+  const [explainabilityText, setExplainabilityText] = useState('');
 
   // Tokenizer
   const [tokenizerConfig, setTokenizerConfig] = useState<TokenizerConfig>(DEFAULT_TOKENIZER_CONFIG);
@@ -1788,6 +1792,37 @@ export default function NeuroLinguaDomesticaV324() {
               onUseBayesianChange={setUseBayesian}
               confidence={confidence}
             />
+
+            {/* Explainability Panel */}
+            <div style={{ marginTop: 20 }}>
+              <ExplainabilityPanel
+                model={modelRef.current}
+                text={explainabilityText}
+                onMessage={addSystemMessage}
+              />
+              <div style={{ marginTop: 12 }}>
+                <textarea
+                  value={explainabilityText}
+                  onChange={(e) => setExplainabilityText(e.target.value)}
+                  placeholder="Enter text to explain (e.g., generated output or test phrase)..."
+                  style={{
+                    width: '100%',
+                    minHeight: 80,
+                    background: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: 8,
+                    padding: 12,
+                    color: '#e2e8f0',
+                    fontSize: 13,
+                    resize: 'vertical',
+                    fontFamily: 'inherit'
+                  }}
+                />
+                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>
+                  💡 Tip: Copy generated text from chat above or enter your own text to analyze
+                </div>
+              </div>
+            </div>
           </div>
 
           <div

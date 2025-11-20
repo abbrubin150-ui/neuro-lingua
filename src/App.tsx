@@ -623,6 +623,19 @@ export default function NeuroLinguaDomesticaV324() {
     if (typeof saved.ffHiddenDim === 'number') setFfHiddenDim(saved.ffHiddenDim);
     if (typeof saved.attentionDropout === 'number') setAttentionDropout(saved.attentionDropout);
     if (typeof saved.dropConnectRate === 'number') setDropConnectRate(saved.dropConnectRate);
+    if (typeof saved.useIB === 'boolean') setUseIB(saved.useIB);
+    if (typeof saved.betaStart === 'number') setBetaStart(saved.betaStart);
+    if (typeof saved.betaEnd === 'number') setBetaEnd(saved.betaEnd);
+    if (
+      saved.betaSchedule === 'constant' ||
+      saved.betaSchedule === 'linear' ||
+      saved.betaSchedule === 'exponential' ||
+      saved.betaSchedule === 'cosine'
+    ) {
+      setBetaSchedule(saved.betaSchedule);
+    }
+    if (typeof saved.ibAlpha === 'number') setIbAlpha(saved.ibAlpha);
+    if (typeof saved.numBins === 'number') setNumBins(saved.numBins);
 
     const tokenizerRaw = StorageManager.get<unknown>(STORAGE_KEYS.TOKENIZER_CONFIG, null);
     if (tokenizerRaw) {
@@ -813,7 +826,13 @@ export default function NeuroLinguaDomesticaV324() {
       numLayers,
       ffHiddenDim,
       attentionDropout,
-      dropConnectRate
+      dropConnectRate,
+      useIB,
+      betaStart,
+      betaEnd,
+      betaSchedule,
+      ibAlpha,
+      numBins
     };
     StorageManager.set(STORAGE_KEYS.UI_SETTINGS, settings);
   }, [
@@ -851,7 +870,13 @@ export default function NeuroLinguaDomesticaV324() {
     numLayers,
     ffHiddenDim,
     attentionDropout,
-    dropConnectRate
+    dropConnectRate,
+    useIB,
+    betaStart,
+    betaEnd,
+    betaSchedule,
+    ibAlpha,
+    numBins
   ]);
 
   useEffect(() => {

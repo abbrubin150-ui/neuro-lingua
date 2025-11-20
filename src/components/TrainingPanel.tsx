@@ -224,8 +224,24 @@ export function TrainingPanel(props: TrainingPanelProps) {
             marginBottom: 12
           }}
         >
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#a78bfa', marginBottom: 8 }}>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: '#a78bfa',
+              marginBottom: 8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6
+            }}
+          >
             🔮 Transformer Configuration
+            <span
+              title="Transformer uses multi-head self-attention to capture long-range dependencies. More heads = more diverse attention patterns. More layers = deeper representations. Higher FF dim = more model capacity."
+              style={{ cursor: 'help', fontSize: 11, opacity: 0.7 }}
+            >
+              ℹ️
+            </span>
           </div>
           <div
             style={{
@@ -235,7 +251,12 @@ export function TrainingPanel(props: TrainingPanelProps) {
             }}
           >
             <div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>Attention Heads</div>
+              <div
+                style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4, cursor: 'help' }}
+                title="Number of parallel attention mechanisms. Each head learns different patterns. More heads = richer representations but slower training. Recommended: 4-8"
+              >
+                Attention Heads ℹ️
+              </div>
               <input
                 aria-label="Number of attention heads"
                 type="number"
@@ -258,7 +279,12 @@ export function TrainingPanel(props: TrainingPanelProps) {
               <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>1-16 (default: 4)</div>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>Layers</div>
+              <div
+                style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4, cursor: 'help' }}
+                title="Number of stacked transformer blocks. Each layer can capture increasingly abstract patterns. More layers = deeper model but slower training. Recommended: 2-4"
+              >
+                Layers ℹ️
+              </div>
               <input
                 aria-label="Number of transformer layers"
                 type="number"
@@ -281,7 +307,12 @@ export function TrainingPanel(props: TrainingPanelProps) {
               <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>1-8 (default: 2)</div>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>FF Hidden Dim</div>
+              <div
+                style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4, cursor: 'help' }}
+                title="Feed-forward network hidden dimension. Controls model capacity between attention layers. Typically 2-4x the hidden size. Higher = more parameters and capacity."
+              >
+                FF Hidden Dim ℹ️
+              </div>
               <input
                 aria-label="Transformer feed-forward hidden dimension"
                 type="number"
@@ -312,8 +343,11 @@ export function TrainingPanel(props: TrainingPanelProps) {
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
-                Attention Dropout
+              <div
+                style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4, cursor: 'help' }}
+                title="Dropout applied to attention weights. Helps prevent overfitting by randomly dropping attention connections during training. Typical range: 0.1-0.2"
+              >
+                Attention Dropout ℹ️
               </div>
               <input
                 aria-label="Attention dropout"
@@ -346,7 +380,12 @@ export function TrainingPanel(props: TrainingPanelProps) {
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>DropConnect</div>
+              <div
+                style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4, cursor: 'help' }}
+                title="DropConnect randomly drops connections (weights) in feed-forward layers during training. Similar to dropout but drops weights instead of activations. Helps prevent overfitting."
+              >
+                DropConnect ℹ️
+              </div>
               <input
                 aria-label="Transformer DropConnect rate"
                 type="number"

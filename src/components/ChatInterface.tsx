@@ -193,8 +193,11 @@ export function ChatInterface({
                 cursor: 'pointer'
               }}
             />
-            <span style={{ fontSize: 13, color: '#a78bfa', fontWeight: 600 }}>
-              🎲 Bayesian Inference
+            <span
+              style={{ fontSize: 13, color: '#a78bfa', fontWeight: 600, cursor: 'help' }}
+              title="Bayesian Inference uses Monte Carlo sampling to generate multiple predictions and quantify uncertainty. Higher confidence means predictions are more consistent across samples."
+            >
+              🎲 Bayesian Inference ℹ️
             </span>
             {confidence !== null && useBayesian && (
               <span
@@ -205,10 +208,12 @@ export function ChatInterface({
                   color: '#34d399',
                   padding: '4px 10px',
                   borderRadius: 6,
-                  fontWeight: 600
+                  fontWeight: 600,
+                  cursor: 'help'
                 }}
+                title={`Confidence: ${(confidence * 100).toFixed(0)}%. This represents prediction consistency across Monte Carlo samples. Values close to 1.0 indicate high agreement, values close to 0.0 indicate high uncertainty.`}
               >
-                Confidence: ±{confidence.toFixed(2)}
+                Confidence: {confidence.toFixed(2)}
               </span>
             )}
           </label>

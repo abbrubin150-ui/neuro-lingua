@@ -1,5 +1,6 @@
 import type { Optimizer, TokenizerConfig } from '../lib/ProNeuralLM';
 import type { ActivationFunction, LRSchedule, InitializationScheme } from '../lib/AdvancedNeuralLM';
+import type { BetaSchedule } from '../losses/information_bottleneck';
 
 /**
  * Storage keys for localStorage
@@ -79,6 +80,18 @@ export const DEFAULT_ADVANCED_CONFIG = {
 };
 
 /**
+ * Default Information Bottleneck configuration
+ */
+export const DEFAULT_IB_CONFIG = {
+  useIB: false,
+  betaStart: 0.001,
+  betaEnd: 1.0,
+  betaSchedule: 'linear' as BetaSchedule,
+  ibAlpha: 0.1, // Hybrid loss weight: (1-α)·CE + α·IB
+  numBins: 50 // Number of bins for MI estimation
+};
+
+/**
  * Default tokenizer configuration
  */
 export const DEFAULT_TOKENIZER_CONFIG: TokenizerConfig = {
@@ -112,6 +125,12 @@ export const HYPERPARAMETER_CONSTRAINTS = {
     ffHiddenDim: { min: 32, max: 2048 },
     attentionDropout: { min: 0, max: 0.5 },
     dropConnectRate: { min: 0, max: 0.5 }
+  },
+  ib: {
+    betaStart: { min: 0.0001, max: 10 },
+    betaEnd: { min: 0.0001, max: 10 },
+    ibAlpha: { min: 0, max: 1 },
+    numBins: { min: 10, max: 200 }
   }
 } as const;
 

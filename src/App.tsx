@@ -32,6 +32,7 @@ import {
   DEFAULT_HYPERPARAMETERS,
   DEFAULT_GENERATION,
   DEFAULT_ADVANCED_CONFIG,
+  DEFAULT_IB_CONFIG,
   DEFAULT_TOKENIZER_CONFIG,
   MIN_VOCAB_SIZE,
   TRAINING_UI_UPDATE_DELAY,
@@ -98,6 +99,13 @@ type UiSettings = {
   ffHiddenDim: number;
   attentionDropout: number;
   dropConnectRate: number;
+  // Information Bottleneck
+  useIB: boolean;
+  betaStart: number;
+  betaEnd: number;
+  betaSchedule: 'constant' | 'linear' | 'exponential' | 'cosine';
+  ibAlpha: number;
+  numBins: number;
 };
 
 type ModelMetaOverrides = Partial<Omit<ModelMeta, 'architecture' | 'vocab'>>;
@@ -391,6 +399,16 @@ export default function NeuroLinguaDomesticaV324() {
   const [attentionDropout, setAttentionDropout] = useState(0.1);
   const [dropConnectRate, setDropConnectRate] = useState(0.1);
 
+  // Information Bottleneck parameters
+  const [useIB, setUseIB] = useState(DEFAULT_IB_CONFIG.useIB);
+  const [betaStart, setBetaStart] = useState(DEFAULT_IB_CONFIG.betaStart);
+  const [betaEnd, setBetaEnd] = useState(DEFAULT_IB_CONFIG.betaEnd);
+  const [betaSchedule, setBetaSchedule] = useState<
+    'constant' | 'linear' | 'exponential' | 'cosine'
+  >(DEFAULT_IB_CONFIG.betaSchedule);
+  const [ibAlpha, setIbAlpha] = useState(DEFAULT_IB_CONFIG.ibAlpha);
+  const [numBins, setNumBins] = useState(DEFAULT_IB_CONFIG.numBins);
+
   // GPU acceleration
   const [useGPU, setUseGPU] = useState(false);
   const [gpuAvailable, setGpuAvailable] = useState(false);
@@ -605,6 +623,19 @@ export default function NeuroLinguaDomesticaV324() {
     if (typeof saved.ffHiddenDim === 'number') setFfHiddenDim(saved.ffHiddenDim);
     if (typeof saved.attentionDropout === 'number') setAttentionDropout(saved.attentionDropout);
     if (typeof saved.dropConnectRate === 'number') setDropConnectRate(saved.dropConnectRate);
+    if (typeof saved.useIB === 'boolean') setUseIB(saved.useIB);
+    if (typeof saved.betaStart === 'number') setBetaStart(saved.betaStart);
+    if (typeof saved.betaEnd === 'number') setBetaEnd(saved.betaEnd);
+    if (
+      saved.betaSchedule === 'constant' ||
+      saved.betaSchedule === 'linear' ||
+      saved.betaSchedule === 'exponential' ||
+      saved.betaSchedule === 'cosine'
+    ) {
+      setBetaSchedule(saved.betaSchedule);
+    }
+    if (typeof saved.ibAlpha === 'number') setIbAlpha(saved.ibAlpha);
+    if (typeof saved.numBins === 'number') setNumBins(saved.numBins);
 
     const tokenizerRaw = StorageManager.get<unknown>(STORAGE_KEYS.TOKENIZER_CONFIG, null);
     if (tokenizerRaw) {
@@ -795,7 +826,13 @@ export default function NeuroLinguaDomesticaV324() {
       numLayers,
       ffHiddenDim,
       attentionDropout,
-      dropConnectRate
+      dropConnectRate,
+      useIB,
+      betaStart,
+      betaEnd,
+      betaSchedule,
+      ibAlpha,
+      numBins
     };
     StorageManager.set(STORAGE_KEYS.UI_SETTINGS, settings);
   }, [
@@ -833,7 +870,13 @@ export default function NeuroLinguaDomesticaV324() {
     numLayers,
     ffHiddenDim,
     attentionDropout,
-    dropConnectRate
+    dropConnectRate,
+    useIB,
+    betaStart,
+    betaEnd,
+    betaSchedule,
+    ibAlpha,
+    numBins
   ]);
 
   useEffect(() => {
@@ -1650,6 +1693,19 @@ export default function NeuroLinguaDomesticaV324() {
               onFfHiddenDimChange={setFfHiddenDim}
               onAttentionDropoutChange={setAttentionDropout}
               onDropConnectRateChange={setDropConnectRate}
+              // Information Bottleneck
+              useIB={useIB}
+              betaStart={betaStart}
+              betaEnd={betaEnd}
+              betaSchedule={betaSchedule}
+              ibAlpha={ibAlpha}
+              numBins={numBins}
+              onUseIBChange={setUseIB}
+              onBetaStartChange={setBetaStart}
+              onBetaEndChange={setBetaEnd}
+              onBetaScheduleChange={setBetaSchedule}
+              onIbAlphaChange={setIbAlpha}
+              onNumBinsChange={setNumBins}
               onTokenizerConfigChange={setTokenizerConfig}
               onCustomPatternChange={setCustomTokenizerPattern}
               onTokenizerError={setTokenizerError}

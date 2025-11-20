@@ -51,6 +51,14 @@ interface TrainingPanelProps {
   attentionDropout: number;
   dropConnectRate: number;
 
+  // Information Bottleneck
+  useIB: boolean;
+  betaStart: number;
+  betaEnd: number;
+  betaSchedule: 'constant' | 'linear' | 'exponential' | 'cosine';
+  ibAlpha: number;
+  numBins: number;
+
   // Tokenizer
   tokenizerConfig: TokenizerConfigType;
   customTokenizerPattern: string;
@@ -100,6 +108,14 @@ interface TrainingPanelProps {
   onFfHiddenDimChange: (value: number) => void;
   onAttentionDropoutChange: (value: number) => void;
   onDropConnectRateChange: (value: number) => void;
+
+  // Information Bottleneck callbacks
+  onUseIBChange: (value: boolean) => void;
+  onBetaStartChange: (value: number) => void;
+  onBetaEndChange: (value: number) => void;
+  onBetaScheduleChange: (value: 'constant' | 'linear' | 'exponential' | 'cosine') => void;
+  onIbAlphaChange: (value: number) => void;
+  onNumBinsChange: (value: number) => void;
 
   onTokenizerConfigChange: (config: TokenizerConfigType) => void;
   onCustomPatternChange: (pattern: string) => void;
@@ -1175,6 +1191,176 @@ export function TrainingPanel(props: TrainingPanelProps) {
                 />
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Information Bottleneck Loss */}
+      {props.useAdvanced && (
+        <div style={{ marginTop: 12, marginBottom: 12 }}>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+              fontSize: 12
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={props.useIB}
+              onChange={(e) => props.onUseIBChange(e.target.checked)}
+            />
+            <span>📊 Enable Information Bottleneck Loss (Research)</span>
+          </label>
+        </div>
+      )}
+
+      {/* Information Bottleneck Configuration */}
+      {props.useAdvanced && props.useIB && (
+        <div
+          style={{
+            background: 'rgba(168, 85, 247, 0.1)',
+            border: '1px solid rgba(168, 85, 247, 0.3)',
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 16
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#c4b5fd', marginBottom: 12 }}>
+            📊 Information Bottleneck Configuration
+          </div>
+
+          <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 12, lineHeight: 1.5 }}>
+            IB loss balances compression I(X;Z) vs prediction I(Z;Y) using β annealing. Loss: L =
+            (1-α)·CE + α·[-I(Z;Y) + β·I(X;Z)]
+          </div>
+
+          <div style={{ display: 'grid', gap: 12 }}>
+            {/* Beta Schedule */}
+            <div>
+              <div style={{ display: 'block', fontSize: 11, color: '#cbd5e1', marginBottom: 6 }}>
+                β Schedule
+              </div>
+              <select
+                value={props.betaSchedule}
+                onChange={(e) =>
+                  props.onBetaScheduleChange(
+                    e.target.value as 'constant' | 'linear' | 'exponential' | 'cosine'
+                  )
+                }
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: 6,
+                  border: '1px solid #4b5563',
+                  background: '#1e293b',
+                  color: '#e5e7eb',
+                  fontSize: 11
+                }}
+              >
+                <option value="constant">Constant (fixed β)</option>
+                <option value="linear">Linear (gradual change)</option>
+                <option value="exponential">Exponential (fast then slow)</option>
+                <option value="cosine">Cosine (smooth annealing)</option>
+              </select>
+            </div>
+
+            {/* Beta Start */}
+            <div>
+              <label style={{ display: 'block', fontSize: 11, color: '#cbd5e1', marginBottom: 6 }}>
+                β Start: {props.betaStart.toFixed(4)}
+              </label>
+              <input
+                type="range"
+                min="0.0001"
+                max="10"
+                step="0.001"
+                value={props.betaStart}
+                onChange={(e) => props.onBetaStartChange(Number(e.target.value))}
+                style={{ width: '100%' }}
+              />
+              <div style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>
+                Initial β (compression weight)
+              </div>
+            </div>
+
+            {/* Beta End */}
+            {props.betaSchedule !== 'constant' && (
+              <div>
+                <label
+                  style={{ display: 'block', fontSize: 11, color: '#cbd5e1', marginBottom: 6 }}
+                >
+                  β End: {props.betaEnd.toFixed(4)}
+                </label>
+                <input
+                  type="range"
+                  min="0.0001"
+                  max="10"
+                  step="0.001"
+                  value={props.betaEnd}
+                  onChange={(e) => props.onBetaEndChange(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+                <div style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>
+                  Final β (compression weight)
+                </div>
+              </div>
+            )}
+
+            {/* IB Alpha (hybrid loss weight) */}
+            <div>
+              <label style={{ display: 'block', fontSize: 11, color: '#cbd5e1', marginBottom: 6 }}>
+                α (Hybrid Weight): {props.ibAlpha.toFixed(2)}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={props.ibAlpha}
+                onChange={(e) => props.onIbAlphaChange(Number(e.target.value))}
+                style={{ width: '100%' }}
+              />
+              <div style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>
+                0 = pure CE loss, 1 = pure IB loss
+              </div>
+            </div>
+
+            {/* Number of Bins */}
+            <div>
+              <label style={{ display: 'block', fontSize: 11, color: '#cbd5e1', marginBottom: 6 }}>
+                MI Estimation Bins: {props.numBins}
+              </label>
+              <input
+                type="range"
+                min="10"
+                max="200"
+                step="10"
+                value={props.numBins}
+                onChange={(e) => props.onNumBinsChange(Number(e.target.value))}
+                style={{ width: '100%' }}
+              />
+              <div style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>
+                More bins = more accurate MI estimation (slower)
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginTop: 12,
+              padding: 8,
+              background: 'rgba(139, 92, 246, 0.1)',
+              borderRadius: 6,
+              fontSize: 9,
+              color: '#94a3b8',
+              lineHeight: 1.5
+            }}
+          >
+            💡 <strong style={{ color: '#c4b5fd' }}>Tip:</strong> Start with α=0.1, βStart=0.001,
+            βEnd=1.0, linear schedule. Higher β = more compression (simpler representations).
           </div>
         </div>
       )}

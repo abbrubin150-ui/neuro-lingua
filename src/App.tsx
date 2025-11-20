@@ -400,6 +400,10 @@ export default function NeuroLinguaDomesticaV324() {
   const [edgeLearningDiagnostics, setEdgeLearningDiagnostics] =
     useState<EdgeLearningDiagnostics | null>(null);
 
+  // Bayesian inference
+  const [useBayesian, setUseBayesian] = useState(false);
+  const [confidence, setConfidence] = useState<number | null>(null);
+
   // Tokenizer
   const [tokenizerConfig, setTokenizerConfig] = useState<TokenizerConfig>(DEFAULT_TOKENIZER_CONFIG);
   const [customTokenizerPattern, setCustomTokenizerPattern] = useState('');
@@ -680,8 +684,11 @@ export default function NeuroLinguaDomesticaV324() {
             if (initialized) {
               gpuOpsRef.current = ops;
               setGpuAvailable(true);
+              setUseGPU(true); // Auto-enable GPU when available
               setGpuMetrics(ops.getMetrics());
               console.log('✅ WebGPU is available and GPUNeuralOps initialized');
+              console.log('⚡ GPU acceleration enabled automatically (2-5x speedup expected)');
+              addSystemMessage('⚡ GPU acceleration enabled automatically (2-5x speedup expected)');
             } else {
               setGpuAvailable(false);
               gpuOpsRef.current = null;
@@ -708,7 +715,7 @@ export default function NeuroLinguaDomesticaV324() {
       }
     };
     checkGPU();
-  }, []);
+  }, [addSystemMessage]);
 
   useEffect(() => {
     if (!gpuOpsRef.current) return;
@@ -1390,20 +1397,79 @@ export default function NeuroLinguaDomesticaV324() {
     setMessages((m) => [...m, { type: 'user', content: input, timestamp: Date.now() }]);
 
     let txt: string;
-    if (useBeamSearch && modelRef.current instanceof AdvancedNeuralLM) {
-      // Use beam search generation
-      const result = await modelRef.current.generateBeamSearch(
-        input,
-        DEFAULT_GENERATION.maxTokens,
-        beamWidth,
-        temperature
+
+    // Bayesian inference: Monte Carlo sampling
+    if (useBayesian) {
+      const numSamples = 5; // Number of MC samples
+      const samples: string[] = [];
+
+      addSystemMessage(
+        `🎲 Generating ${numSamples} Monte Carlo samples for uncertainty estimation...`
       );
-      txt = result.text;
+
+      for (let i = 0; i < numSamples; i++) {
+        let sample: string;
+        if (useBeamSearch && modelRef.current instanceof AdvancedNeuralLM) {
+          const result = await modelRef.current.generateBeamSearch(
+            input,
+            DEFAULT_GENERATION.maxTokens,
+            beamWidth,
+            temperature
+          );
+          sample = result.text;
+        } else {
+          const k = samplingMode === 'topk' ? topK : 0;
+          const p = samplingMode === 'topp' ? topP : 0;
+          sample = await modelRef.current.generate(
+            input,
+            DEFAULT_GENERATION.maxTokens,
+            temperature,
+            k,
+            p
+          );
+        }
+        samples.push(sample);
+      }
+
+      // Calculate diversity metric (confidence is inverse of diversity)
+      const uniqueSamples = new Set(samples).size;
+      const diversity = uniqueSamples / numSamples; // 0-1, where 0=all identical, 1=all different
+      const calculatedConfidence = 1 - diversity; // High confidence if samples agree
+
+      setConfidence(calculatedConfidence);
+
+      // Use the first sample (could also use most common)
+      txt = samples[0];
+
+      addSystemMessage(
+        `📊 Bayesian result: ${uniqueSamples}/${numSamples} unique samples, confidence=${calculatedConfidence.toFixed(2)}`
+      );
     } else {
-      // Use standard generation
-      const k = samplingMode === 'topk' ? topK : 0;
-      const p = samplingMode === 'topp' ? topP : 0;
-      txt = await modelRef.current.generate(input, DEFAULT_GENERATION.maxTokens, temperature, k, p);
+      // Standard generation
+      if (useBeamSearch && modelRef.current instanceof AdvancedNeuralLM) {
+        // Use beam search generation
+        const result = await modelRef.current.generateBeamSearch(
+          input,
+          DEFAULT_GENERATION.maxTokens,
+          beamWidth,
+          temperature
+        );
+        txt = result.text;
+      } else {
+        // Use standard generation
+        const k = samplingMode === 'topk' ? topK : 0;
+        const p = samplingMode === 'topp' ? topP : 0;
+        txt = await modelRef.current.generate(
+          input,
+          DEFAULT_GENERATION.maxTokens,
+          temperature,
+          k,
+          p
+        );
+      }
+
+      // Reset confidence when not using Bayesian
+      setConfidence(null);
     }
 
     setMessages((m) => [...m, { type: 'assistant', content: txt, timestamp: Date.now() }]);
@@ -1718,6 +1784,9 @@ export default function NeuroLinguaDomesticaV324() {
               strings={t.chat}
               direction={direction}
               locale={locale}
+              useBayesian={useBayesian}
+              onUseBayesianChange={setUseBayesian}
+              confidence={confidence}
             />
           </div>
 

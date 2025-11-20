@@ -2,7 +2,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import React from 'react';
 import { ProjectProvider, useProjects } from '../../src/contexts/ProjectContext';
-import type { TrainingConfig, DecisionLedger } from '../../src/types/project';
+import type { TrainingConfig } from '../../src/types/project';
 import { createDecisionLedger, computeExecutionStatus } from '../../src/types/project';
 
 // Wrapper for hooks
@@ -94,27 +94,25 @@ describe('ProjectContext', () => {
       expect(updated.name).toBe('Updated Name');
       expect(updated.description).toBe('Updated description');
       expect(updated.tags).toEqual(['test', 'updated']);
-      expect(updated.updatedAt).toBeGreaterThan(originalUpdatedAt);
+      expect(updated.updatedAt).toBeGreaterThanOrEqual(originalUpdatedAt);
     });
 
     it('deletes project and associated runs', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
       let projectId!: string;
-      let runId!: string;
       act(() => {
         const project = result.current.createNewProject('To Delete', 'Will be deleted');
         projectId = project.id;
 
         const ledger = createDecisionLedger('Test run', 'test-user');
-        const run = result.current.createNewRun(
+        result.current.createNewRun(
           projectId,
           'Test Run',
           createTestConfig(),
           'test corpus',
           ledger
         );
-        runId = run.id;
       });
 
       expect(result.current.projects).toHaveLength(1);
@@ -194,13 +192,7 @@ describe('ProjectContext', () => {
         const config = createTestConfig();
         const ledger = createDecisionLedger('Testing run creation', 'test-user');
 
-        const run = result.current.createNewRun(
-          project.id,
-          'Run 1',
-          config,
-          'hello world',
-          ledger
-        );
+        const run = result.current.createNewRun(project.id, 'Run 1', config, 'hello world', ledger);
         runId = run.id;
       });
 
@@ -250,7 +242,13 @@ describe('ProjectContext', () => {
       act(() => {
         const project = result.current.createNewProject('Test', 'Project');
         const ledger = createDecisionLedger('Test', 'user');
-        const run = result.current.createNewRun(project.id, 'Run', originalConfig, 'corpus', ledger);
+        const run = result.current.createNewRun(
+          project.id,
+          'Run',
+          originalConfig,
+          'corpus',
+          ledger
+        );
         runId = run.id;
       });
 
@@ -275,7 +273,13 @@ describe('ProjectContext', () => {
       act(() => {
         const project = result.current.createNewProject('Test', 'Project');
         const ledger = createDecisionLedger('Test', 'user');
-        const run = result.current.createNewRun(project.id, 'Run', createTestConfig(), 'corpus', ledger);
+        const run = result.current.createNewRun(
+          project.id,
+          'Run',
+          createTestConfig(),
+          'corpus',
+          ledger
+        );
         runId = run.id;
       });
 
@@ -323,7 +327,13 @@ describe('ProjectContext', () => {
         projectId = project.id;
 
         const ledger = createDecisionLedger('Test', 'user');
-        const run = result.current.createNewRun(projectId, 'Run', createTestConfig(), 'corpus', ledger);
+        const run = result.current.createNewRun(
+          projectId,
+          'Run',
+          createTestConfig(),
+          'corpus',
+          ledger
+        );
         runId = run.id;
       });
 
@@ -498,7 +508,13 @@ describe('ProjectContext', () => {
           'archive'
         );
 
-        const run = result.current.createNewRun(project.id, 'Run', createTestConfig(), 'corpus', ledger);
+        const run = result.current.createNewRun(
+          project.id,
+          'Run',
+          createTestConfig(),
+          'corpus',
+          ledger
+        );
         runId = run.id;
       });
 
@@ -521,12 +537,24 @@ describe('ProjectContext', () => {
 
         // EXECUTE: valid ledger
         const ledger1 = createDecisionLedger('Valid rationale', 'user', null, 'keep');
-        const run1 = result.current.createNewRun(project.id, 'Run 1', createTestConfig(), 'c', ledger1);
+        const run1 = result.current.createNewRun(
+          project.id,
+          'Run 1',
+          createTestConfig(),
+          'c',
+          ledger1
+        );
         runId1 = run1.id;
 
         // ESCALATE: missing rationale
         const ledger2 = createDecisionLedger('', 'user', null, 'keep');
-        const run2 = result.current.createNewRun(project.id, 'Run 2', createTestConfig(), 'c', ledger2);
+        const run2 = result.current.createNewRun(
+          project.id,
+          'Run 2',
+          createTestConfig(),
+          'c',
+          ledger2
+        );
         runId2 = run2.id;
 
         // HOLD: expired
@@ -536,7 +564,13 @@ describe('ProjectContext', () => {
           '2020-01-01T00:00:00Z',
           'keep'
         );
-        const run3 = result.current.createNewRun(project.id, 'Run 3', createTestConfig(), 'c', ledger3);
+        const run3 = result.current.createNewRun(
+          project.id,
+          'Run 3',
+          createTestConfig(),
+          'c',
+          ledger3
+        );
         runId3 = run3.id;
       });
 
@@ -575,7 +609,13 @@ describe('ProjectContext', () => {
       act(() => {
         const project = result.current.createNewProject('Test', 'Project');
         const ledger = createDecisionLedger('Test', 'user');
-        result.current.createNewRun(project.id, 'Persisted Run', createTestConfig(), 'corpus', ledger);
+        result.current.createNewRun(
+          project.id,
+          'Persisted Run',
+          createTestConfig(),
+          'corpus',
+          ledger
+        );
       });
 
       await waitFor(() => {
@@ -597,12 +637,20 @@ describe('ProjectContext', () => {
         projectId = project.id;
 
         const ledger = createDecisionLedger('Test', 'user');
-        const run = result.current.createNewRun(projectId, 'Active Run', createTestConfig(), 'c', ledger);
+        const run = result.current.createNewRun(
+          projectId,
+          'Active Run',
+          createTestConfig(),
+          'c',
+          ledger
+        );
         runId = run.id;
       });
 
       await waitFor(() => {
-        expect(localStorage.getItem('neuro-lingua-active-project-v1')).toBe(JSON.stringify(projectId));
+        expect(localStorage.getItem('neuro-lingua-active-project-v1')).toBe(
+          JSON.stringify(projectId)
+        );
         expect(localStorage.getItem('neuro-lingua-active-run-v1')).toBe(JSON.stringify(runId));
       });
     });

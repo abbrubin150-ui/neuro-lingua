@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { WebGPUBackend, WebGPUTensor } from '../../src/backend/webgpu';
+import { WebGPUBackend } from '../../src/backend/webgpu';
 import { GPUNeuralOps } from '../../src/backend/gpu_neural_ops';
 
 // Mock GPU implementation for testing
@@ -204,7 +204,9 @@ describe('WebGPUBackend', () => {
       const tensorA = await backend.createTensor(new Float32Array([1, 2, 3]), [3]);
       const tensorB = await backend.createTensor(new Float32Array([1, 2]), [2]);
 
-      await expect(backend.elementwiseBinary('add', tensorA, tensorB)).rejects.toThrow('equal size');
+      await expect(backend.elementwiseBinary('add', tensorA, tensorB)).rejects.toThrow(
+        'equal size'
+      );
     });
 
     it('creates output tensor for addition', async () => {

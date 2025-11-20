@@ -252,9 +252,10 @@ describe('StorageManager', () => {
       localStorage.setItem('key2', 'value2');
       localStorage.setItem('key3', 'value3');
 
-      let callCount = 0;
-      const removeItemSpy = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, key: string) {
-        callCount++;
+      const removeItemSpy = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (
+        this: Storage,
+        key: string
+      ) {
         if (key === 'key2') {
           throw new Error('Remove error');
         }
@@ -378,7 +379,7 @@ describe('StorageManager', () => {
         'key/with/slashes'
       ];
 
-      specialKeys.forEach(key => {
+      specialKeys.forEach((key) => {
         StorageManager.set(key, `value-${key}`);
         expect(StorageManager.get(key, '')).toBe(`value-${key}`);
       });

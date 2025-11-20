@@ -35,6 +35,10 @@ interface ChatInterfaceProps {
   strings: ChatInterfaceStrings;
   direction: 'ltr' | 'rtl';
   locale: 'en' | 'he';
+  // Bayesian inference
+  useBayesian?: boolean;
+  onUseBayesianChange?: (value: boolean) => void;
+  confidence?: number | null;
 }
 
 /**
@@ -48,7 +52,10 @@ export function ChatInterface({
   onGenerate,
   strings,
   direction,
-  locale
+  locale,
+  useBayesian = false,
+  onUseBayesianChange,
+  confidence = null
 }: ChatInterfaceProps) {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -152,6 +159,66 @@ export function ChatInterface({
           </div>
         ))}
       </div>
+
+      {/* Bayesian Inference Toggle */}
+      {onUseBayesianChange && (
+        <div
+          style={{
+            marginBottom: 12,
+            padding: '10px 12px',
+            background: 'rgba(139, 92, 246, 0.1)',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+            borderRadius: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12
+          }}
+        >
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+              flex: 1
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={useBayesian}
+              onChange={(e) => onUseBayesianChange(e.target.checked)}
+              style={{
+                width: 16,
+                height: 16,
+                cursor: 'pointer'
+              }}
+            />
+            <span style={{ fontSize: 13, color: '#a78bfa', fontWeight: 600 }}>
+              🎲 Bayesian Inference
+            </span>
+            {confidence !== null && useBayesian && (
+              <span
+                style={{
+                  marginInlineStart: 'auto',
+                  fontSize: 12,
+                  background: 'rgba(34, 197, 94, 0.2)',
+                  color: '#34d399',
+                  padding: '4px 10px',
+                  borderRadius: 6,
+                  fontWeight: 600
+                }}
+              >
+                Confidence: ±{confidence.toFixed(2)}
+              </span>
+            )}
+          </label>
+        </div>
+      )}
+      {useBayesian && (
+        <div style={{ fontSize: 11, color: '#cbd5f5', marginBottom: 8 }}>
+          💡 Monte Carlo dropout enabled: generating multiple samples for uncertainty quantification
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
         <textarea

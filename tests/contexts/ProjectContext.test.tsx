@@ -38,7 +38,8 @@ describe('ProjectContext', () => {
     it('creates a new project with unique ID', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let project1, project2;
+      let project1!: ReturnType<typeof result.current.createNewProject>;
+      let project2!: ReturnType<typeof result.current.createNewProject>;
 
       act(() => {
         project1 = result.current.createNewProject('Project 1', 'First project', 'en');
@@ -60,20 +61,20 @@ describe('ProjectContext', () => {
       expect(result.current.projects).toHaveLength(0);
       expect(result.current.activeProject).toBeNull();
 
-      let newProject;
+      let newProject!: ReturnType<typeof result.current.createNewProject>;
       act(() => {
         newProject = result.current.createNewProject('Test Project', 'Description');
       });
 
       expect(result.current.projects).toHaveLength(1);
       expect(result.current.activeProject).toEqual(newProject);
-      expect(result.current.activeProjectId).toBe(newProject.id);
+      expect(result.current.activeProjectId).toBe(newProject!.id);
     });
 
     it('updates project metadata', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let projectId;
+      let projectId!: string;
       act(() => {
         const project = result.current.createNewProject('Original', 'Original desc');
         projectId = project.id;
@@ -82,7 +83,7 @@ describe('ProjectContext', () => {
       const originalUpdatedAt = result.current.projects[0].updatedAt;
 
       act(() => {
-        result.current.updateProject(projectId, {
+        result.current.updateProject(projectId!, {
           name: 'Updated Name',
           description: 'Updated description',
           tags: ['test', 'updated']
@@ -99,7 +100,8 @@ describe('ProjectContext', () => {
     it('deletes project and associated runs', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let projectId, runId;
+      let projectId!: string;
+      let runId!: string;
       act(() => {
         const project = result.current.createNewProject('To Delete', 'Will be deleted');
         projectId = project.id;
@@ -131,7 +133,9 @@ describe('ProjectContext', () => {
     it('sets active project and clears active run', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let project1Id, project2Id, runId;
+      let project1Id!: string;
+      let project2Id!: string;
+      let runId!: string;
       act(() => {
         const p1 = result.current.createNewProject('Project 1', 'First');
         project1Id = p1.id;
@@ -165,7 +169,7 @@ describe('ProjectContext', () => {
     it('retrieves project by ID', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let projectId;
+      let projectId!: string;
       act(() => {
         const project = result.current.createNewProject('Findable', 'Can be found');
         projectId = project.id;
@@ -184,7 +188,7 @@ describe('ProjectContext', () => {
     it('creates run with frozen config', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let runId;
+      let runId!: string;
       act(() => {
         const project = result.current.createNewProject('Test', 'Project');
         const config = createTestConfig();
@@ -213,7 +217,8 @@ describe('ProjectContext', () => {
     it('associates run with project', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let projectId, runId;
+      let projectId!: string;
+      let runId!: string;
       act(() => {
         const project = result.current.createNewProject('Parent Project', 'Has runs');
         projectId = project.id;
@@ -239,7 +244,7 @@ describe('ProjectContext', () => {
     it('prevents config modification after creation (frozen)', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let runId;
+      let runId!: string;
       const originalConfig = createTestConfig();
 
       act(() => {
@@ -266,7 +271,7 @@ describe('ProjectContext', () => {
     it('updates run status and results', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let runId;
+      let runId!: string;
       act(() => {
         const project = result.current.createNewProject('Test', 'Project');
         const ledger = createDecisionLedger('Test', 'user');
@@ -311,7 +316,8 @@ describe('ProjectContext', () => {
     it('deletes run and removes from project', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let projectId, runId;
+      let projectId!: string;
+      let runId!: string;
       act(() => {
         const project = result.current.createNewProject('Test', 'Project');
         projectId = project.id;
@@ -336,7 +342,8 @@ describe('ProjectContext', () => {
     it('retrieves runs by project ID', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let project1Id, project2Id;
+      let project1Id!: string;
+      let project2Id!: string;
       act(() => {
         const p1 = result.current.createNewProject('Project 1', 'First');
         project1Id = p1.id;
@@ -366,7 +373,8 @@ describe('ProjectContext', () => {
     it('computes projectRuns for active project', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let project1Id, project2Id;
+      let project1Id!: string;
+      let project2Id!: string;
       act(() => {
         const p1 = result.current.createNewProject('Project 1', 'First');
         project1Id = p1.id;
@@ -394,7 +402,7 @@ describe('ProjectContext', () => {
     it('adds scenario to project', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let projectId;
+      let projectId!: string;
       act(() => {
         const project = result.current.createNewProject('Test', 'Project');
         projectId = project.id;
@@ -416,7 +424,7 @@ describe('ProjectContext', () => {
     it('updates scenario within project', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let projectId;
+      let projectId!: string;
       act(() => {
         const project = result.current.createNewProject('Test', 'Project');
         projectId = project.id;
@@ -447,7 +455,7 @@ describe('ProjectContext', () => {
     it('deletes scenario from project', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let projectId;
+      let projectId!: string;
       act(() => {
         const project = result.current.createNewProject('Test', 'Project');
         projectId = project.id;
@@ -480,7 +488,7 @@ describe('ProjectContext', () => {
     it('creates run with decision ledger', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let runId;
+      let runId!: string;
       act(() => {
         const project = result.current.createNewProject('Test', 'Project');
         const ledger = createDecisionLedger(
@@ -505,7 +513,9 @@ describe('ProjectContext', () => {
     it('computes execution status correctly', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let runId1, runId2, runId3;
+      let runId1!: string;
+      let runId2!: string;
+      let runId3!: string;
       act(() => {
         const project = result.current.createNewProject('Test', 'Project');
 
@@ -580,7 +590,8 @@ describe('ProjectContext', () => {
     it('persists active project and run IDs', async () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let projectId, runId;
+      let projectId: string;
+      let runId: string;
       act(() => {
         const project = result.current.createNewProject('Active', 'Project');
         projectId = project.id;
@@ -650,7 +661,7 @@ describe('ProjectContext', () => {
     it('handles orphaned runs when deleting project', () => {
       const { result } = renderHook(() => useProjects(), { wrapper });
 
-      let projectId;
+      let projectId: string;
       act(() => {
         const project = result.current.createNewProject('Parent', 'Project');
         projectId = project.id;

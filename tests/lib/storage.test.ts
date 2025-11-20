@@ -325,7 +325,7 @@ describe('StorageManager', () => {
       const success = StorageManager.set('large-object', largeObject);
       expect(success).toBe(true);
 
-      const retrieved = StorageManager.get('large-object', {});
+      const retrieved = StorageManager.get('large-object', largeObject);
       expect(retrieved).toEqual(largeObject);
       expect(retrieved.data.length).toBe(1000);
     });
@@ -351,7 +351,7 @@ describe('StorageManager', () => {
       };
 
       StorageManager.set('complex', complex);
-      const retrieved = StorageManager.get('complex', {});
+      const retrieved = StorageManager.get('complex', complex);
 
       expect(retrieved).toEqual(complex);
       expect(retrieved.nested.level1.level2.level3).toBe('deep value');

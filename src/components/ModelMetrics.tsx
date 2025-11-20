@@ -3,6 +3,7 @@ import { formatTimestamp, createTrainingHistoryCsv, downloadBlob } from '../lib/
 import { EXPORT_FILENAMES } from '../config/constants';
 import type { GPUMetrics } from '../backend/gpu_neural_ops';
 import type { EdgeLearningDiagnostics } from '../backend/edgeLearning';
+import { EDGE_LEARNING_INFO } from '../backend/edgeLearning';
 import type { Architecture } from './TrainingPanel';
 import type { ModelMeta, ModelMetaStore } from '../types/modelMeta';
 
@@ -485,47 +486,89 @@ export function ModelMetrics({
                 COMPUTED
               </span>
             )}
+            <span
+              title="Edge Learning Theory: Information-theoretic framework analyzing learning efficiency based on Fisher Information, Cramér-Rao bounds, and statistical efficiency. Higher efficiency values indicate the model is learning close to theoretical limits."
+              style={{
+                cursor: 'help',
+                fontSize: 14,
+                opacity: 0.7,
+                marginLeft: 'auto'
+              }}
+            >
+              ℹ️
+            </span>
           </h4>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>Fisher Info</div>
+              <div
+                style={{ fontSize: 11, color: '#94a3b8', cursor: 'help' }}
+                title={EDGE_LEARNING_INFO.fisherInformation}
+              >
+                Fisher Info ℹ️
+              </div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#22c55e' }}>
                 {edgeLearningDiagnostics.fisherInformation.toFixed(4)}
               </div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>Efficiency</div>
+              <div
+                style={{ fontSize: 11, color: '#94a3b8', cursor: 'help' }}
+                title={EDGE_LEARNING_INFO.efficiency}
+              >
+                Efficiency ℹ️
+              </div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>
                 {(edgeLearningDiagnostics.efficiency * 100).toFixed(1)}%
               </div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>Variance</div>
+              <div
+                style={{ fontSize: 11, color: '#94a3b8', cursor: 'help' }}
+                title={EDGE_LEARNING_INFO.variance}
+              >
+                Variance ℹ️
+              </div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#059669' }}>
                 {edgeLearningDiagnostics.variance.toFixed(4)}
               </div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>Entropy</div>
+              <div
+                style={{ fontSize: 11, color: '#94a3b8', cursor: 'help' }}
+                title={EDGE_LEARNING_INFO.entropy}
+              >
+                Entropy ℹ️
+              </div>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#34d399' }}>
                 {edgeLearningDiagnostics.entropy.toFixed(4)}
               </div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>Est. Covariance</div>
+              <div
+                style={{ fontSize: 11, color: '#94a3b8', cursor: 'help' }}
+                title={EDGE_LEARNING_INFO.estimatorCovariance}
+              >
+                Est. Covariance ℹ️
+              </div>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#6ee7b7' }}>
                 {edgeLearningDiagnostics.estimatorCovariance.toFixed(4)}
               </div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>CRB</div>
+              <div
+                style={{ fontSize: 11, color: '#94a3b8', cursor: 'help' }}
+                title={EDGE_LEARNING_INFO.cramerRaoBound}
+              >
+                CRB ℹ️
+              </div>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#a7f3d0' }}>
                 {edgeLearningDiagnostics.cramerRaoBound.toExponential(2)}
               </div>
             </div>
           </div>
-          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 8 }}>
-            💡 Edge Learning: Information-theoretic analysis of model learning efficiency
+          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 12, fontStyle: 'italic' }}>
+            💡 Hover over metrics for explanations. Edge Learning quantifies how efficiently the
+            model learns relative to information-theoretic bounds.
           </div>
         </div>
       )}

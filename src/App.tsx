@@ -32,6 +32,7 @@ import {
   DEFAULT_HYPERPARAMETERS,
   DEFAULT_GENERATION,
   DEFAULT_ADVANCED_CONFIG,
+  DEFAULT_IB_CONFIG,
   DEFAULT_TOKENIZER_CONFIG,
   MIN_VOCAB_SIZE,
   TRAINING_UI_UPDATE_DELAY,
@@ -98,6 +99,13 @@ type UiSettings = {
   ffHiddenDim: number;
   attentionDropout: number;
   dropConnectRate: number;
+  // Information Bottleneck
+  useIB: boolean;
+  betaStart: number;
+  betaEnd: number;
+  betaSchedule: 'constant' | 'linear' | 'exponential' | 'cosine';
+  ibAlpha: number;
+  numBins: number;
 };
 
 type ModelMetaOverrides = Partial<Omit<ModelMeta, 'architecture' | 'vocab'>>;
@@ -390,6 +398,16 @@ export default function NeuroLinguaDomesticaV324() {
   const [ffHiddenDim, setFfHiddenDim] = useState(DEFAULT_HYPERPARAMETERS.hiddenSize * 2);
   const [attentionDropout, setAttentionDropout] = useState(0.1);
   const [dropConnectRate, setDropConnectRate] = useState(0.1);
+
+  // Information Bottleneck parameters
+  const [useIB, setUseIB] = useState(DEFAULT_IB_CONFIG.useIB);
+  const [betaStart, setBetaStart] = useState(DEFAULT_IB_CONFIG.betaStart);
+  const [betaEnd, setBetaEnd] = useState(DEFAULT_IB_CONFIG.betaEnd);
+  const [betaSchedule, setBetaSchedule] = useState<
+    'constant' | 'linear' | 'exponential' | 'cosine'
+  >(DEFAULT_IB_CONFIG.betaSchedule);
+  const [ibAlpha, setIbAlpha] = useState(DEFAULT_IB_CONFIG.ibAlpha);
+  const [numBins, setNumBins] = useState(DEFAULT_IB_CONFIG.numBins);
 
   // GPU acceleration
   const [useGPU, setUseGPU] = useState(false);
@@ -1650,6 +1668,19 @@ export default function NeuroLinguaDomesticaV324() {
               onFfHiddenDimChange={setFfHiddenDim}
               onAttentionDropoutChange={setAttentionDropout}
               onDropConnectRateChange={setDropConnectRate}
+              // Information Bottleneck
+              useIB={useIB}
+              betaStart={betaStart}
+              betaEnd={betaEnd}
+              betaSchedule={betaSchedule}
+              ibAlpha={ibAlpha}
+              numBins={numBins}
+              onUseIBChange={setUseIB}
+              onBetaStartChange={setBetaStart}
+              onBetaEndChange={setBetaEnd}
+              onBetaScheduleChange={setBetaSchedule}
+              onIbAlphaChange={setIbAlpha}
+              onNumBinsChange={setNumBins}
               onTokenizerConfigChange={setTokenizerConfig}
               onCustomPatternChange={setCustomTokenizerPattern}
               onTokenizerError={setTokenizerError}

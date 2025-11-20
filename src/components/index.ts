@@ -9,3 +9,4 @@ export { ProjectManager } from './ProjectManager';
 export { DecisionLedgerEditor } from './DecisionLedgerEditor';
 export { ScenarioManager } from './ScenarioManager';
 export { ModelSnapshot } from './ModelSnapshot';
+export { InformationTheoryPanel } from './InformationTheoryPanel';

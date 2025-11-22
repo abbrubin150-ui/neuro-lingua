@@ -10,3 +10,4 @@ export { DecisionLedgerEditor } from './DecisionLedgerEditor';
 export { ScenarioManager } from './ScenarioManager';
 export { ModelSnapshot } from './ModelSnapshot';
 export { InformationTheoryPanel } from './InformationTheoryPanel';
+export { ExplainabilityPanel } from './ExplainabilityPanel';

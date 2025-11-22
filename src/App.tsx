@@ -53,7 +53,8 @@ import {
   type Message,
   ProjectManager,
   ModelSnapshot,
-  InformationTheoryPanel
+  InformationTheoryPanel,
+  ExplainabilityPanel
 } from './components';
 
 import type { InformationMetrics } from './losses/information_bottleneck';
@@ -1898,6 +1899,17 @@ export default function NeuroLinguaDomesticaV324() {
               onUseBayesianChange={setUseBayesian}
               confidence={confidence}
             />
+          </div>
+
+          <div
+            style={{
+              marginTop: 20,
+              background: 'rgba(30,41,59,0.9)',
+              border: '1px solid #334155',
+              borderRadius: 12
+            }}
+          >
+            <ExplainabilityPanel model={modelRef.current} />
           </div>
 
           <div

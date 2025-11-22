@@ -712,6 +712,11 @@ export class ProNeuralLM {
     return this.vocab.length;
   }
 
+  getTokenIndex(token: string): number {
+    const idx = this.wordToIdx.get(token);
+    return idx !== undefined ? idx : -1;
+  }
+
   getParametersCount() {
     const V = this.vocab.length;
     const H = this.hiddenSize;

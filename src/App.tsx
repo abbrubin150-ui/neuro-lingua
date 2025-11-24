@@ -514,12 +514,16 @@ export default function NeuroLinguaDomesticaV324() {
             HYPERPARAMETER_CONSTRAINTS.transformer.dropConnectRate.max
           )
         );
-        addSystemMessage('🔮 Transformer preset applied: Adam optimizer, LayerNorm, and attention defaults enabled.');
+        addSystemMessage(
+          '🔮 Transformer preset applied: Adam optimizer, LayerNorm, and attention defaults enabled.'
+        );
       } else if (nextArchitecture === 'advanced') {
         setUseAdvanced(true);
         setUseLayerNorm(true);
         setOptimizer((prev) => (prev === 'adam' || prev === 'momentum' ? prev : 'adam'));
-        addSystemMessage('🚀 AdvancedNeuralLM preset applied with LayerNorm and deep-optimization defaults.');
+        addSystemMessage(
+          '🚀 AdvancedNeuralLM preset applied with LayerNorm and deep-optimization defaults.'
+        );
       } else {
         setUseAdvanced(false);
         addSystemMessage('📊 Standard ProNeuralLM architecture selected.');

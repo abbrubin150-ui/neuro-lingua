@@ -462,6 +462,76 @@ export default function NeuroLinguaDomesticaV324() {
     setMessages((m) => [...m, { type: 'system' as const, content, timestamp: Date.now() }]);
   }, []);
 
+  const handleArchitectureChange = useCallback(
+    (nextArchitecture: Architecture) => {
+      if (architecture === nextArchitecture) return;
+
+      setArchitecture(nextArchitecture);
+
+      if (nextArchitecture === 'transformer') {
+        setUseAdvanced(false);
+        setUseLayerNorm(true);
+        setOptimizer('adam');
+        setDropout((prev) =>
+          clamp(
+            Number.isFinite(prev) ? prev : DEFAULT_HYPERPARAMETERS.dropout,
+            HYPERPARAMETER_CONSTRAINTS.dropout.min,
+            HYPERPARAMETER_CONSTRAINTS.dropout.max
+          )
+        );
+        setNumHeads((prev) =>
+          clamp(
+            Number.isFinite(prev) ? prev : 4,
+            HYPERPARAMETER_CONSTRAINTS.transformer.numHeads.min,
+            HYPERPARAMETER_CONSTRAINTS.transformer.numHeads.max
+          )
+        );
+        setNumLayers((prev) =>
+          clamp(
+            Number.isFinite(prev) ? prev : 2,
+            HYPERPARAMETER_CONSTRAINTS.transformer.numLayers.min,
+            HYPERPARAMETER_CONSTRAINTS.transformer.numLayers.max
+          )
+        );
+        setFfHiddenDim((prev) =>
+          clamp(
+            Number.isFinite(prev) ? prev : hiddenSize * 2,
+            HYPERPARAMETER_CONSTRAINTS.transformer.ffHiddenDim.min,
+            HYPERPARAMETER_CONSTRAINTS.transformer.ffHiddenDim.max
+          )
+        );
+        setAttentionDropout((prev) =>
+          clamp(
+            Number.isFinite(prev) ? prev : 0.1,
+            HYPERPARAMETER_CONSTRAINTS.transformer.attentionDropout.min,
+            HYPERPARAMETER_CONSTRAINTS.transformer.attentionDropout.max
+          )
+        );
+        setDropConnectRate((prev) =>
+          clamp(
+            Number.isFinite(prev) ? prev : 0.1,
+            HYPERPARAMETER_CONSTRAINTS.transformer.dropConnectRate.min,
+            HYPERPARAMETER_CONSTRAINTS.transformer.dropConnectRate.max
+          )
+        );
+        addSystemMessage(
+          '🔮 Transformer preset applied: Adam optimizer, LayerNorm, and attention defaults enabled.'
+        );
+      } else if (nextArchitecture === 'advanced') {
+        setUseAdvanced(true);
+        setUseLayerNorm(true);
+        setOptimizer((prev) => (prev === 'adam' || prev === 'momentum' ? prev : 'adam'));
+        addSystemMessage(
+          '🚀 AdvancedNeuralLM preset applied with LayerNorm and deep-optimization defaults.'
+        );
+      } else {
+        setUseAdvanced(false);
+        addSystemMessage('📊 Standard ProNeuralLM architecture selected.');
+      }
+    },
+    [architecture, addSystemMessage, hiddenSize]
+  );
+
   const applyModelMeta = useCallback((model: ProNeuralLM, overrides: ModelMetaOverrides = {}) => {
     setModelMetaStore((prev) => {
       const architectureKey: Architecture =
@@ -1704,7 +1774,7 @@ export default function NeuroLinguaDomesticaV324() {
               attentionDropout={attentionDropout}
               dropConnectRate={dropConnectRate}
               // Callbacks
-              onArchitectureChange={setArchitecture}
+              onArchitectureChange={handleArchitectureChange}
               onHiddenSizeChange={setHiddenSize}
               onEpochsChange={setEpochs}
               onLrChange={setLr}

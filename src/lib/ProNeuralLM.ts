@@ -731,6 +731,23 @@ export class ProNeuralLM {
     return this.vocab.join('\u241F');
   }
 
+  /**
+   * Returns a copy of the embedding matrix.
+   * Each row corresponds to a token in the vocabulary.
+   * @returns 2D array of shape [vocab_size, hidden_size]
+   */
+  getEmbeddings(): number[][] {
+    return this.embedding.map((row) => [...row]);
+  }
+
+  /**
+   * Returns a copy of the vocabulary array.
+   * @returns Array of token strings
+   */
+  getVocab(): string[] {
+    return [...this.vocab];
+  }
+
   toJSON() {
     this.rngState = this.rng.getState();
     return {

@@ -54,7 +54,8 @@ import {
   ProjectManager,
   ModelSnapshot,
   InformationTheoryPanel,
-  ExplainabilityPanel
+  ExplainabilityPanel,
+  EmbeddingVisualizationPanel
 } from './components';
 
 import type { InformationMetrics } from './losses/information_bottleneck';
@@ -1910,6 +1911,17 @@ export default function NeuroLinguaDomesticaV324() {
             }}
           >
             <ExplainabilityPanel model={modelRef.current} />
+          </div>
+
+          <div
+            style={{
+              marginTop: 20,
+              background: 'rgba(30,41,59,0.9)',
+              border: '1px solid #334155',
+              borderRadius: 12
+            }}
+          >
+            <EmbeddingVisualizationPanel model={modelRef.current} />
           </div>
 
           <div

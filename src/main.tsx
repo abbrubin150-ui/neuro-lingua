@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import NeuroLinguaDomesticaV32 from './App';
+import NeuroLinguaDomesticaV324 from './App';
 import { ProjectProvider } from './contexts/ProjectContext';
 
 // Add loading timeout to prevent stuck loading screen
@@ -65,7 +65,7 @@ try {
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <ProjectProvider>
-        <NeuroLinguaDomesticaV32 />
+        <NeuroLinguaDomesticaV324 />
       </ProjectProvider>
     </React.StrictMode>
   );

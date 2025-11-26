@@ -13,15 +13,21 @@ import React, { useState, useCallback } from 'react';
 import { useBrain, useBrainFeed } from '../contexts/BrainContext';
 import { calculateHeavinessScore } from '../lib/BrainEngine';
 
-export function BrainPanel() {
+interface BrainPanelProps {
+  onActionSuggestion?: (action: 'FEED' | 'TRAIN') => void;
+}
+
+export function BrainPanel({ onActionSuggestion }: BrainPanelProps = {}) {
   const {
     brain,
     suggestions,
     statusMessage,
     setAutonomyEnabled,
     dismissSuggestion,
+    actOnSuggestion,
     resetBrain,
     setBrainLabel,
+    exportBrainHistory,
     isAutonomous
   } = useBrain();
 
@@ -34,6 +40,8 @@ export function BrainPanel() {
   const [expandedSection, setExpandedSection] = useState<'vitals' | 'feed' | 'diary' | null>(
     'vitals'
   );
+  const [diaryFilter, setDiaryFilter] = useState('');
+  const [diaryTypeFilter, setDiaryTypeFilter] = useState<string>('ALL');
 
   // ========================================================================
   // Handlers
@@ -64,6 +72,50 @@ export function BrainPanel() {
   const toggleSection = (section: 'vitals' | 'feed' | 'diary') => {
     setExpandedSection((prev) => (prev === section ? null : section));
   };
+
+  const handleExportHistory = useCallback(() => {
+    const jsonData = exportBrainHistory();
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `brain-history-${brain.id}-${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [exportBrainHistory, brain.id]);
+
+  const handleSuggestionAction = useCallback((suggestionId: string, action: 'FEED' | 'TRAIN') => {
+    actOnSuggestion(suggestionId);
+    if (onActionSuggestion) {
+      onActionSuggestion(action);
+    }
+  }, [actOnSuggestion, onActionSuggestion]);
+
+  // ========================================================================
+  // Diary filtering
+  // ========================================================================
+
+  const filteredDiary = React.useMemo(() => {
+    let entries = [...brain.diary].reverse();
+
+    // Filter by type
+    if (diaryTypeFilter !== 'ALL') {
+      entries = entries.filter((entry) => entry.type === diaryTypeFilter);
+    }
+
+    // Filter by search text
+    if (diaryFilter.trim()) {
+      const searchLower = diaryFilter.toLowerCase();
+      entries = entries.filter((entry) =>
+        entry.message.toLowerCase().includes(searchLower) ||
+        entry.type.toLowerCase().includes(searchLower)
+      );
+    }
+
+    return entries;
+  }, [brain.diary, diaryFilter, diaryTypeFilter]);
 
   // ========================================================================
   // Mood visualization
@@ -162,7 +214,7 @@ export function BrainPanel() {
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
             <span style={{ fontSize: 12, color: '#94a3b8' }}>Autonomous:</span>
             <input
@@ -172,6 +224,22 @@ export function BrainPanel() {
               style={{ cursor: 'pointer' }}
             />
           </label>
+          <button
+            onClick={handleExportHistory}
+            title="Export brain history to JSON file"
+            style={{
+              padding: '6px 12px',
+              background: '#10b981',
+              border: 'none',
+              borderRadius: 6,
+              color: 'white',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            📥 Export
+          </button>
           <button
             onClick={resetBrain}
             title="Reset brain to initial state"
@@ -211,24 +279,48 @@ export function BrainPanel() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: 8
+                marginBottom: 8,
+                gap: 12
               }}
             >
-              <span style={{ color: '#e2e8f0', fontSize: 14 }}>💡 {suggestion.message}</span>
-              <button
-                onClick={() => dismissSuggestion(suggestion.id)}
-                style={{
-                  padding: '4px 8px',
-                  background: 'transparent',
-                  border: '1px solid #6366f1',
-                  borderRadius: 4,
-                  color: '#6366f1',
-                  fontSize: 12,
-                  cursor: 'pointer'
-                }}
-              >
-                Dismiss
-              </button>
+              <span style={{ color: '#e2e8f0', fontSize: 14, flex: 1 }}>
+                💡 {suggestion.message}
+              </span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {suggestion.action !== 'NONE' && (
+                  <button
+                    onClick={() => handleSuggestionAction(suggestion.id, suggestion.action)}
+                    style={{
+                      padding: '6px 12px',
+                      background: '#6366f1',
+                      border: 'none',
+                      borderRadius: 6,
+                      color: 'white',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                    title={`Click to ${suggestion.action.toLowerCase()}`}
+                  >
+                    {suggestion.action === 'FEED' ? '🍎 Feed' : '🎓 Train'}
+                  </button>
+                )}
+                <button
+                  onClick={() => dismissSuggestion(suggestion.id)}
+                  style={{
+                    padding: '6px 12px',
+                    background: 'transparent',
+                    border: '1px solid #6366f1',
+                    borderRadius: 6,
+                    color: '#6366f1',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -495,46 +587,109 @@ export function BrainPanel() {
                 padding: 16,
                 background: 'rgba(15,23,42,0.3)',
                 borderRadius: 8,
-                marginTop: 8,
-                maxHeight: 400,
-                overflowY: 'auto'
+                marginTop: 8
               }}
             >
-              {brain.diary.length === 0 ? (
-                <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 20 }}>
-                  No diary entries yet. Start training or feeding to create a history!
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {[...brain.diary].reverse().map((entry, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        padding: 10,
-                        background: '#1e293b',
-                        border: '1px solid #334155',
-                        borderRadius: 6
-                      }}
-                    >
+              {/* Filter Controls */}
+              <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  value={diaryFilter}
+                  onChange={(e) => setDiaryFilter(e.target.value)}
+                  placeholder="Search diary..."
+                  style={{
+                    flex: 1,
+                    minWidth: 200,
+                    background: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: 6,
+                    padding: '6px 10px',
+                    color: '#e2e8f0',
+                    fontSize: 12
+                  }}
+                />
+                <select
+                  value={diaryTypeFilter}
+                  onChange={(e) => setDiaryTypeFilter(e.target.value)}
+                  style={{
+                    background: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: 6,
+                    padding: '6px 10px',
+                    color: '#e2e8f0',
+                    fontSize: 12,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="ALL">All Types</option>
+                  <option value="TRAIN">Train</option>
+                  <option value="GEN">Generation</option>
+                  <option value="FEED">Feed</option>
+                  <option value="MOOD_SHIFT">Mood Shift</option>
+                  <option value="SUGGESTION">Suggestion</option>
+                </select>
+                {(diaryFilter || diaryTypeFilter !== 'ALL') && (
+                  <button
+                    onClick={() => {
+                      setDiaryFilter('');
+                      setDiaryTypeFilter('ALL');
+                    }}
+                    style={{
+                      padding: '6px 10px',
+                      background: '#475569',
+                      border: 'none',
+                      borderRadius: 6,
+                      color: '#e2e8f0',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Diary Entries */}
+              <div style={{ maxHeight: 350, overflowY: 'auto' }}>
+                {filteredDiary.length === 0 ? (
+                  <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 20 }}>
+                    {brain.diary.length === 0
+                      ? 'No diary entries yet. Start training or feeding to create a history!'
+                      : 'No entries match your filters.'}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {filteredDiary.map((entry, index) => (
                       <div
+                        key={index}
                         style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          marginBottom: 4
+                          padding: 10,
+                          background: '#1e293b',
+                          border: '1px solid #334155',
+                          borderRadius: 6
                         }}
                       >
-                        <span style={{ fontSize: 11, color: '#6366f1', fontWeight: 600 }}>
-                          {entry.type}
-                        </span>
-                        <span style={{ fontSize: 11, color: '#94a3b8' }}>
-                          {new Date(entry.timestamp).toLocaleString()}
-                        </span>
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            marginBottom: 4
+                          }}
+                        >
+                          <span style={{ fontSize: 11, color: '#6366f1', fontWeight: 600 }}>
+                            {entry.type}
+                          </span>
+                          <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                            {new Date(entry.timestamp).toLocaleString()}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 13, color: '#e2e8f0' }}>{entry.message}</div>
                       </div>
-                      <div style={{ fontSize: 13, color: '#e2e8f0' }}>{entry.message}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

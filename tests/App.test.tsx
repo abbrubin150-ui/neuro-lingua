@@ -4,17 +4,20 @@ import { describe, expect, it, beforeEach } from 'vitest';
 
 import App from '../src/App';
 import { DEFAULT_TRAINING_TEXT, STORAGE_KEYS } from '../src/config/constants';
+import { BrainProvider } from '../src/contexts/BrainContext';
 import { ProjectProvider } from '../src/contexts/ProjectContext';
 
 const UI_SETTINGS_KEY = STORAGE_KEYS.UI_SETTINGS;
 const TOKENIZER_STORAGE_KEY = STORAGE_KEYS.TOKENIZER_CONFIG;
 const ONBOARDING_STORAGE_KEY = STORAGE_KEYS.ONBOARDING_DISMISSED;
 
-// Wrapper component that includes ProjectProvider
+// Wrapper component that includes BrainProvider and ProjectProvider
 const AppWithProvider = () => (
-  <ProjectProvider>
-    <App />
-  </ProjectProvider>
+  <BrainProvider>
+    <ProjectProvider>
+      <App />
+    </ProjectProvider>
+  </BrainProvider>
 );
 
 describe('Neuro-Lingua App UI', () => {

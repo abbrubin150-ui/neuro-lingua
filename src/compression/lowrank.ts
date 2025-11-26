@@ -231,9 +231,7 @@ export function reconstructFromLowRank(lowRank: LowRankWeights): number[][] {
  * Calculate approximation error (Frobenius norm)
  */
 export function approximationError(original: number[][], approximation: number[][]): number {
-  const diff: number[][] = original.map((row, i) =>
-    row.map((val, j) => val - approximation[i][j])
-  );
+  const diff: number[][] = original.map((row, i) => row.map((val, j) => val - approximation[i][j]));
 
   return frobeniusNorm(diff);
 }
@@ -241,11 +239,7 @@ export function approximationError(original: number[][], approximation: number[]
 /**
  * Determine optimal rank for target compression ratio
  */
-export function findOptimalRank(
-  m: number,
-  n: number,
-  targetCompressionRatio: number
-): number {
+export function findOptimalRank(m: number, n: number, targetCompressionRatio: number): number {
   // mn / (k(m+n)) = targetRatio
   // k = mn / (targetRatio * (m+n))
 
@@ -295,8 +289,7 @@ export function compressModelLowRank(
 
   const totalCompressionRatio = totalOriginal / totalCompressed;
 
-  const avgApproximationError =
-    (errors.embedding + errors.wHidden + errors.wOutput) / 3;
+  const avgApproximationError = (errors.embedding + errors.wHidden + errors.wOutput) / 3;
 
   return {
     compressed: {

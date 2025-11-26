@@ -26,9 +26,7 @@ interface CompressionPanelProps {
 }
 
 export function CompressionPanel({ model, corpus, onClose, onMessage }: CompressionPanelProps) {
-  const [method, setMethod] = useState<'quantization' | 'lowrank' | 'distillation'>(
-    'quantization'
-  );
+  const [method, setMethod] = useState<'quantization' | 'lowrank' | 'distillation'>('quantization');
   const [rank, setRank] = useState(16);
   const [targetRatio, setTargetRatio] = useState(2.0);
   const [studentHiddenSize, setStudentHiddenSize] = useState(32);
@@ -66,7 +64,7 @@ export function CompressionPanel({ model, corpus, onClose, onMessage }: Compress
             setIsCompressing(false);
             return;
           }
-          compressionResult = compressWithDistillation(model, corpus, {
+          compressionResult = await compressWithDistillation(model, corpus, {
             studentHiddenSize,
             temperature,
             alpha: 0.7,
@@ -102,6 +100,7 @@ export function CompressionPanel({ model, corpus, onClose, onMessage }: Compress
 
   return (
     <div
+      role="presentation"
       style={{
         position: 'fixed',
         top: 0,
@@ -114,7 +113,12 @@ export function CompressionPanel({ model, corpus, onClose, onMessage }: Compress
         justifyContent: 'center',
         zIndex: 1000
       }}
-      onClick={onClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
     >
       <div
         style={{
@@ -128,372 +132,380 @@ export function CompressionPanel({ model, corpus, onClose, onMessage }: Compress
           overflowY: 'auto',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
         }}
-        onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <h2
-            style={{
-              margin: 0,
-              fontSize: 24,
-              fontWeight: 700,
-              background: 'linear-gradient(90deg, #60a5fa, #a78bfa)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              marginBottom: 8
-            }}
-          >
-            🗜️ Model Compression
-          </h2>
-          <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>
-            Reduce model size for faster loading and smaller file sizes
-          </p>
-        </div>
-
-        {/* Method Selection */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 12, color: '#cbd5e1', marginBottom: 12, fontWeight: 600 }}>
-            Compression Method
+        <div role="dialog" aria-modal="true" aria-labelledby="compression-title">
+          {/* Header */}
+          <div style={{ marginBottom: 24 }}>
+            <h2
+              id="compression-title"
+              style={{
+                margin: 0,
+                fontSize: 24,
+                fontWeight: 700,
+                background: 'linear-gradient(90deg, #60a5fa, #a78bfa)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                marginBottom: 8
+              }}
+            >
+              🗜️ Model Compression
+            </h2>
+            <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>
+              Reduce model size for faster loading and smaller file sizes
+            </p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-            <button
-              onClick={() => setMethod('quantization')}
-              style={{
-                padding: '16px 12px',
-                background: method === 'quantization' ? '#3b82f6' : '#374151',
-                border: method === 'quantization' ? '2px solid #60a5fa' : '1px solid #4b5563',
-                borderRadius: 12,
-                color: 'white',
-                fontWeight: method === 'quantization' ? 700 : 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                fontSize: 13
-              }}
-            >
-              <div>🎯 Quantization</div>
-              <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 6 }}>4x smaller</div>
-            </button>
 
-            <button
-              onClick={() => setMethod('lowrank')}
-              style={{
-                padding: '16px 12px',
-                background: method === 'lowrank' ? '#3b82f6' : '#374151',
-                border: method === 'lowrank' ? '2px solid #60a5fa' : '1px solid #4b5563',
-                borderRadius: 12,
-                color: 'white',
-                fontWeight: method === 'lowrank' ? 700 : 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                fontSize: 13
-              }}
-            >
-              <div>📐 Low-Rank</div>
-              <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 6 }}>2-3x smaller</div>
-            </button>
+          {/* Method Selection */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 12, color: '#cbd5e1', marginBottom: 12, fontWeight: 600 }}>
+              Compression Method
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              <button
+                onClick={() => setMethod('quantization')}
+                style={{
+                  padding: '16px 12px',
+                  background: method === 'quantization' ? '#3b82f6' : '#374151',
+                  border: method === 'quantization' ? '2px solid #60a5fa' : '1px solid #4b5563',
+                  borderRadius: 12,
+                  color: 'white',
+                  fontWeight: method === 'quantization' ? 700 : 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  fontSize: 13
+                }}
+              >
+                <div>🎯 Quantization</div>
+                <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 6 }}>4x smaller</div>
+              </button>
 
-            <button
-              onClick={() => setMethod('distillation')}
-              style={{
-                padding: '16px 12px',
-                background: method === 'distillation' ? '#3b82f6' : '#374151',
-                border: method === 'distillation' ? '2px solid #60a5fa' : '1px solid #4b5563',
-                borderRadius: 12,
-                color: 'white',
-                fontWeight: method === 'distillation' ? 700 : 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                fontSize: 13
-              }}
-            >
-              <div>🎓 Distillation</div>
-              <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 6 }}>Variable</div>
-            </button>
+              <button
+                onClick={() => setMethod('lowrank')}
+                style={{
+                  padding: '16px 12px',
+                  background: method === 'lowrank' ? '#3b82f6' : '#374151',
+                  border: method === 'lowrank' ? '2px solid #60a5fa' : '1px solid #4b5563',
+                  borderRadius: 12,
+                  color: 'white',
+                  fontWeight: method === 'lowrank' ? 700 : 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  fontSize: 13
+                }}
+              >
+                <div>📐 Low-Rank</div>
+                <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 6 }}>2-3x smaller</div>
+              </button>
+
+              <button
+                onClick={() => setMethod('distillation')}
+                style={{
+                  padding: '16px 12px',
+                  background: method === 'distillation' ? '#3b82f6' : '#374151',
+                  border: method === 'distillation' ? '2px solid #60a5fa' : '1px solid #4b5563',
+                  borderRadius: 12,
+                  color: 'white',
+                  fontWeight: method === 'distillation' ? 700 : 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  fontSize: 13
+                }}
+              >
+                <div>🎓 Distillation</div>
+                <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 6 }}>Variable</div>
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* Method-specific controls */}
-        <div
-          style={{
-            background: '#0f172a',
-            borderRadius: 12,
-            padding: 20,
-            marginBottom: 24,
-            border: '1px solid #1e293b'
-          }}
-        >
-          {method === 'quantization' && (
-            <div>
-              <div style={{ fontSize: 13, color: '#e2e8f0', marginBottom: 8 }}>
-                <strong>Int8 Quantization</strong>
-              </div>
-              <div style={{ fontSize: 12, color: '#94a3b8' }}>
-                Converts float32 weights to int8 (8-bit integers). Typically achieves 4x size
-                reduction with minimal accuracy loss (&lt;2%).
-              </div>
-              <div
-                style={{
-                  marginTop: 12,
-                  padding: 12,
-                  background: '#1e293b',
-                  borderRadius: 8,
-                  fontSize: 11,
-                  color: '#cbd5e1'
-                }}
-              >
-                💡 <strong>Best for:</strong> General compression, fast export/import
-              </div>
-            </div>
-          )}
-
-          {method === 'lowrank' && (
-            <div>
-              <div style={{ fontSize: 13, color: '#e2e8f0', marginBottom: 12 }}>
-                <strong>Low-Rank Approximation (SVD)</strong>
-              </div>
-
-              <div style={{ marginBottom: 16 }}>
-                <label
-                  style={{ display: 'block', fontSize: 12, color: '#cbd5e1', marginBottom: 8 }}
-                >
-                  Rank (lower = more compression)
-                </label>
-                <input
-                  type="number"
-                  value={rank}
-                  onChange={(e) => setRank(Math.max(1, Number(e.target.value)))}
-                  min={1}
-                  max={128}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    background: '#1e293b',
-                    border: '1px solid #374151',
-                    borderRadius: 8,
-                    color: 'white',
-                    fontSize: 13
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: 12 }}>
-                <label
-                  style={{ display: 'block', fontSize: 12, color: '#cbd5e1', marginBottom: 8 }}
-                >
-                  Target Compression Ratio
-                </label>
-                <input
-                  type="number"
-                  value={targetRatio}
-                  onChange={(e) => setTargetRatio(Math.max(1.1, Number(e.target.value)))}
-                  min={1.1}
-                  max={10}
-                  step={0.1}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    background: '#1e293b',
-                    border: '1px solid #374151',
-                    borderRadius: 8,
-                    color: 'white',
-                    fontSize: 13
-                  }}
-                />
-              </div>
-
-              <div
-                style={{
-                  padding: 12,
-                  background: '#1e293b',
-                  borderRadius: 8,
-                  fontSize: 11,
-                  color: '#cbd5e1'
-                }}
-              >
-                💡 <strong>Best for:</strong> Weight matrices, customizable compression
-              </div>
-            </div>
-          )}
-
-          {method === 'distillation' && (
-            <div>
-              <div style={{ fontSize: 13, color: '#e2e8f0', marginBottom: 12 }}>
-                <strong>Knowledge Distillation</strong>
-              </div>
-
-              <div style={{ marginBottom: 16 }}>
-                <label
-                  style={{ display: 'block', fontSize: 12, color: '#cbd5e1', marginBottom: 8 }}
-                >
-                  Student Hidden Size
-                </label>
-                <input
-                  type="number"
-                  value={studentHiddenSize}
-                  onChange={(e) => setStudentHiddenSize(Math.max(8, Number(e.target.value)))}
-                  min={8}
-                  max={256}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    background: '#1e293b',
-                    border: '1px solid #374151',
-                    borderRadius: 8,
-                    color: 'white',
-                    fontSize: 13
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: 12 }}>
-                <label
-                  style={{ display: 'block', fontSize: 12, color: '#cbd5e1', marginBottom: 8 }}
-                >
-                  Temperature
-                </label>
-                <input
-                  type="number"
-                  value={temperature}
-                  onChange={(e) => setTemperature(Math.max(1, Number(e.target.value)))}
-                  min={1}
-                  max={10}
-                  step={0.5}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    background: '#1e293b',
-                    border: '1px solid #374151',
-                    borderRadius: 8,
-                    color: 'white',
-                    fontSize: 13
-                  }}
-                />
-              </div>
-
-              <div
-                style={{
-                  padding: 12,
-                  background: '#1e293b',
-                  borderRadius: 8,
-                  fontSize: 11,
-                  color: '#cbd5e1'
-                }}
-              >
-                💡 <strong>Best for:</strong> Creating smaller models, requires corpus
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Results Display */}
-        {result && (
+          {/* Method-specific controls */}
           <div
             style={{
-              background: '#064e3b',
-              border: '1px solid #059669',
+              background: '#0f172a',
               borderRadius: 12,
               padding: 20,
-              marginBottom: 24
+              marginBottom: 24,
+              border: '1px solid #1e293b'
             }}
           >
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#34d399', marginBottom: 12 }}>
-              ✅ Compression Successful
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+            {method === 'quantization' && (
               <div>
-                <div style={{ fontSize: 11, color: '#6ee7b7' }}>Original Size</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>
-                  {(result.originalSize / 1024).toFixed(1)} KB
+                <div style={{ fontSize: 13, color: '#e2e8f0', marginBottom: 8 }}>
+                  <strong>Int8 Quantization</strong>
+                </div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                  Converts float32 weights to int8 (8-bit integers). Typically achieves 4x size
+                  reduction with minimal accuracy loss (&lt;2%).
+                </div>
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: 12,
+                    background: '#1e293b',
+                    borderRadius: 8,
+                    fontSize: 11,
+                    color: '#cbd5e1'
+                  }}
+                >
+                  💡 <strong>Best for:</strong> General compression, fast export/import
                 </div>
               </div>
+            )}
 
+            {method === 'lowrank' && (
               <div>
-                <div style={{ fontSize: 11, color: '#6ee7b7' }}>Compressed Size</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>
-                  {(result.compressedSize / 1024).toFixed(1)} KB
+                <div style={{ fontSize: 13, color: '#e2e8f0', marginBottom: 12 }}>
+                  <strong>Low-Rank Approximation (SVD)</strong>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label
+                    htmlFor="rank-input"
+                    style={{ display: 'block', fontSize: 12, color: '#cbd5e1', marginBottom: 8 }}
+                  >
+                    Rank (lower = more compression)
+                  </label>
+                  <input
+                    id="rank-input"
+                    type="number"
+                    value={rank}
+                    onChange={(e) => setRank(Math.max(1, Number(e.target.value)))}
+                    min={1}
+                    max={128}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      background: '#1e293b',
+                      border: '1px solid #374151',
+                      borderRadius: 8,
+                      color: 'white',
+                      fontSize: 13
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label
+                    htmlFor="target-ratio-input"
+                    style={{ display: 'block', fontSize: 12, color: '#cbd5e1', marginBottom: 8 }}
+                  >
+                    Target Compression Ratio
+                  </label>
+                  <input
+                    id="target-ratio-input"
+                    type="number"
+                    value={targetRatio}
+                    onChange={(e) => setTargetRatio(Math.max(1.1, Number(e.target.value)))}
+                    min={1.1}
+                    max={10}
+                    step={0.1}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      background: '#1e293b',
+                      border: '1px solid #374151',
+                      borderRadius: 8,
+                      color: 'white',
+                      fontSize: 13
+                    }}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    padding: 12,
+                    background: '#1e293b',
+                    borderRadius: 8,
+                    fontSize: 11,
+                    color: '#cbd5e1'
+                  }}
+                >
+                  💡 <strong>Best for:</strong> Weight matrices, customizable compression
                 </div>
               </div>
+            )}
 
+            {method === 'distillation' && (
               <div>
-                <div style={{ fontSize: 11, color: '#6ee7b7' }}>Compression Ratio</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: '#34d399' }}>
-                  {result.compressionRatio.toFixed(2)}x
+                <div style={{ fontSize: 13, color: '#e2e8f0', marginBottom: 12 }}>
+                  <strong>Knowledge Distillation</strong>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label
+                    htmlFor="student-hidden-size-input"
+                    style={{ display: 'block', fontSize: 12, color: '#cbd5e1', marginBottom: 8 }}
+                  >
+                    Student Hidden Size
+                  </label>
+                  <input
+                    id="student-hidden-size-input"
+                    type="number"
+                    value={studentHiddenSize}
+                    onChange={(e) => setStudentHiddenSize(Math.max(8, Number(e.target.value)))}
+                    min={8}
+                    max={256}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      background: '#1e293b',
+                      border: '1px solid #374151',
+                      borderRadius: 8,
+                      color: 'white',
+                      fontSize: 13
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label
+                    htmlFor="temperature-input"
+                    style={{ display: 'block', fontSize: 12, color: '#cbd5e1', marginBottom: 8 }}
+                  >
+                    Temperature
+                  </label>
+                  <input
+                    id="temperature-input"
+                    type="number"
+                    value={temperature}
+                    onChange={(e) => setTemperature(Math.max(1, Number(e.target.value)))}
+                    min={1}
+                    max={10}
+                    step={0.5}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      background: '#1e293b',
+                      border: '1px solid #374151',
+                      borderRadius: 8,
+                      color: 'white',
+                      fontSize: 13
+                    }}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    padding: 12,
+                    background: '#1e293b',
+                    borderRadius: 8,
+                    fontSize: 11,
+                    color: '#cbd5e1'
+                  }}
+                >
+                  💡 <strong>Best for:</strong> Creating smaller models, requires corpus
                 </div>
               </div>
+            )}
+          </div>
 
-              {result.approximationError !== undefined && (
+          {/* Results Display */}
+          {result && (
+            <div
+              style={{
+                background: '#064e3b',
+                border: '1px solid #059669',
+                borderRadius: 12,
+                padding: 20,
+                marginBottom: 24
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#34d399', marginBottom: 12 }}>
+                ✅ Compression Successful
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
                 <div>
-                  <div style={{ fontSize: 11, color: '#6ee7b7' }}>Approx. Error</div>
+                  <div style={{ fontSize: 11, color: '#6ee7b7' }}>Original Size</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>
-                    {result.approximationError.toExponential(2)}
+                    {(result.originalSize / 1024).toFixed(1)} KB
                   </div>
                 </div>
-              )}
+
+                <div>
+                  <div style={{ fontSize: 11, color: '#6ee7b7' }}>Compressed Size</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>
+                    {(result.compressedSize / 1024).toFixed(1)} KB
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 11, color: '#6ee7b7' }}>Compression Ratio</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#34d399' }}>
+                    {result.compressionRatio.toFixed(2)}x
+                  </div>
+                </div>
+
+                {result.approximationError !== undefined && (
+                  <div>
+                    <div style={{ fontSize: 11, color: '#6ee7b7' }}>Approx. Error</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>
+                      {result.approximationError.toExponential(2)}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: 12 }}>
-          <button
-            onClick={handleCompress}
-            disabled={isCompressing || !model}
-            style={{
-              flex: 1,
-              padding: '14px 24px',
-              background: isCompressing
-                ? '#374151'
-                : 'linear-gradient(90deg, #3b82f6, #2563eb)',
-              border: 'none',
-              borderRadius: 10,
-              color: 'white',
-              fontWeight: 700,
-              fontSize: 14,
-              cursor: isCompressing || !model ? 'not-allowed' : 'pointer',
-              opacity: isCompressing || !model ? 0.6 : 1,
-              transition: 'all 0.2s'
-            }}
-          >
-            {isCompressing ? '⏳ Compressing...' : '🗜️ Compress Model'}
-          </button>
-
-          {result && (
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: 12 }}>
             <button
-              onClick={handleExport}
+              onClick={handleCompress}
+              disabled={isCompressing || !model}
               style={{
                 flex: 1,
                 padding: '14px 24px',
-                background: 'linear-gradient(90deg, #10b981, #059669)',
+                background: isCompressing ? '#374151' : 'linear-gradient(90deg, #3b82f6, #2563eb)',
                 border: 'none',
                 borderRadius: 10,
                 color: 'white',
                 fontWeight: 700,
                 fontSize: 14,
+                cursor: isCompressing || !model ? 'not-allowed' : 'pointer',
+                opacity: isCompressing || !model ? 0.6 : 1,
+                transition: 'all 0.2s'
+              }}
+            >
+              {isCompressing ? '⏳ Compressing...' : '🗜️ Compress Model'}
+            </button>
+
+            {result && (
+              <button
+                onClick={handleExport}
+                style={{
+                  flex: 1,
+                  padding: '14px 24px',
+                  background: 'linear-gradient(90deg, #10b981, #059669)',
+                  border: 'none',
+                  borderRadius: 10,
+                  color: 'white',
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                📦 Export Compressed
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              style={{
+                padding: '14px 24px',
+                background: '#374151',
+                border: '1px solid #4b5563',
+                borderRadius: 10,
+                color: '#cbd5e1',
+                fontWeight: 600,
+                fontSize: 14,
                 cursor: 'pointer',
                 transition: 'all 0.2s'
               }}
             >
-              📦 Export Compressed
+              Close
             </button>
-          )}
-
-          <button
-            onClick={onClose}
-            style={{
-              padding: '14px 24px',
-              background: '#374151',
-              border: '1px solid #4b5563',
-              borderRadius: 10,
-              color: '#cbd5e1',
-              fontWeight: 600,
-              fontSize: 14,
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            Close
-          </button>
+          </div>
         </div>
       </div>
     </div>

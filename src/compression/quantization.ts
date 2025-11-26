@@ -146,10 +146,7 @@ export function calculateQuantizationError(
 /**
  * Calculate compression ratio
  */
-export function calculateCompressionRatio(
-  originalSize: number,
-  compressedSize: number
-): number {
+export function calculateCompressionRatio(originalSize: number, compressedSize: number): number {
   return originalSize / compressedSize;
 }
 

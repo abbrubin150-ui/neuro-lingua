@@ -23,11 +23,7 @@ export {
   deserializeQuantizedWeights
 } from './quantization';
 
-export type {
-  QuantizationParams,
-  QuantizedWeights,
-  QuantizedModel
-} from './quantization';
+export type { QuantizationParams, QuantizedWeights, QuantizedModel } from './quantization';
 
 // Distillation exports
 export {
@@ -43,11 +39,7 @@ export {
   DEFAULT_DISTILLATION_CONFIG
 } from './distillation';
 
-export type {
-  TeacherModel,
-  DistillationConfig,
-  DistillationResult
-} from './distillation';
+export type { TeacherModel, DistillationConfig, DistillationResult } from './distillation';
 
 // Low-rank approximation exports
 export {
@@ -64,11 +56,7 @@ export {
   deserializeLowRankWeights
 } from './lowrank';
 
-export type {
-  SVDResult,
-  LowRankWeights,
-  LowRankModel
-} from './lowrank';
+export type { SVDResult, LowRankWeights, LowRankModel } from './lowrank';
 
 /**
  * Unified compression interface

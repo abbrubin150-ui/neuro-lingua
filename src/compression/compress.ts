@@ -6,24 +6,13 @@
  */
 
 import type { ProNeuralLM } from '../lib/ProNeuralLM';
-import {
-  quantizeMatrix,
-  dequantizeMatrix,
-  type QuantizedModel,
-  serializeQuantizedWeights
-} from './quantization';
+import { quantizeMatrix, dequantizeMatrix, type QuantizedModel } from './quantization';
 import {
   distillKnowledge,
   type DistillationConfig,
-  type DistillationResult,
   DEFAULT_DISTILLATION_CONFIG
 } from './distillation';
-import {
-  compressModelLowRank,
-  type LowRankModel,
-  serializeLowRankWeights,
-  findOptimalRank
-} from './lowrank';
+import { compressModelLowRank, findOptimalRank } from './lowrank';
 
 export type CompressionMethod = 'quantization' | 'distillation' | 'lowrank';
 
@@ -153,11 +142,11 @@ export function compressWithQuantization(model: ProNeuralLM): CompressionResult 
 /**
  * Compress model using knowledge distillation
  */
-export function compressWithDistillation(
+export async function compressWithDistillation(
   model: ProNeuralLM,
   corpus: string,
   config: Partial<DistillationConfig> = {}
-): CompressionResult {
+): Promise<CompressionResult> {
   const startTime = performance.now();
 
   const distillConfig: DistillationConfig = {
@@ -165,7 +154,7 @@ export function compressWithDistillation(
     ...config
   };
 
-  const result = distillKnowledge(model, corpus, distillConfig);
+  const result = await distillKnowledge(model, corpus, distillConfig);
 
   const originalSize = estimateModelSize(model);
   const compressedSize = estimateModelSize(result.studentModel);
@@ -257,11 +246,11 @@ export function compressWithLowRank(
 /**
  * Main compression function - automatically selects best method
  */
-export function compressModel(
+export async function compressModel(
   model: ProNeuralLM,
   config: CompressionConfig,
   corpus?: string
-): CompressionResult {
+): Promise<CompressionResult> {
   switch (config.method) {
     case 'quantization':
       return compressWithQuantization(model);
@@ -270,7 +259,7 @@ export function compressModel(
       if (!corpus) {
         throw new Error('Corpus required for knowledge distillation');
       }
-      return compressWithDistillation(model, corpus, config.distillation);
+      return await compressWithDistillation(model, corpus, config.distillation);
 
     case 'lowrank':
       return compressWithLowRank(model, {
@@ -319,7 +308,7 @@ export async function compareCompressionMethods(
   // Distillation is optional (takes longer)
   let distillation: CompressionResult | undefined;
   try {
-    distillation = compressWithDistillation(model, corpus, {
+    distillation = await compressWithDistillation(model, corpus, {
       studentHiddenSize: Math.floor(model.getHiddenSize() / 2),
       epochs: 20
     });

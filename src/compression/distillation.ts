@@ -119,8 +119,8 @@ export function distillationLoss(
  */
 export function getTeacherSoftTargets(
   teacher: TeacherModel,
-  context: number[],
-  temperature: number
+  _context: number[],
+  _temperature: number
 ): number[] {
   // Get teacher's logits for this context
   // Note: This requires access to teacher's forward pass
@@ -179,15 +179,16 @@ export function estimateCompressionRatio(
  * For a complete implementation, we'd need to modify the base model classes
  * to expose intermediate activations and logits.
  */
-export function distillKnowledge(
+export async function distillKnowledge(
   teacher: TeacherModel,
   corpus: string,
   config: DistillationConfig = DEFAULT_DISTILLATION_CONFIG
-): DistillationResult {
+): Promise<DistillationResult> {
   const startTime = performance.now();
 
-  // Import ProNeuralLM dynamically to avoid circular deps
-  const { ProNeuralLM } = require('../lib/ProNeuralLM');
+  // Import ProNeuralLM - avoiding circular deps by importing inside function
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { ProNeuralLM } = require('../lib/ProNeuralLM') as typeof import('../lib/ProNeuralLM');
 
   // Create student model (smaller hidden size)
   const vocab = teacher.getVocab();
@@ -203,7 +204,7 @@ export function distillKnowledge(
 
   // For now, train student normally on corpus
   // TODO: Implement true distillation with soft targets
-  student.train(corpus, config.epochs, config.learningRate);
+  await student.train(corpus, config.epochs);
 
   const trainingTime = performance.now() - startTime;
 

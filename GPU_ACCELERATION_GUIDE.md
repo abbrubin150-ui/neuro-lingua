@@ -84,6 +84,12 @@ If GPU operations fail (rare):
 - Training continues normally (slower)
 - Console logs warning message
 
+### Device selection flags
+
+- **Automatic detection:** `GPUNeuralOps.initialize()` enables GPU execution only when `navigator.gpu` is available; otherwise it runs purely on CPU without throwing.
+- **Force CPU:** Skip calling `setGPUOps` on `ProNeuralLM` (as in `scripts/train.ts`, the entry point for CLI training) or call `gpuOps.setEnabled(false)` after initialization.
+- **Tests:** GPU-specific assertions are gated the same way, so automated runs without WebGPU simply exercise the CPU path.
+
 ---
 
 ## Performance Benchmarking

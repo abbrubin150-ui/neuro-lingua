@@ -25,7 +25,8 @@ const DEFAULT_STATS: BrainStats = {
   updatedAt: Date.now()
 };
 
-const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
+const clamp = (value: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, value));
 
 const pickMood = (state: Pick<BrainStats, 'energy' | 'clarity' | 'idleTicks'>): Mood => {
   if (state.idleTicks >= 3 || state.energy < 0.25) return 'IDLE';

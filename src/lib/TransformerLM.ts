@@ -651,13 +651,6 @@ export class TransformerLM extends ProNeuralLM {
     return model;
   }
 
-  /**
-   * Get hidden size (model dimension)
-   */
-  private getHiddenSize(): number {
-    return (this as any).hiddenSize;
-  }
-
   private normalizeHeadCount(modelDim: number, requestedHeads: number): number {
     if (requestedHeads <= 0) return 1;
     if (modelDim % requestedHeads === 0) return requestedHeads;

@@ -78,16 +78,14 @@ export function BrainTelemetryPanel({
         Math.floor(Math.random() * 4)
       ] as BrainFacet;
       setMetrics((prev) => adjustMetrics(prev, target, Math.random() * 4 - 2));
-      setEvents((prev) => [
-        {
-          id: Date.now(),
-          timestamp: Date.now(),
-          facet: target,
-          label: 'Autonomous IDLE tick',
-          detail: `Stabilized ${FACET_LABELS[target]} background activity.`
-        },
-        ...prev
-      ].slice(0, 30));
+      const entry: EventLogEntry = {
+        id: Date.now(),
+        timestamp: Date.now(),
+        facet: target,
+        label: 'Autonomous IDLE tick',
+        detail: `Stabilized ${FACET_LABELS[target]} background activity.`
+      };
+      setEvents((prev) => [entry, ...prev].slice(0, 30));
     },
     []
   );
@@ -103,34 +101,32 @@ export function BrainTelemetryPanel({
     const emphasis = Math.min(8, Math.max(3, Math.round(text.length / 40)));
 
     setMetrics((prev) => adjustMetrics(prev, facet, emphasis));
-    setEvents((prev) => [
-      {
-        id: Date.now(),
-        timestamp: Date.now(),
-        facet,
-        label: facetSelection === 'auto' ? 'Auto-faceted Feed' : `${FACET_LABELS[facet]} Feed`,
-        detail: text
-      },
-      ...prev
-    ].slice(0, 30));
+    const entry: EventLogEntry = {
+      id: Date.now(),
+      timestamp: Date.now(),
+      facet,
+      label: facetSelection === 'auto' ? 'Auto-faceted Feed' : `${FACET_LABELS[facet]} Feed`,
+      detail: text
+    };
+
+    setEvents((prev) => [entry, ...prev].slice(0, 30));
 
     setFeedText('');
   };
 
   const handleAutonomousToggle = (checked: boolean) => {
     setAutonomous(checked);
-    setEvents((prev) => [
-      {
-        id: Date.now(),
-        timestamp: Date.now(),
-        facet: 'auto',
-        label: checked ? 'Autonomous mode enabled' : 'Autonomous mode disabled',
-        detail: checked
-          ? 'Initiating autonomous IDLE ticks for background calibration.'
-          : 'Halting autonomous adjustments.'
-      },
-      ...prev
-    ].slice(0, 30));
+    const entry: EventLogEntry = {
+      id: Date.now(),
+      timestamp: Date.now(),
+      facet: 'auto',
+      label: checked ? 'Autonomous mode enabled' : 'Autonomous mode disabled',
+      detail: checked
+        ? 'Initiating autonomous IDLE ticks for background calibration.'
+        : 'Halting autonomous adjustments.'
+    };
+
+    setEvents((prev) => [entry, ...prev].slice(0, 30));
   };
 
   const renderMeter = (facet: BrainFacet) => (

@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Neuro-Lingua
 
-> **Last Updated**: 2025-11-18
-> **Version**: 3.2.4
+> **Last Updated**: 2025-11-26
+> **Version**: 3.3.0
 > **Purpose**: Comprehensive guide for AI assistants working on the Neuro-Lingua codebase
 
 ---
@@ -44,9 +44,11 @@
 ### Key Features
 
 - **3 Neural Architectures**: ProNeuralLM (baseline), AdvancedNeuralLM (enhanced), TransformerLM (attention-based)
+- **Architecture Presets**: Automatic configuration when switching between architectures
 - **WebGPU Acceleration**: Automatic GPU detection with graceful CPU fallback
 - **4 Optimizers**: SGD with momentum, Adam, Damped Newton, L-BFGS
 - **5+ Generation Methods**: Greedy, Top-k, Top-p (nucleus), Beam Search, Contrastive Search
+- **Model Compression**: Int8 quantization, knowledge distillation, low-rank approximation (SVD)
 - **Advanced Features**: Dropout, layer normalization, learning rate scheduling, weight decay
 - **Σ-SIG Compliance**: Experiment tracking with Decision Ledger governance
 - **Session Persistence**: localStorage-based state management
@@ -147,8 +149,15 @@
 │   │   ├── DecisionLedgerEditor.tsx  # Governance/decision tracking
 │   │   ├── TokenizerConfig.tsx       # Tokenizer settings
 │   │   ├── ChatInterface.tsx         # Chat-style generation UI
+│   │   ├── CompressionPanel.tsx      # Model compression UI
 │   │   ├── OnboardingCard.tsx        # First-time user guide
 │   │   └── ErrorBoundary.tsx         # React error boundary
+│   ├── compression/                  # Model compression system
+│   │   ├── compress.ts               # Unified compression interface
+│   │   ├── quantization.ts           # Int8/16 quantization
+│   │   ├── distillation.ts           # Knowledge distillation
+│   │   ├── lowrank.ts                # SVD-based low-rank approximation
+│   │   └── index.ts                  # Module exports
 │   ├── config/                       # Application configuration
 │   │   └── constants.ts              # Default hyperparameters and constraints
 │   ├── contexts/                     # React Context providers
@@ -349,6 +358,10 @@ model.setGPUOps(gpuOps);
 **Features**:
 
 - Architecture selection (ProNeuralLM, AdvancedNeuralLM, TransformerLM)
+- **Architecture Presets**: Automatic optimal settings when switching architectures
+  - Transformer: Enables Adam optimizer, LayerNorm, and attention defaults
+  - AdvancedNeuralLM: Applies LayerNorm and deep-optimization defaults
+  - ProNeuralLM: Standard baseline configuration
 - Hyperparameter controls
 - Corpus input
 - Training progress visualization
@@ -383,7 +396,123 @@ model.setGPUOps(gpuOps);
 - Beam search toggle
 - Copy/export chat history
 
-### 4. Context Providers (`src/contexts/`)
+#### **CompressionPanel.tsx** - Model Compression UI
+
+**Location**: `/home/user/neuro-lingua/src/components/CompressionPanel.tsx` (~513 lines)
+
+**Purpose**: User interface for model compression operations
+
+**Features**:
+
+- Three compression methods: Quantization, Distillation, Low-rank approximation
+- Int8 quantization with 4x size reduction
+- Knowledge distillation configuration (temperature, alpha, student size)
+- SVD-based low-rank approximation with automatic rank selection
+- Compression results display (original size, compressed size, ratio)
+- Export compressed models
+- Real-time compression progress feedback
+
+**When to Use**:
+
+- Reducing model size for deployment
+- Faster model loading and inference
+- Experimenting with compression trade-offs
+- Creating student models from larger teachers
+
+### 4. Model Compression System (`src/compression/`)
+
+#### **compress.ts** - Unified Compression Interface
+
+**Location**: `/home/user/neuro-lingua/src/compression/compress.ts` (~324 lines)
+
+**Purpose**: High-level API for model compression
+
+**Key Functions**:
+
+- `compressWithQuantization()`: Int8 quantization with 4x size reduction
+- `compressWithDistillation()`: Train smaller student model from teacher
+- `compressWithLowRank()`: SVD-based weight matrix approximation
+- `exportCompressedModel()`: Serialize compressed model to file
+
+**Example Usage**:
+
+```typescript
+import { compressWithQuantization } from '../compression/compress';
+
+const result = await compressWithQuantization(model);
+console.log(`Compressed from ${result.originalSize} to ${result.compressedSize} bytes`);
+console.log(`Compression ratio: ${result.compressionRatio.toFixed(2)}x`);
+```
+
+#### **quantization.ts** - Weight Quantization
+
+**Location**: `/home/user/neuro-lingua/src/compression/quantization.ts` (~181 lines)
+
+**Purpose**: Convert float32 weights to int8 for 4x size reduction
+
+**Key Features**:
+
+- Symmetric and asymmetric quantization
+- Per-tensor and per-channel scaling
+- Minimal accuracy loss (<2% typically)
+- Fast dequantization for inference
+
+**Formula**:
+
+```
+quantized = round((value - min) / (max - min) * 255)
+dequantized = quantized / 255 * (max - min) + min
+```
+
+#### **distillation.ts** - Knowledge Distillation
+
+**Location**: `/home/user/neuro-lingua/src/compression/distillation.ts` (~272 lines)
+
+**Purpose**: Train smaller student model to mimic larger teacher
+
+**Key Features**:
+
+- Temperature-scaled soft targets
+- Combined soft + hard label loss
+- Configurable student architecture
+- Progress tracking and validation
+
+**Default Configuration**:
+
+```typescript
+{
+  temperature: 3.0,
+  alpha: 0.7,
+  studentHiddenSize: 32,
+  epochs: 30,
+  learningRate: 0.1,
+  useHardLabels: true
+}
+```
+
+**Reference**: Hinton et al. (2015) "Distilling the Knowledge in a Neural Network"
+
+#### **lowrank.ts** - Low-Rank Approximation
+
+**Location**: `/home/user/neuro-lingua/src/compression/lowrank.ts` (~330 lines)
+
+**Purpose**: SVD-based weight matrix compression
+
+**Key Features**:
+
+- Automatic optimal rank selection
+- Target compression ratio support
+- Frobenius norm error estimation
+- Preserves most important singular values
+
+**Compression Process**:
+
+```
+W ≈ U Σ V^T  (SVD decomposition)
+W_compressed = U_k Σ_k V_k^T  (keep top k singular values)
+```
+
+### 5. Context Providers (`src/contexts/`)
 
 #### **ProjectContext.tsx** - State Management
 
@@ -410,7 +539,7 @@ function MyComponent() {
 }
 ```
 
-### 5. Configuration (`src/config/`)
+### 6. Configuration (`src/config/`)
 
 #### **constants.ts** - Application Defaults
 
@@ -1395,6 +1524,104 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    - Too small: Insufficient capacity
    - Too large: Overfitting on small corpus
 
+### Task 6: Compress a Trained Model
+
+**Goal**: Reduce model size using quantization, distillation, or low-rank approximation
+
+**Steps**:
+
+1. **Quantization** (fastest, 4x reduction):
+
+   ```typescript
+   import { compressWithQuantization } from '../compression/compress';
+
+   // Compress model weights to int8
+   const result = await compressWithQuantization(model);
+   console.log(`Original: ${result.originalSize} bytes`);
+   console.log(`Compressed: ${result.compressedSize} bytes`);
+   console.log(`Ratio: ${result.compressionRatio.toFixed(2)}x`);
+
+   // Export compressed model
+   exportCompressedModel(result.compressedModel, 'model-int8.json');
+   ```
+
+2. **Knowledge Distillation** (best quality, slower):
+
+   ```typescript
+   import { compressWithDistillation } from '../compression/compress';
+
+   // Train smaller student model
+   const result = await compressWithDistillation(teacherModel, corpus, {
+     temperature: 3.0,
+     alpha: 0.7,
+     studentHiddenSize: 32, // Much smaller than teacher
+     epochs: 30,
+     learningRate: 0.1,
+     onProgress: (epoch, loss) => {
+       console.log(`Distillation epoch ${epoch}: loss ${loss.toFixed(4)}`);
+     }
+   });
+
+   // Student model is in result.compressedModel
+   ```
+
+3. **Low-Rank Approximation** (configurable):
+
+   ```typescript
+   import { compressWithLowRank } from '../compression/compress';
+
+   // Compress with target ratio
+   const result = await compressWithLowRank(model, {
+     targetCompressionRatio: 2.0 // 2x compression
+   });
+
+   console.log(`Approximation error: ${result.approximationError.toFixed(4)}`);
+   ```
+
+4. **Compare compression methods**:
+
+   ```typescript
+   const methods = ['quantization', 'distillation', 'lowrank'];
+   const results = [];
+
+   for (const method of methods) {
+     const result = await compress(model, method);
+     results.push({
+       method,
+       ratio: result.compressionRatio,
+       error: result.approximationError,
+       time: result.metadata.compressionTime
+     });
+   }
+
+   // Analyze trade-offs
+   results.sort((a, b) => b.ratio - a.ratio);
+   console.table(results);
+   ```
+
+5. **Test compressed model**:
+
+   ```typescript
+   // Generate text with compressed model
+   const prompt = 'The quick brown';
+   const original = originalModel.generate(prompt, 20, 0.8);
+   const compressed = compressedModel.generate(prompt, 20, 0.8);
+
+   console.log('Original:', original);
+   console.log('Compressed:', compressed);
+
+   // Compare perplexity
+   const origPPL = originalModel.calculatePerplexity(testCorpus);
+   const compPPL = compressedModel.calculatePerplexity(testCorpus);
+   console.log(`Perplexity change: ${((compPPL - origPPL) / origPPL * 100).toFixed(2)}%`);
+   ```
+
+**When to Use Each Method**:
+
+- **Quantization**: When you need fast compression and can tolerate ~2% accuracy loss
+- **Distillation**: When you want best quality and have time for training
+- **Low-rank**: When you want fine-grained control over compression ratio
+
 ---
 
 ## Important Files Reference
@@ -1423,13 +1650,23 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
 
 ### UI Component Files
 
-| File                                | Lines | Purpose            | Modify For          |
-| ----------------------------------- | ----- | ------------------ | ------------------- |
-| `src/App.tsx`                       | ~500  | Main application   | App structure       |
-| `src/components/TrainingPanel.tsx`  | ~1400 | Training UI        | Training controls   |
-| `src/components/ModelMetrics.tsx`   | ~450  | Metrics display    | Visualization       |
-| `src/components/ProjectManager.tsx` | ~550  | Project management | Experiment tracking |
-| `src/components/ChatInterface.tsx`  | ~200  | Generation UI      | Chat features       |
+| File                                 | Lines | Purpose            | Modify For          |
+| ------------------------------------ | ----- | ------------------ | ------------------- |
+| `src/App.tsx`                        | ~500  | Main application   | App structure       |
+| `src/components/TrainingPanel.tsx`   | ~1400 | Training UI        | Training controls   |
+| `src/components/ModelMetrics.tsx`    | ~450  | Metrics display    | Visualization       |
+| `src/components/ProjectManager.tsx`  | ~550  | Project management | Experiment tracking |
+| `src/components/ChatInterface.tsx`   | ~200  | Generation UI      | Chat features       |
+| `src/components/CompressionPanel.tsx` | ~513  | Compression UI     | Model compression   |
+
+### Compression Module Files
+
+| File                           | Lines | Purpose              | Modify For           |
+| ------------------------------ | ----- | -------------------- | -------------------- |
+| `src/compression/compress.ts`  | ~324  | Compression API      | High-level interface |
+| `src/compression/quantization.ts` | ~181  | Weight quantization  | Int8/16 compression  |
+| `src/compression/distillation.ts` | ~272  | Knowledge distillation | Student training     |
+| `src/compression/lowrank.ts`   | ~330  | SVD approximation    | Low-rank compression |
 
 ### Workflow Files
 
@@ -2229,11 +2466,14 @@ gh workflow run train-model.yml \
 
 - **README.md**: Project overview and quickstart
 - **MATHEMATICAL_ENHANCEMENTS.md**: Detailed math formulations
+- **NEURO_LINGUA_V4_UPGRADES.md**: v4.0 roadmap with RoPE, SwiGLU, RMSNorm, Mirostat v2
 - **TRANSFORMER_GUIDE.md**: Transformer architecture explanation
 - **TRANSFORMER_IMPLEMENTATION.md**: Implementation details
 - **GPU_ACCELERATION_GUIDE.md**: WebGPU setup and usage
+- **SYSTEM_CALIBRATION_AGENT_SPEC.md**: Agent calibration and instruction specification
 - **DEVELOPMENT_SETUP_GUIDE.md**: Development environment setup
 - **DEVELOPMENT_ROADMAP.md**: Future plans and features
+- **CHANGELOG_v3.3.md**: Version history and changes
 
 ### External References
 

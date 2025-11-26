@@ -1,27 +1,27 @@
 # Next Coding Tasks for Neuro-Lingua
 
-The core scaffolding, training script, and neural LM implementation now exist. The next milestones should bring the implementation in line with the README promises and polish the developer experience.
+The core bilingual UI, Projects/Runs with Σ-SIG governance, transformer support, GPU acceleration, and explainability/visualization panels are already shipped. The next milestones focus on **testing, documentation alignment, and reliable exports**.
 
-## 1. Align the React UI with the README
-- Translate all Hebrew copy in `src/App.tsx` to English so the in-browser experience matches the English-only promise in the README.
-- Replace the hard-coded Hebrew demo corpus with a concise English example and add inline guidance in English for new users.
-- Double-check that UI labels, notifications, and the training chart use consistent English terminology.
+## 1. Strengthen governance + scenario coverage
+- Add Testing Library specs that create a project/run, set HOLD/ESCALATE statuses in `DecisionLedgerEditor`, and confirm training is blocked until status is EXECUTE.
+- Verify scenario prompts/results persist into run history after training in `App.tsx`.
+- Add data-testid hooks if needed to keep selectors stable.
 
-## 2. Improve persistence & onboarding
-- Persist the last-used hyperparameters and training corpus to `localStorage` so that reloading the page restores the session fully.
-- Add a lightweight onboarding panel (or tooltip) that explains how to load/import/export models and how pause/resume behaves.
-- Document within the UI when the stored model was last updated (timestamp + vocab size) to help users decide whether to retrain.
+## 2. GPU/CPU parity and compatibility notes
+- Write a regression test that trains `ProNeuralLM` with GPU tensors (when available) and on CPU, asserting loss/perplexity are within tolerance.
+- Capture observed browser/driver coverage for WebGPU and reference it in the README next to the 2-5x speedup claim.
 
-## 3. GitHub Action automation
-- Replace the placeholder `.github/workflows/jekyll-docker.yml` with a `train-model.yml` workflow that installs dependencies, runs `pnpm train`, and commits the updated artifact back to the repo.
-- Ensure the workflow exposes inputs for key hyperparameters (epochs, optimizer, dropout) so retraining can be tuned without modifying the repo.
-- Update the README with any workflow usage notes (e.g., required repository permissions) once the workflow exists.
+## 3. Trace export/import round-trip
+- Use the live UI to export a model with projectMeta + decisionLedger + trainingTrace and re-import it.
+- Update README + CHANGELOG_v3.3 so field names and version identifiers match the current runtime (v3.2.4) and the governance spec.
+- Add a lightweight automated round-trip check to catch schema drift early.
 
-## 4. Developer experience enhancements
-- Keep the new ESLint + Prettier setup green by running `pnpm lint`, `pnpm format:check`, or the aggregate `pnpm check` locally before opening a PR. The CI workflow now calls the same script.
-- Continue expanding Vitest coverage for the React UI (new specs live in `tests/components`). Prioritize complex flows like the Scenario Manager, Decision Ledger, and GPU toggles.
-- When modifying `data/corpus.txt`, maintain the multi-paragraph English sample so `scripts/train.ts` continues to emit noticeable history/perplexity shifts for demos.
+## 4. Developer experience polish
+- Surface links to corpus preparation notebooks and sample scenario suites from docs for quicker onboarding.
+- Expand `scripts/train.ts` CLI flags to mirror tokenizer presets and governance metadata exposed in the UI.
+- Keep lint/format/test scripts green (pnpm run check) and broaden component test coverage where practical.
 
-## 5. Future ideas
-- Surface perplexity/accuracy history as a downloadable CSV to compare runs.
-- Explore exporting/importing tokenizer configurations so ASCII vs Unicode modes can be swapped in the UI.
+## 5. Backlog ideas
+- Clarify GPU fallback reasons inside `ModelMetrics` when WebGPU is unavailable.
+- Add inline explainer text for decision statuses and scenario scores to reduce documentation hunting.
+- Extend localization coverage for advanced settings beyond the existing translation map in `src/App.tsx`.

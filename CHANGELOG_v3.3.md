@@ -4,6 +4,8 @@
 
 Major architectural expansion implementing **Projects**, **Runs**, and **Σ-SIG Decision Ledger** governance framework. This update transforms Neuro-Lingua from single-training mode to full experiment tracking and management.
 
+> Note: The current runtime/version string in the UI remains **v3.2.4**; the governance/export fields documented here are already emitted by the live app.
+
 ---
 
 ## 🎯 Core Features Added

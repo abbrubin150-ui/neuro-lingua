@@ -30,11 +30,7 @@ const FACET_COLORS: Record<BrainFacet, string> = {
 
 const clamp = (value: number, min = 0, max = 100) => Math.min(Math.max(value, min), max);
 
-function useAutonomousTicks(
-  enabled: boolean,
-  onTick: () => void,
-  intervalMs = 5000
-): void {
+function useAutonomousTicks(enabled: boolean, onTick: () => void, intervalMs = 5000): void {
   useEffect(() => {
     if (!enabled) return undefined;
     const interval = setInterval(onTick, intervalMs);
@@ -196,7 +192,8 @@ export function BrainTelemetryPanel({
         display: 'grid',
         gridTemplateColumns: '1.25fr 1fr',
         gap: 20,
-        background: 'radial-gradient(circle at 20% 20%, rgba(148,163,184,0.15), transparent 30%), radial-gradient(circle at 80% 0%, rgba(167,139,250,0.18), transparent 25%)',
+        background:
+          'radial-gradient(circle at 20% 20%, rgba(148,163,184,0.15), transparent 30%), radial-gradient(circle at 80% 0%, rgba(167,139,250,0.18), transparent 25%)',
         padding: 20,
         borderRadius: 20,
         border: '1px solid #1f2937'
@@ -221,7 +218,15 @@ export function BrainTelemetryPanel({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ color: '#e2e8f0', fontWeight: 700 }}>Feed console</div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontSize: 13 }}>
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                color: '#cbd5e1',
+                fontSize: 13
+              }}
+            >
               <input
                 type="checkbox"
                 checked={autonomous}
@@ -322,7 +327,8 @@ export function BrainTelemetryPanel({
           <div style={{ color: '#cbd5e1', fontSize: 13, marginBottom: 4 }}>Mode</div>
           <div style={{ color: '#e2e8f0', fontWeight: 700 }}>Brain telemetry monitor</div>
           <div style={{ color: '#94a3b8', fontSize: 13 }}>
-            Track cognitive vitals, inject targeted feeds, and observe autonomous IDLE balancing ticks.
+            Track cognitive vitals, inject targeted feeds, and observe autonomous IDLE balancing
+            ticks.
           </div>
         </div>
         <div

@@ -47,8 +47,10 @@ interface BrainContextValue {
   dispatchBrain: (event: BrainEvent) => void;
   setAutonomyEnabled: (enabled: boolean) => void;
   dismissSuggestion: (id: string) => void;
+  actOnSuggestion: (id: string) => void;
   resetBrain: () => void;
   setBrainLabel: (label: string) => void;
+  exportBrainHistory: () => string;
 
   // Utilities
   isAutonomous: boolean;
@@ -68,12 +70,29 @@ const SUGGESTION_DISPLAY_DURATION = 300000; // 5 minutes before auto-dismiss
 // Provider
 // ============================================================================
 
-export function BrainProvider({ children }: { children: React.ReactNode }) {
-  // Determine brain ID from current model (you might want to make this configurable)
-  const brainId = 'default'; // TODO: Link to active model ID
+interface BrainProviderProps {
+  children: React.ReactNode;
+  modelId?: string; // Optional model ID to link brain state
+}
+
+export function BrainProvider({ children, modelId }: BrainProviderProps) {
+  // Determine brain ID from current model or use default
+  const brainId = modelId || 'default';
 
   const [brain, setBrain] = useState<BrainStats>(() => loadBrain(brainId));
   const [suggestions, setSuggestions] = useState<BrainSuggestion[]>([]);
+
+  // ========================================================================
+  // Model ID Change Handler
+  // ========================================================================
+
+  useEffect(() => {
+    // Load brain state for new model ID
+    const newBrain = loadBrain(brainId);
+    setBrain(newBrain);
+    // Clear suggestions when switching models
+    setSuggestions([]);
+  }, [brainId]);
 
   // ========================================================================
   // Event Dispatching
@@ -192,12 +211,43 @@ export function BrainProvider({ children }: { children: React.ReactNode }) {
     setSuggestions((prev) => prev.map((s) => (s.id === id ? { ...s, dismissed: true } : s)));
   }, []);
 
+  const actOnSuggestion = useCallback(
+    (id: string) => {
+      const suggestion = suggestions.find((s) => s.id === id);
+      if (!suggestion) return;
+
+      // Log action to diary
+      dispatchBrain({
+        type: 'MOOD_OVERRIDE',
+        timestamp: Date.now(),
+        payload: { mood: brain.mood }
+      });
+
+      // Dismiss the suggestion after acting
+      dismissSuggestion(id);
+
+      // Note: Actual action (FEED/TRAIN) should be triggered by the UI component
+      // This just marks the suggestion as acted upon
+    },
+    [suggestions, brain.mood, dispatchBrain, dismissSuggestion]
+  );
+
   const resetBrain = useCallback(() => {
     const newBrain = createBrain(brainId, brain.label);
     setBrain(newBrain);
     saveBrain(newBrain);
     setSuggestions([]);
   }, [brainId, brain.label]);
+
+  const exportBrainHistory = useCallback(() => {
+    const exportData = {
+      brain,
+      suggestions,
+      exportedAt: new Date().toISOString(),
+      version: '1.0.0'
+    };
+    return JSON.stringify(exportData, null, 2);
+  }, [brain, suggestions]);
 
   const setBrainLabel = useCallback((label: string) => {
     setBrain((prev) => {
@@ -221,8 +271,10 @@ export function BrainProvider({ children }: { children: React.ReactNode }) {
     dispatchBrain,
     setAutonomyEnabled,
     dismissSuggestion,
+    actOnSuggestion,
     resetBrain,
     setBrainLabel,
+    exportBrainHistory,
     isAutonomous
   };
 

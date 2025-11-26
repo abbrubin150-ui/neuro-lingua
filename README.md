@@ -73,6 +73,7 @@
 - ✅ **Canvas Interaction** - Pan, zoom, and explore embedding spaces
 
 📚 **[See full mathematical documentation →](./MATHEMATICAL_ENHANCEMENTS.md)**
+🚀 **[v4.0 Mathematical & Architectural Upgrades (Hebrew) →](./NEURO_LINGUA_V4_UPGRADES.md)**
 📖 **[Transformer architecture guide →](./TRANSFORMER_GUIDE.md)**
 ⚡ **[GPU acceleration setup →](./GPU_ACCELERATION_GUIDE.md)**
 
@@ -313,6 +314,7 @@ Export models with complete audit trail including project metadata, decision led
 
 - **[CLAUDE.md](./CLAUDE.md)** - Comprehensive AI assistant development guide
 - **[MATHEMATICAL_ENHANCEMENTS.md](./MATHEMATICAL_ENHANCEMENTS.md)** - Detailed mathematical formulations
+- **[NEURO_LINGUA_V4_UPGRADES.md](./NEURO_LINGUA_V4_UPGRADES.md)** - v4.0 Mathematical & Architectural Upgrades (Hebrew)
 - **[TRANSFORMER_GUIDE.md](./TRANSFORMER_GUIDE.md)** - Transformer architecture deep dive
 - **[TRANSFORMER_IMPLEMENTATION.md](./TRANSFORMER_IMPLEMENTATION.md)** - Implementation details
 - **[GPU_ACCELERATION_GUIDE.md](./GPU_ACCELERATION_GUIDE.md)** - WebGPU setup and benchmarking

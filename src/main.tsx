@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import NeuroLinguaDomesticaV324 from './App';
 import { ProjectProvider } from './contexts/ProjectContext';
+import { BrainProvider } from './contexts/BrainContext';
 
 // Add loading timeout to prevent stuck loading screen
 const LOADING_TIMEOUT = 10000; // 10 seconds
@@ -64,9 +65,11 @@ try {
 
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
-      <ProjectProvider>
-        <NeuroLinguaDomesticaV324 />
-      </ProjectProvider>
+      <BrainProvider>
+        <ProjectProvider>
+          <NeuroLinguaDomesticaV324 />
+        </ProjectProvider>
+      </BrainProvider>
     </React.StrictMode>
   );
 

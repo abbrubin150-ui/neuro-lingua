@@ -63,6 +63,7 @@ import type { InformationMetrics } from './losses/information_bottleneck';
 import { getBetaSchedule } from './losses/information_bottleneck';
 
 import { useProjects } from './contexts/ProjectContext';
+import { useBrain } from './contexts/BrainContext';
 import { createTraceExport, generateTraceFilename } from './lib/traceExport';
 import { createDecisionLedger } from './types/project';
 import type { TrainingConfig, ScenarioResult } from './types/project';
@@ -335,6 +336,7 @@ function detectModelArchitecture(model: ProNeuralLM): Architecture {
 }
 
 export default function NeuroLinguaDomesticaV324() {
+  const { dispatchBrain } = useBrain();
   // Training corpus
   const [trainingText, setTrainingText] = useState(DEFAULT_TRAINING_TEXT);
 
@@ -1066,6 +1068,28 @@ export default function NeuroLinguaDomesticaV324() {
     const sigOld = modelRef.current?.getVocabSignature();
     const shouldReinit = !resume || !modelRef.current || sigNew !== sigOld;
 
+    dispatchBrain({
+      type: 'TRAIN_RUN',
+      payload: {
+        stage: 'start',
+        timestamp: Date.now(),
+        projectId: activeProjectId ?? null,
+        runId: currentRunRef.current ?? null,
+        corpusLength: trainingText.length,
+        vocabSize: vocab.length,
+        config: {
+          architecture,
+          hiddenSize,
+          epochs,
+          learningRate: lr,
+          optimizer,
+          contextSize,
+          useGPU,
+          useAdvanced
+        }
+      }
+    });
+
     if (shouldReinit) {
       if (architecture === 'transformer') {
         // Use TransformerLM
@@ -1225,6 +1249,23 @@ export default function NeuroLinguaDomesticaV324() {
       setTrainingHistory(modelRef.current!.getTrainingHistory());
       setProgress(((e + 1) / total) * 100);
 
+      dispatchBrain({
+        type: 'TRAIN_RUN',
+        payload: {
+          stage: 'progress',
+          timestamp: Date.now(),
+          projectId: activeProjectId ?? null,
+          runId: currentRunRef.current ?? null,
+          epoch: e + 1,
+          totalEpochs: total,
+          metrics: {
+            loss: res.loss,
+            accuracy: res.accuracy,
+            tokensPerSec
+          }
+        }
+      });
+
       // Collect Information Bottleneck metrics if enabled
       // Note: This is a simplified approximation. Full IB metrics require
       // model modifications to expose hidden activations during training.
@@ -1269,6 +1310,35 @@ export default function NeuroLinguaDomesticaV324() {
         perplexity: finalPerplexity,
         tokensPerSec: latestTokensPerSec,
         trainingDurationMs
+      });
+
+      dispatchBrain({
+        type: 'TRAIN_RUN',
+        payload: {
+          stage: 'complete',
+          timestamp: Date.now(),
+          projectId: activeProjectId ?? null,
+          runId: currentRunRef.current ?? null,
+          corpusLength: trainingText.length,
+          vocabSize: modelRef.current!.getVocabSize(),
+          config: {
+            architecture,
+            hiddenSize,
+            epochs,
+            learningRate: lr,
+            optimizer,
+            contextSize,
+            useGPU,
+            useAdvanced
+          },
+          metrics: {
+            loss: finalLoss,
+            accuracy: finalAccuracy,
+            perplexity: finalPerplexity,
+            tokensPerSec: latestTokensPerSec,
+            trainingDurationMs
+          }
+        }
       });
 
       // Collect and display GPU metrics if available
@@ -1375,6 +1445,16 @@ export default function NeuroLinguaDomesticaV324() {
     abortControllerRef.current?.abort();
     trainingRef.current.running = false;
     setIsTraining(false);
+
+    dispatchBrain({
+      type: 'TRAIN_RUN',
+      payload: {
+        stage: 'stop',
+        timestamp: Date.now(),
+        projectId: activeProjectId ?? null,
+        runId: currentRunRef.current ?? null
+      }
+    });
 
     // Update Run status if we have one
     if (currentRunRef.current) {
@@ -1554,6 +1634,26 @@ export default function NeuroLinguaDomesticaV324() {
       addSystemMessage(t.chat.trainFirst);
       return;
     }
+    const samplingSnapshot = {
+      temperature,
+      samplingMode,
+      topK,
+      topP,
+      useBeamSearch,
+      beamWidth,
+      useBayesian
+    } as const;
+    let calculatedConfidence: number | null = null;
+
+    dispatchBrain({
+      type: 'GEN_RUN',
+      payload: {
+        stage: 'start',
+        timestamp: Date.now(),
+        prompt: input,
+        sampling: samplingSnapshot
+      }
+    });
     setMessages((m) => [...m, { type: 'user', content: input, timestamp: Date.now() }]);
 
     let txt: string;
@@ -1594,7 +1694,7 @@ export default function NeuroLinguaDomesticaV324() {
       // Calculate diversity metric (confidence is inverse of diversity)
       const uniqueSamples = new Set(samples).size;
       const diversity = uniqueSamples / numSamples; // 0-1, where 0=all identical, 1=all different
-      const calculatedConfidence = 1 - diversity; // High confidence if samples agree
+      calculatedConfidence = 1 - diversity; // High confidence if samples agree
 
       setConfidence(calculatedConfidence);
 
@@ -1629,11 +1729,26 @@ export default function NeuroLinguaDomesticaV324() {
       }
 
       // Reset confidence when not using Bayesian
+      calculatedConfidence = null;
       setConfidence(null);
     }
 
     setMessages((m) => [...m, { type: 'assistant', content: txt, timestamp: Date.now() }]);
     setInput('');
+
+    dispatchBrain({
+      type: 'GEN_RUN',
+      payload: {
+        stage: 'complete',
+        timestamp: Date.now(),
+        prompt: input,
+        sampling: samplingSnapshot,
+        result: {
+          text: txt,
+          confidence: useBayesian ? calculatedConfidence : null
+        }
+      }
+    });
   }
 
   function onExample() {

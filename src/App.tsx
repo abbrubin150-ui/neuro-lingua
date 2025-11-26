@@ -56,13 +56,16 @@ import {
   InformationTheoryPanel,
   ExplainabilityPanel,
   EmbeddingVisualizationPanel,
-  CompressionPanel
+  CompressionPanel,
+  BrainPanel
 } from './components';
 
 import type { InformationMetrics } from './losses/information_bottleneck';
 import { getBetaSchedule } from './losses/information_bottleneck';
 
 import { useProjects } from './contexts/ProjectContext';
+import { useBrainTraining, useBrainGeneration } from './contexts/BrainContext';
+import { calculateDiversityScore } from './lib/BrainEngine';
 import { createTraceExport, generateTraceFilename } from './lib/traceExport';
 import { createDecisionLedger } from './types/project';
 import type { TrainingConfig, ScenarioResult } from './types/project';
@@ -458,6 +461,10 @@ export default function NeuroLinguaDomesticaV324() {
     updateRun,
     getRunExecutionStatus
   } = useProjects();
+
+  // Brain History Integration
+  const dispatchBrainTraining = useBrainTraining();
+  const dispatchBrainGeneration = useBrainGeneration();
 
   // Helper to add system messages
   const addSystemMessage = useCallback((content: string) => {
@@ -1314,6 +1321,11 @@ export default function NeuroLinguaDomesticaV324() {
       const activeModelArchitecture = detectModelArchitecture(modelRef.current!);
       modelRef.current!.saveToLocalStorage(getStorageKeyForArchitecture(activeModelArchitecture));
 
+      // Dispatch brain training event
+      const vocabSize = modelRef.current!.getVocabSize();
+      const vocabDelta = shouldReinit ? vocabSize : 0; // If reinitialized, all vocab is "new"
+      dispatchBrainTraining(total, totalTokens, finalLoss, vocabDelta);
+
       // Save results to Run if we have one
       if (currentRunRef.current) {
         const finalTrainingHistory = modelRef.current!.getTrainingHistory();
@@ -1631,6 +1643,11 @@ export default function NeuroLinguaDomesticaV324() {
       // Reset confidence when not using Bayesian
       setConfidence(null);
     }
+
+    // Dispatch brain generation event
+    const diversityScore = calculateDiversityScore(temperature, topK, topP);
+    const tokensGenerated = txt.split(/\s+/).length;
+    dispatchBrainGeneration(diversityScore, tokensGenerated);
 
     setMessages((m) => [...m, { type: 'assistant', content: txt, timestamp: Date.now() }]);
     setInput('');
@@ -2002,6 +2019,14 @@ export default function NeuroLinguaDomesticaV324() {
             }}
           >
             <EmbeddingVisualizationPanel model={modelRef.current} />
+          </div>
+
+          <div
+            style={{
+              marginTop: 20
+            }}
+          >
+            <BrainPanel />
           </div>
 
           <div

@@ -13,3 +13,4 @@ export { InformationTheoryPanel } from './InformationTheoryPanel';
 export { ExplainabilityPanel } from './ExplainabilityPanel';
 export { EmbeddingVisualizationPanel } from './EmbeddingVisualizationPanel';
 export { CompressionPanel } from './CompressionPanel';
+export { BrainPanel } from './BrainPanel';

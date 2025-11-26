@@ -126,6 +126,7 @@ interface TrainingPanelProps {
   onSave: () => void;
   onLoad: () => void;
   onExport: () => void;
+  onCompress: () => void;
   onImport: (ev: React.ChangeEvent<HTMLInputElement>) => void;
   onMessage: (message: string) => void;
 }
@@ -1528,6 +1529,22 @@ export function TrainingPanel(props: TrainingPanelProps) {
             }}
           >
             ⬇️ Export
+          </button>
+          <button
+            onClick={props.onCompress}
+            aria-label="Compress and export model"
+            title="Compress model using quantization, distillation, or low-rank approximation"
+            style={{
+              padding: '12px 16px',
+              background: 'linear-gradient(90deg, #3b82f6, #2563eb)',
+              border: 'none',
+              borderRadius: 10,
+              color: 'white',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            🗜️ Compress
           </button>
           <button
             onClick={() => importRef.current?.click()}

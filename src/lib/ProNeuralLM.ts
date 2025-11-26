@@ -748,6 +748,22 @@ export class ProNeuralLM {
     return [...this.vocab];
   }
 
+  /**
+   * Returns the hidden layer size.
+   * @returns Hidden layer dimension
+   */
+  getHiddenSize(): number {
+    return this.hiddenSize;
+  }
+
+  /**
+   * Returns the context window size.
+   * @returns Context size (number of tokens in input window)
+   */
+  getContextSize(): number {
+    return this.contextSize;
+  }
+
   toJSON() {
     this.rngState = this.rng.getState();
     return {

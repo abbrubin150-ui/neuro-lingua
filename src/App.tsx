@@ -55,7 +55,8 @@ import {
   ModelSnapshot,
   InformationTheoryPanel,
   ExplainabilityPanel,
-  EmbeddingVisualizationPanel
+  EmbeddingVisualizationPanel,
+  CompressionPanel
 } from './components';
 
 import type { InformationMetrics } from './losses/information_bottleneck';
@@ -440,6 +441,7 @@ export default function NeuroLinguaDomesticaV324() {
   const [modelMetaStore, setModelMetaStore] = useState<ModelMetaStore>({});
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showProjectManager, setShowProjectManager] = useState(false);
+  const [showCompressionPanel, setShowCompressionPanel] = useState(false);
 
   const modelRef = useRef<ProNeuralLM | null>(null);
   const trainingRef = useRef({ running: false, currentEpoch: 0 });
@@ -1459,6 +1461,14 @@ export default function NeuroLinguaDomesticaV324() {
     addSystemMessage(`✅ Exported: ${filename}`);
   }
 
+  function onCompress() {
+    if (!modelRef.current) {
+      addSystemMessage('❌ No model to compress');
+      return;
+    }
+    setShowCompressionPanel(true);
+  }
+
   function onImport(ev: React.ChangeEvent<HTMLInputElement>) {
     const file = ev.target.files?.[0];
     if (!file) return;
@@ -1634,6 +1644,14 @@ export default function NeuroLinguaDomesticaV324() {
     <ErrorBoundary>
       {showProjectManager && (
         <ProjectManager direction={direction} onClose={() => setShowProjectManager(false)} />
+      )}
+      {showCompressionPanel && (
+        <CompressionPanel
+          model={modelRef.current}
+          corpus={trainingText}
+          onClose={() => setShowCompressionPanel(false)}
+          onMessage={addSystemMessage}
+        />
       )}
       <div
         dir={direction}
@@ -1822,6 +1840,7 @@ export default function NeuroLinguaDomesticaV324() {
               onSave={onSave}
               onLoad={onLoad}
               onExport={onExport}
+              onCompress={onCompress}
               onImport={onImport}
               onMessage={addSystemMessage}
             />

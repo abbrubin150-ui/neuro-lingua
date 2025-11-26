@@ -65,11 +65,11 @@ try {
 
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
-      <ProjectProvider>
-        <BrainProvider>
+      <BrainProvider>
+        <ProjectProvider>
           <NeuroLinguaDomesticaV324 />
-        </BrainProvider>
-      </ProjectProvider>
+        </ProjectProvider>
+      </BrainProvider>
     </React.StrictMode>
   );
 

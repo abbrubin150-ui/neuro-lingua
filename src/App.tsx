@@ -745,11 +745,6 @@ export default function NeuroLinguaDomesticaV324() {
     if (localStorage.getItem(STORAGE_KEYS.ONBOARDING_DISMISSED) === 'true') {
       setShowOnboarding(false);
     }
-
-    const savedTrainingText = StorageManager.get<string | null>(STORAGE_KEYS.TRAINING_TEXT, null);
-    if (typeof savedTrainingText === 'string') {
-      setTrainingText(savedTrainingText);
-    }
   }, []);
 
   useEffect(() => {
@@ -958,10 +953,6 @@ export default function NeuroLinguaDomesticaV324() {
     ibAlpha,
     numBins
   ]);
-
-  useEffect(() => {
-    StorageManager.set(STORAGE_KEYS.TRAINING_TEXT, trainingText);
-  }, [trainingText]);
 
   // Persist tokenizer config separately
   useEffect(() => {

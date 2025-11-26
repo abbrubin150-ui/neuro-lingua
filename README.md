@@ -2,12 +2,14 @@
 
 **Browser‑native neural language model** built in React + TypeScript.
 
+> Runtime version: **v3.2.4** (UI + model) · Governance/export spec documented in **CHANGELOG_v3.3.md**. The bilingual UI, project/run management, and WebGPU acceleration in `App.tsx` match this runtime.
+
 🌐 **[Try the live demo →](https://abbrubin150-ui.github.io/neuro-lingua/)** — includes an English ↔ Hebrew toggle for the UI
 
 ## Core Features
 
 - **Multiple Architectures**: Standard ProNeuralLM, AdvancedNeuralLM, and fully-functional Transformer models with multi-head attention
-- **WebGPU Acceleration**: 2-5x faster training on compatible hardware with automatic CPU fallback
+- **WebGPU Acceleration**: 2-5x faster training on compatible hardware with automatic CPU fallback (tested on Chromium-based browsers with recent drivers)
 - SGD with **Momentum**, **Adam**, **Damped Newton**, or **L-BFGS** optimization
 - **Dropout** (train‑only)
 - **Advanced Text Generation**: Greedy, Sampling (Top-p/Top-k), Beam Search, and Contrastive decoding
@@ -280,7 +282,7 @@ Define test scenarios per project:
 
 ### Trace Export
 
-Export models with complete audit trail including project metadata, decision ledger, training trace, and full reproducibility information. See `CHANGELOG_v3.3.md` for the complete export format specification.
+Export models with complete audit trail including project metadata, decision ledger, training trace, and full reproducibility information. The current runtime (v3.2.4) emits the v3.3 governance/export fields described in `CHANGELOG_v3.3.md`.
 
 ---
 

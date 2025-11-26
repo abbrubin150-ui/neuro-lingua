@@ -745,7 +745,6 @@ export default function NeuroLinguaDomesticaV324() {
     if (localStorage.getItem(STORAGE_KEYS.ONBOARDING_DISMISSED) === 'true') {
       setShowOnboarding(false);
     }
-
   }, []);
 
   useEffect(() => {

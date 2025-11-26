@@ -289,7 +289,7 @@ export function BrainPanel({ onActionSuggestion }: BrainPanelProps = {}) {
               <div style={{ display: 'flex', gap: 6 }}>
                 {suggestion.action !== 'NONE' && (
                   <button
-                    onClick={() => handleSuggestionAction(suggestion.id, suggestion.action)}
+                    onClick={() => handleSuggestionAction(suggestion.id, suggestion.action as 'FEED' | 'TRAIN')}
                     style={{
                       padding: '6px 12px',
                       background: '#6366f1',

@@ -71,7 +71,13 @@ const BrainContext = createContext<BrainContextValue>({
   dispatchBrain: () => {}
 });
 
-export function BrainProvider({ children, onEvent }: { children: React.ReactNode; onEvent?: (event: BrainEvent) => void }) {
+export function BrainProvider({
+  children,
+  onEvent
+}: {
+  children: React.ReactNode;
+  onEvent?: (event: BrainEvent) => void;
+}) {
   const dispatchBrain = useCallback(
     (event: BrainEvent) => {
       console.debug('[BrainEvent]', event);

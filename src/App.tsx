@@ -222,79 +222,79 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
     }
   },
   he: {
-    toggle: { button: 'English / LTR', aria: 'החלף את שפת הממשק לאנגלית (כיוון LTR)' },
-    title: '🧠 ניורו-לינגואה DOMESTICA — גרסה {version}',
+    toggle: { button: 'English / LTR', aria: 'Switch interface language to English (LTR)' },
+    title: '🧠 Neuro‑Lingua DOMESTICA — v{version}',
     subtitle:
-      'מודל שפה מתקדם עם Momentum/Adam, דרופאאוט באימון בלבד, תרשימים בזמן אמת וחלונות הקשר גמישים.',
+      'Advanced neural language model with Momentum/Adam, training-only dropout, real-time charts, and flexible context windows.',
     training: {
-      heading: '🎓 אימון',
-      placeholder: 'הזינו טקסט אימון (200+ מילים בעברית או באנגלית)...',
-      textareaAria: 'קורפוס אימון',
-      characters: 'תווים',
-      words: 'מילים',
-      tip: '💡 טיפ: התחילו בקורפוס הדוגמה ואז הדביקו את הדאטהסט שלכם להשוואת תוצאות.',
-      example: '📚 דוגמה',
-      exampleAria: 'טען קורפוס דוגמה',
-      onboardingHintLabel: 'הצג טיפים',
-      onboardingHintClose: 'הסתר טיפים',
-      snapshotTitle: 'צילום מצב מודל שמור',
-      snapshotLastUpdated: 'עודכן לאחרונה',
-      snapshotVocab: 'גודל אוצר מילים',
-      snapshotEmpty: 'אין מודל שמור — אימנו כדי ליצור נקודת פתיחה.',
-      snapshotHint: 'השוו את הזמן וגודל האוצר לפני אימון מחדש.'
+      heading: '🎓 Training',
+      placeholder: 'Enter training text (ideally 200+ words in English or Hebrew)...',
+      textareaAria: 'Training corpus',
+      characters: 'Characters',
+      words: 'Words',
+      tip: '💡 Tip: Start with the example corpus, then paste your own dataset to compare results.',
+      example: '📚 Example',
+      exampleAria: 'Load example corpus',
+      onboardingHintLabel: 'Show tips',
+      onboardingHintClose: 'Hide tips',
+      snapshotTitle: 'Stored Model Snapshot',
+      snapshotLastUpdated: 'Last updated',
+      snapshotVocab: 'Vocab size',
+      snapshotEmpty: 'No stored model yet—train to capture a baseline.',
+      snapshotHint: 'Compare this timestamp and vocab size before retraining.'
     },
     infoCards: [
       {
-        title: '🎯 טיפים לאימון',
-        body: '• 200–500 מילים • 20–50 אפוקים • קצב: 0.05–0.1 • הקשר: 3–5 • אפשרו המשך ממצ׳קפ׳ קודם'
+        title: '🎯 Training Tips',
+        body: '• 200–500 words • 20–50 epochs • LR: 0.05–0.1 • Context: 3–5 • Enable Resume from the last checkpoint'
       },
       {
-        title: '🎲 יצירת טקסט',
-        body: '• טמפ׳: 0.7–1.0 לשפיעות • Top‑p ≈ 0.85–0.95 • מודל יוצר חיזויים מהדרכה'
+        title: '🎲 Text Generation',
+        body: '• Temperature: 0.7–1.0 for fluent output • Top‑p ≈ 0.85–0.95 • Model generates predictions based on training'
       },
       {
-        title: '💾 שמירה וייצוא',
-        body: '• שמירה לJSON • טעינה משוחזרת • CSV מהיסטוריה • כל הנתונים מקומיים'
+        title: '💾 Save & Export',
+        body: '• Save exports JSON model • Load restores from JSON • CSV export contains training history • All data stays local'
       },
       {
-        title: '⌨️ קיצורי דרך',
-        body: '• Ctrl/Cmd+Enter: התחלה/עצירה • Ctrl/Cmd+S: שמירה • Ctrl/Cmd+G: דגימה • עצרו להשהיה'
+        title: '⌨️ Shortcuts',
+        body: '• Ctrl/Cmd+Enter: Start/Stop • Ctrl/Cmd+S: Save • Ctrl/Cmd+G: Sample • Stop to pause and resume later'
       }
     ],
     chat: {
-      title: '💬 קונסולת שיחה',
-      replies: (count) => `${count} תגובות`,
-      regionAria: 'ממשק שיחה',
-      logAria: 'הודעות שיחה',
-      inputAria: 'הזנת שיחה',
-      generateAria: 'הפיקו טקסט מהמודל',
-      placeholderReady: 'כתבו הודעה למודל…',
-      placeholderEmpty: 'אימנו את המודל תחילה…',
-      generate: '✨ הפקה',
-      tip: '💡 Shift+Enter מוסיף שורה חדשה. התגובות תלויות במצב הדגימה ובטמפרטורה הנבחרת.',
-      userLabel: '👤 אתם',
-      assistantLabel: '🤖 המודל',
-      systemLabel: '⚙️ מערכת',
-      userRole: 'משתמש',
-      assistantRole: 'מודל',
-      systemRole: 'מערכת',
-      messageSuffix: 'הודעה',
-      trainFirst: '❌ נא לאמן את המודל תחילה.'
+      title: '💬 Chat Console',
+      replies: (count) => `${count} replies`,
+      regionAria: 'Chat interface',
+      logAria: 'Chat messages',
+      inputAria: 'Chat input',
+      generateAria: 'Generate text from the model',
+      placeholderReady: 'Write a message for the model…',
+      placeholderEmpty: 'Train the model first…',
+      generate: '✨ Generate',
+      tip: '💡 Shift+Enter adds a new line. Responses depend on the sampling mode and chosen temperature.',
+      userLabel: '👤 You',
+      assistantLabel: '🤖 Model',
+      systemLabel: '⚙️ System',
+      userRole: 'User',
+      assistantRole: 'Model',
+      systemRole: 'System',
+      messageSuffix: 'message',
+      trainFirst: '❌ Please train the model first.'
     },
     onboarding: {
-      welcomeTitle: '👋 ברוכים הבאים! כך Neuro-Lingua מסנכרנת את הסשן שלכם',
-      privacyWarningTitle: 'אזהרת פרטיות',
-      privacyWarningLead: 'אל תאמן עם נתונים רגישים.',
+      welcomeTitle: '👋 Welcome! Here is how Neuro-Lingua keeps your session in sync',
+      privacyWarningTitle: 'Privacy Warning',
+      privacyWarningLead: 'Do NOT train with sensitive data.',
       privacyWarningBody:
-        'ההגדרות נשמרות באחסון הדפדפן ללא הצפנה. הימנעו מ-PII, סיסמאות, מידע פיננסי, רפואי או חסוי.',
+        'Settings live in browser storage without encryption. Avoid PII, passwords, financial, medical, or confidential data.',
       bulletPauseResume:
-        'עצירה / המשך: השתמשו בכפתור העצירה כדי להקפיא את האימון. עם “המשך אימון” פעיל נמשיך מהצ׳קפוינט האחרון.',
+        'Pause / Resume: use the Stop button to pause training. With Resume training enabled we pick up from the latest checkpoint when you train again.',
       bulletImportExport:
-        'ייבוא / ייצוא: שמרו מודלים ופרופילי טוקנייזר ל-JSON לגיבוי או שיתוף. ייבוא מרענן מיידית תרשימים ומטא־דאטה.',
+        'Import / Export: save models and tokenizer presets to JSON for safekeeping or sharing. Importing immediately refreshes charts and metadata.',
       bulletPersistence:
-        'התמדה בסשן: היפר־פרמטרים ופרופילי טוקנייזר נשמרים ב-localStorage; טקסט האימון נשאר בזיכרון בלבד.',
-      gotIt: 'הבנתי',
-      reopenInfo: 'אפשר לפתוח שוב את הכרטיס על ידי ניקוי הדגל ב-localStorage.'
+        'Session Persistence: hyperparameters and tokenizer preferences live in localStorage; training text stays in memory only.',
+      gotIt: 'Got it',
+      reopenInfo: 'You can reopen this info from localStorage by clearing the flag.'
     }
   }
 } as const;

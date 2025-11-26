@@ -211,23 +211,26 @@ export function BrainProvider({ children, modelId }: BrainProviderProps) {
     setSuggestions((prev) => prev.map((s) => (s.id === id ? { ...s, dismissed: true } : s)));
   }, []);
 
-  const actOnSuggestion = useCallback((id: string) => {
-    const suggestion = suggestions.find((s) => s.id === id);
-    if (!suggestion) return;
+  const actOnSuggestion = useCallback(
+    (id: string) => {
+      const suggestion = suggestions.find((s) => s.id === id);
+      if (!suggestion) return;
 
-    // Log action to diary
-    dispatchBrain({
-      type: 'MOOD_OVERRIDE',
-      timestamp: Date.now(),
-      payload: { mood: brain.mood }
-    });
+      // Log action to diary
+      dispatchBrain({
+        type: 'MOOD_OVERRIDE',
+        timestamp: Date.now(),
+        payload: { mood: brain.mood }
+      });
 
-    // Dismiss the suggestion after acting
-    dismissSuggestion(id);
+      // Dismiss the suggestion after acting
+      dismissSuggestion(id);
 
-    // Note: Actual action (FEED/TRAIN) should be triggered by the UI component
-    // This just marks the suggestion as acted upon
-  }, [suggestions, brain.mood, dispatchBrain, dismissSuggestion]);
+      // Note: Actual action (FEED/TRAIN) should be triggered by the UI component
+      // This just marks the suggestion as acted upon
+    },
+    [suggestions, brain.mood, dispatchBrain, dismissSuggestion]
+  );
 
   const resetBrain = useCallback(() => {
     const newBrain = createBrain(brainId, brain.label);

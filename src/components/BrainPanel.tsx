@@ -86,12 +86,15 @@ export function BrainPanel({ onActionSuggestion }: BrainPanelProps = {}) {
     URL.revokeObjectURL(url);
   }, [exportBrainHistory, brain.id]);
 
-  const handleSuggestionAction = useCallback((suggestionId: string, action: 'FEED' | 'TRAIN') => {
-    actOnSuggestion(suggestionId);
-    if (onActionSuggestion) {
-      onActionSuggestion(action);
-    }
-  }, [actOnSuggestion, onActionSuggestion]);
+  const handleSuggestionAction = useCallback(
+    (suggestionId: string, action: 'FEED' | 'TRAIN') => {
+      actOnSuggestion(suggestionId);
+      if (onActionSuggestion) {
+        onActionSuggestion(action);
+      }
+    },
+    [actOnSuggestion, onActionSuggestion]
+  );
 
   // ========================================================================
   // Diary filtering
@@ -108,9 +111,10 @@ export function BrainPanel({ onActionSuggestion }: BrainPanelProps = {}) {
     // Filter by search text
     if (diaryFilter.trim()) {
       const searchLower = diaryFilter.toLowerCase();
-      entries = entries.filter((entry) =>
-        entry.message.toLowerCase().includes(searchLower) ||
-        entry.type.toLowerCase().includes(searchLower)
+      entries = entries.filter(
+        (entry) =>
+          entry.message.toLowerCase().includes(searchLower) ||
+          entry.type.toLowerCase().includes(searchLower)
       );
     }
 
@@ -289,7 +293,9 @@ export function BrainPanel({ onActionSuggestion }: BrainPanelProps = {}) {
               <div style={{ display: 'flex', gap: 6 }}>
                 {suggestion.action !== 'NONE' && (
                   <button
-                    onClick={() => handleSuggestionAction(suggestion.id, suggestion.action as 'FEED' | 'TRAIN')}
+                    onClick={() =>
+                      handleSuggestionAction(suggestion.id, suggestion.action as 'FEED' | 'TRAIN')
+                    }
                     style={{
                       padding: '6px 12px',
                       background: '#6366f1',

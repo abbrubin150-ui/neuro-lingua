@@ -1,6 +1,6 @@
 # CLAUDE.md - AI Assistant Guide for Neuro-Lingua
 
-> **Last Updated**: 2025-11-18
+> **Last Updated**: 2025-11-26
 > **Version**: 3.2.4
 > **Purpose**: Comprehensive guide for AI assistants working on the Neuro-Lingua codebase
 
@@ -47,9 +47,13 @@
 - **WebGPU Acceleration**: Automatic GPU detection with graceful CPU fallback
 - **4 Optimizers**: SGD with momentum, Adam, Damped Newton, L-BFGS
 - **5+ Generation Methods**: Greedy, Top-k, Top-p (nucleus), Beam Search, Contrastive Search
+- **Model Compression**: Int8 quantization (4x reduction), Knowledge Distillation, Low-Rank Approximation (SVD)
 - **Advanced Features**: Dropout, layer normalization, learning rate scheduling, weight decay
+- **Model Interpretability**: SHAP values, Integrated Gradients, Attention Rollout visualization
+- **Advanced Visualization**: t-SNE/UMAP embeddings, Information Theory analysis, Information Bottleneck
 - **Σ-SIG Compliance**: Experiment tracking with Decision Ledger governance
 - **Session Persistence**: localStorage-based state management
+- **Localization**: English ↔ Hebrew UI toggle with RTL support
 - **GitHub Actions**: Automated model retraining workflow
 
 ---
@@ -147,8 +151,19 @@
 │   │   ├── DecisionLedgerEditor.tsx  # Governance/decision tracking
 │   │   ├── TokenizerConfig.tsx       # Tokenizer settings
 │   │   ├── ChatInterface.tsx         # Chat-style generation UI
+│   │   ├── CompressionPanel.tsx      # Model compression interface
+│   │   ├── ExplainabilityPanel.tsx   # Model interpretability tools
+│   │   ├── InformationTheoryPanel.tsx # Information theory visualizations
+│   │   ├── EmbeddingVisualizationPanel.tsx # t-SNE/UMAP embedding plots
+│   │   ├── ModelSnapshot.tsx         # Model state snapshots
 │   │   ├── OnboardingCard.tsx        # First-time user guide
+│   │   ├── OnboardingTooltip.tsx     # Contextual help tooltips
 │   │   └── ErrorBoundary.tsx         # React error boundary
+│   ├── compression/                  # Model compression algorithms
+│   │   ├── compress.ts               # Unified compression interface
+│   │   ├── quantization.ts           # Int8 quantization
+│   │   ├── distillation.ts           # Knowledge distillation
+│   │   └── lowrank.ts                # SVD-based low-rank approximation
 │   ├── config/                       # Application configuration
 │   │   └── constants.ts              # Default hyperparameters and constraints
 │   ├── contexts/                     # React Context providers
@@ -383,7 +398,119 @@ model.setGPUOps(gpuOps);
 - Beam search toggle
 - Copy/export chat history
 
-### 4. Context Providers (`src/contexts/`)
+#### **CompressionPanel.tsx** - Model Compression
+
+**Location**: `/home/user/neuro-lingua/src/components/CompressionPanel.tsx`
+
+**Purpose**: UI for model compression with multiple compression methods
+
+**Features**:
+
+- **Int8 Quantization**: 4x size reduction via symmetric quantization
+- **Knowledge Distillation**: Train smaller student model from teacher
+- **Low-Rank Approximation**: SVD-based matrix factorization
+- Compression ratio and error metrics
+- Export compressed models
+- Visual feedback during compression
+
+**When to Use**:
+
+- Deploy models to resource-constrained environments
+- Reduce model file size for distribution
+- Trade model size for slight accuracy loss
+
+#### **ExplainabilityPanel.tsx** - Model Interpretability
+
+**Location**: `/home/user/neuro-lingua/src/components/ExplainabilityPanel.tsx`
+
+**Purpose**: Visualize and understand model decisions
+
+**Features**:
+
+- SHAP value estimation for feature importance
+- Integrated Gradients for input attribution
+- Attention Rollout for Transformer models
+- Interactive token highlighting
+
+#### **InformationTheoryPanel.tsx** - Information Analysis
+
+**Location**: `/home/user/neuro-lingua/src/components/InformationTheoryPanel.tsx`
+
+**Purpose**: Information-theoretic analysis of model representations
+
+**Features**:
+
+- I(X;Z) vs I(Z;Y) information plane visualization
+- Information Bottleneck analysis
+- Compression-prediction trade-off curves
+- Layer-wise information flow tracking
+
+#### **EmbeddingVisualizationPanel.tsx** - Embedding Explorer
+
+**Location**: `/home/user/neuro-lingua/src/components/EmbeddingVisualizationPanel.tsx`
+
+**Purpose**: Interactive visualization of learned embeddings
+
+**Features**:
+
+- t-SNE and UMAP dimensionality reduction
+- Interactive canvas with pan/zoom
+- Token clustering visualization
+- Export visualizations as images
+
+### 4. Model Compression (`src/compression/`)
+
+#### **compress.ts** - Unified Compression Interface
+
+**Location**: `/home/user/neuro-lingua/src/compression/compress.ts`
+
+**Purpose**: High-level API for model compression
+
+**Key Functions**:
+
+```typescript
+compressWithQuantization(model: ProNeuralLM): CompressionResult
+compressWithLowRank(model: ProNeuralLM, config: LowRankConfig): CompressionResult
+compressWithDistillation(teacher: ProNeuralLM, config: DistillationConfig): CompressionResult
+exportCompressedModel(result: CompressionResult, format: 'json' | 'binary'): Blob
+```
+
+**Compression Methods**:
+
+1. **Quantization** (`quantization.ts`):
+   - Symmetric int8 quantization
+   - Per-tensor scaling factors
+   - 4x memory reduction
+   - Minimal accuracy loss (<2% perplexity increase)
+
+2. **Knowledge Distillation** (`distillation.ts`):
+   - Train smaller student from larger teacher
+   - Temperature-scaled soft targets
+   - Configurable student architecture
+   - Typical compression: 2-4x
+
+3. **Low-Rank Approximation** (`lowrank.ts`):
+   - SVD-based matrix factorization
+   - Automatic rank selection via target ratio
+   - Trade-off between compression and accuracy
+   - Works best on large weight matrices
+
+**Usage Example**:
+
+```typescript
+import { compressWithQuantization } from '../compression/compress';
+
+// Compress model
+const result = compressWithQuantization(model);
+console.log(`Compression: ${result.compressionRatio.toFixed(2)}x`);
+console.log(`Error: ${result.approximationError?.toFixed(4)}`);
+
+// Export compressed model
+const blob = exportCompressedModel(result, 'json');
+downloadBlob(blob, 'model-compressed.json');
+```
+
+### 5. Context Providers (`src/contexts/`)
 
 #### **ProjectContext.tsx** - State Management
 
@@ -410,7 +537,7 @@ function MyComponent() {
 }
 ```
 
-### 5. Configuration (`src/config/`)
+### 6. Configuration (`src/config/`)
 
 #### **constants.ts** - Application Defaults
 
@@ -430,6 +557,50 @@ function MyComponent() {
 - Changing default hyperparameters
 - Adding new configuration options
 - Adjusting validation constraints
+
+### 7. Internationalization & Localization
+
+**Location**: Translations defined in `src/App.tsx`
+
+**Supported Languages**:
+
+- English (LTR) - Default
+- Hebrew (RTL) - Full UI translation
+
+**Implementation**:
+
+The application uses a simple translation map defined directly in `App.tsx`:
+
+```typescript
+const TRANSLATIONS = {
+  en: {
+    train: 'Train',
+    generate: 'Generate',
+    // ... more translations
+  },
+  he: {
+    train: 'אמן',
+    generate: 'ייצר',
+    // ... more translations
+  }
+};
+```
+
+**Features**:
+
+- Language toggle in navbar
+- RTL layout support for Hebrew
+- Localized training panel, onboarding, chat interface
+- Advanced options and logs remain in English
+
+**Adding New Languages**:
+
+1. Add language code to `TRANSLATIONS` map in `src/App.tsx`
+2. Provide translations for all UI strings
+3. Add language option to toggle UI
+4. Test RTL layout if needed (for Arabic, Hebrew, etc.)
+
+**Note**: The tokenizer and model are language-agnostic - they work with any Unicode text. Localization only affects the UI strings.
 
 ---
 
@@ -560,11 +731,24 @@ tests/
 ├── tokenizer.test.ts            # Tokenization
 ├── sampler.test.ts              # Generation algorithms
 ├── App.test.tsx                 # React component
+├── compression/                 # Compression tests
+│   ├── quantization.test.ts     # Quantization correctness
+│   └── lowrank.test.ts          # Low-rank approximation
 ├── numerics/                    # Numerical correctness
 │   ├── sampling.test.ts
 │   └── bayesian.test.ts
-└── math/                        # Mathematical analysis
-    └── analysis.test.ts
+├── math/                        # Mathematical analysis
+│   └── analysis.test.ts
+├── components/                  # Component tests
+│   ├── ModelMetrics.test.tsx
+│   ├── OnboardingCard.test.tsx
+│   └── TokenizerConfig.test.tsx
+├── contexts/                    # Context provider tests
+│   └── ProjectContext.test.tsx
+├── lib/                         # Library tests
+│   └── storage.test.ts
+└── backend/                     # Backend tests
+    └── webgpu.test.ts
 ```
 
 ### Writing Tests
@@ -1395,6 +1579,122 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
    - Too small: Insufficient capacity
    - Too large: Overfitting on small corpus
 
+### Task 6: Compress a Model
+
+**Goal**: Reduce model size for deployment using compression techniques
+
+**Steps**:
+
+1. **Choose compression method** based on requirements:
+
+   - **Quantization**: Fast, 4x reduction, minimal accuracy loss
+   - **Distillation**: Flexible ratio, requires training corpus
+   - **Low-Rank**: Adjustable compression, best for large models
+
+2. **Quantize model** (simplest method):
+
+   ```typescript
+   import { compressWithQuantization, exportCompressedModel } from '../compression/compress';
+
+   // Compress trained model
+   const result = compressWithQuantization(trainedModel);
+
+   console.log(`Original: ${(result.originalSize / 1024).toFixed(2)} KB`);
+   console.log(`Compressed: ${(result.compressedSize / 1024).toFixed(2)} KB`);
+   console.log(`Ratio: ${result.compressionRatio.toFixed(2)}x`);
+
+   // Export compressed model
+   const blob = exportCompressedModel(result, 'json');
+   downloadBlob(blob, 'model-quantized.json');
+   ```
+
+3. **Use knowledge distillation** for smaller student model:
+
+   ```typescript
+   import { compressWithDistillation } from '../compression/compress';
+
+   const distillConfig = {
+     corpus: trainingCorpus,
+     studentHiddenSize: 32,  // Teacher is 64
+     temperature: 3.0,
+     epochs: 20,
+     learningRate: 0.05
+   };
+
+   const result = await compressWithDistillation(teacherModel, distillConfig);
+   const studentModel = result.compressedModel;
+
+   // Test student performance
+   const studentOutput = studentModel.generate('test prompt', 20, 0.8);
+   console.log('Student generation:', studentOutput);
+   ```
+
+4. **Apply low-rank approximation**:
+
+   ```typescript
+   import { compressWithLowRank } from '../compression/compress';
+
+   const lowRankConfig = {
+     targetCompressionRatio: 2.0,  // 2x compression
+     rank: 16  // Or let it auto-select based on ratio
+   };
+
+   const result = compressWithLowRank(trainedModel, lowRankConfig);
+   console.log(`Approximation error: ${result.approximationError?.toFixed(4)}`);
+   ```
+
+5. **Compare compression methods**:
+
+   ```typescript
+   // Compress with all methods
+   const quantResult = compressWithQuantization(model);
+   const distillResult = await compressWithDistillation(model, distillConfig);
+   const lowrankResult = compressWithLowRank(model, lowRankConfig);
+
+   // Compare results
+   console.table([
+     {
+       method: 'Quantization',
+       ratio: quantResult.compressionRatio,
+       error: quantResult.approximationError
+     },
+     {
+       method: 'Distillation',
+       ratio: distillResult.compressionRatio,
+       error: distillResult.approximationError
+     },
+     {
+       method: 'Low-Rank',
+       ratio: lowrankResult.compressionRatio,
+       error: lowrankResult.approximationError
+     }
+   ]);
+   ```
+
+6. **Test compressed model quality**:
+
+   ```typescript
+   // Generate with original and compressed
+   const originalOutput = originalModel.generate(testPrompt, 50, 0.8);
+   const compressedOutput = compressedModel.generate(testPrompt, 50, 0.8);
+
+   // Compare perplexity on validation set
+   const originalPPL = originalModel.calculatePerplexity(validationCorpus);
+   const compressedPPL = compressedModel.calculatePerplexity(validationCorpus);
+
+   console.log(`Original perplexity: ${originalPPL.toFixed(2)}`);
+   console.log(`Compressed perplexity: ${compressedPPL.toFixed(2)}`);
+   console.log(`Degradation: ${((compressedPPL - originalPPL) / originalPPL * 100).toFixed(2)}%`);
+   ```
+
+**Compression Guidelines**:
+
+- **Quantization**: Use when you need fast compression with minimal quality loss
+- **Distillation**: Use when you can afford retraining and want a smaller architecture
+- **Low-Rank**: Use when model has large weight matrices and you want fine-grained control
+- Always validate compressed model on test scenarios before deployment
+- Export compression metadata for reproducibility
+
 ---
 
 ## Important Files Reference
@@ -1423,13 +1723,26 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
 
 ### UI Component Files
 
-| File                                | Lines | Purpose            | Modify For          |
-| ----------------------------------- | ----- | ------------------ | ------------------- |
-| `src/App.tsx`                       | ~500  | Main application   | App structure       |
-| `src/components/TrainingPanel.tsx`  | ~1400 | Training UI        | Training controls   |
-| `src/components/ModelMetrics.tsx`   | ~450  | Metrics display    | Visualization       |
-| `src/components/ProjectManager.tsx` | ~550  | Project management | Experiment tracking |
-| `src/components/ChatInterface.tsx`  | ~200  | Generation UI      | Chat features       |
+| File                                          | Lines | Purpose                     | Modify For               |
+| --------------------------------------------- | ----- | --------------------------- | ------------------------ |
+| `src/App.tsx`                                 | ~500  | Main application            | App structure            |
+| `src/components/TrainingPanel.tsx`            | ~1500 | Training UI                 | Training controls        |
+| `src/components/CompressionPanel.tsx`         | ~500  | Model compression           | Compression features     |
+| `src/components/ModelMetrics.tsx`             | ~450  | Metrics display             | Visualization            |
+| `src/components/ExplainabilityPanel.tsx`      | ~400  | Model interpretability      | SHAP, IG, attention      |
+| `src/components/InformationTheoryPanel.tsx`   | ~350  | Information theory analysis | Information bottleneck   |
+| `src/components/EmbeddingVisualizationPanel.tsx` | ~550  | Embedding visualization     | t-SNE/UMAP plots         |
+| `src/components/ProjectManager.tsx`           | ~550  | Project management          | Experiment tracking      |
+| `src/components/ChatInterface.tsx`            | ~200  | Generation UI               | Chat features            |
+
+### Compression System Files
+
+| File                          | Lines | Purpose                  | Modify For          |
+| ----------------------------- | ----- | ------------------------ | ------------------- |
+| `src/compression/compress.ts` | ~320  | Unified compression API  | New compression methods |
+| `src/compression/quantization.ts` | ~180  | Int8 quantization    | Quantization schemes |
+| `src/compression/distillation.ts` | ~270  | Knowledge distillation | Distillation training |
+| `src/compression/lowrank.ts`  | ~330  | SVD low-rank approximation | Rank selection    |
 
 ### Workflow Files
 
@@ -1994,6 +2307,38 @@ setConfig({ hiddenSize: 128 }); // Wrong: loses other fields
 setConfig((prev) => ({ ...prev, hiddenSize: 128 })); // Correct
 ```
 
+#### 9. Training Text Persistence
+
+**Policy Change**: As of recent updates, training text is **no longer persisted** to localStorage
+
+**Reason**:
+
+- Large corpora exceed localStorage quota (5-10MB)
+- Privacy concerns with storing user-provided text
+- Better UX to let users manage their own training data
+
+**Implications**:
+
+- Training corpus must be re-entered or loaded from file each session
+- Model weights and configurations are still saved
+- Use "Load Corpus" button to import text files
+- Consider providing example corpora in `/data` directory
+
+**Migration**:
+
+```typescript
+// Old behavior (removed):
+localStorage.setItem('training-corpus', corpus);
+
+// New behavior:
+// Only save model metadata, not corpus
+saveToStorage(STORAGE_KEYS.MODEL_META, {
+  architecture: 'ProNeuralLM',
+  hiddenSize: 64,
+  // No corpus field
+});
+```
+
 ### Security Considerations
 
 #### Do NOT Use With Sensitive Data
@@ -2295,6 +2640,141 @@ Before submitting changes:
 
 ---
 
+## Recent Changes & Updates
+
+### v3.2.4 Updates (November 2025)
+
+**Major Features Added**:
+
+1. **Model Compression System** (PR #77-79)
+   - Int8 quantization with symmetric scaling
+   - Knowledge distillation framework
+   - SVD-based low-rank approximation
+   - CompressionPanel UI component
+   - Comprehensive test suite for compression
+   - 4x size reduction with <2% quality loss
+
+2. **Training Text Persistence Policy Change** (PR #76)
+   - Removed localStorage persistence of training corpus
+   - Prevents quota exceeded errors
+   - Improves privacy (no automatic storage of user text)
+   - Users must reload corpus each session or use file import
+
+3. **Documentation Alignment** (PR #79)
+   - Updated README with all runtime features
+   - Aligned documentation with actual codebase state
+   - Added compression documentation
+   - Updated feature lists and examples
+
+**Recent Bug Fixes**:
+
+- Fixed accessibility issues in compression feature (PR #78)
+- Resolved async handling in compression operations
+- Improved onboarding effect formatting in App.tsx
+
+**Components Recently Added**:
+
+- `CompressionPanel.tsx` - Full-featured compression UI
+- Compression utilities in `src/compression/` directory
+- Tests for quantization and low-rank compression
+
+**Breaking Changes**:
+
+- Training corpus no longer auto-saved to localStorage
+- Existing code relying on persisted corpus needs updating
+
+**Migration Guide**:
+
+If your code expects training corpus in localStorage:
+
+```typescript
+// Old code (no longer works):
+const corpus = localStorage.getItem('neuro-lingua-corpus');
+
+// New approach:
+// 1. Provide file upload UI
+// 2. Use example corpora from /data directory
+// 3. Let users paste/enter text each session
+```
+
+### Upcoming Features
+
+See `DEVELOPMENT_ROADMAP.md` for planned enhancements:
+
+- Batch training support
+- Additional compression methods (pruning, mixed precision)
+- Enhanced visualization capabilities
+- Performance profiling tools
+
+### Version History
+
+- **v3.2.4** (2025-11) - Model compression, training text policy change
+- **v3.2.3** (2025-10) - Information theory panel, embedding visualization
+- **v3.2.2** (2025-09) - Explainability features (SHAP, IG, attention rollout)
+- **v3.2.1** (2025-08) - Transformer architecture improvements
+- **v3.2.0** (2025-07) - WebGPU acceleration, GPU metrics dashboard
+- **v3.1.x** (2025-06) - Σ-SIG compliance, decision ledger
+- **v3.0.x** (2025-05) - Multiple architectures, advanced generation methods
+
+---
+
+## Quick Reference
+
+### Most Important Files for AI Assistants
+
+**Core Models**:
+- `src/lib/ProNeuralLM.ts` - Start here for model architecture
+- `src/lib/AdvancedNeuralLM.ts` - Advanced features implementation
+- `src/lib/TransformerLM.ts` - Transformer with multi-head attention
+
+**Main UI**:
+- `src/App.tsx` - Application entry point, routing, translations
+- `src/components/TrainingPanel.tsx` - Primary training interface
+- `src/components/CompressionPanel.tsx` - Model compression UI
+
+**Configuration**:
+- `src/config/constants.ts` - All defaults and constraints
+- `package.json` - Dependencies and scripts
+- `vite.config.ts` - Build configuration
+
+**Testing**:
+- `tests/ProNeuralLM.test.ts` - Model correctness tests
+- `tests/compression/` - Compression algorithm tests
+
+**Documentation**:
+- `README.md` - User-facing documentation
+- `CLAUDE.md` - This file (AI assistant guide)
+- `MATHEMATICAL_ENHANCEMENTS.md` - Math deep dive
+- `TRANSFORMER_GUIDE.md` - Transformer architecture details
+
+### Common Commands Reference
+
+```bash
+# Development
+pnpm dev              # Start dev server
+pnpm build            # Production build
+pnpm preview          # Preview build
+
+# Quality Checks
+pnpm lint             # Run ESLint
+pnpm format           # Format with Prettier
+pnpm test             # Run all tests
+pnpm test:watch       # Tests in watch mode
+tsc --noEmit          # Type checking
+
+# Training & Benchmarks
+pnpm train            # Train model (Node.js)
+pnpm benchmark:gpu    # GPU performance tests
+
+# All checks (pre-commit)
+pnpm lint && pnpm format:check && pnpm test && tsc --noEmit && pnpm build
+```
+
+---
+
 **End of CLAUDE.md**
 
 _This document is maintained for AI assistants working on Neuro-Lingua DOMESTICA. Keep it updated as the codebase evolves._
+
+**Last updated**: 2025-11-26
+**Next review**: When major features are added or architecture changes

@@ -45,7 +45,7 @@ const AppWithProvider = () => (
 
 describe('Neuro-Lingua App UI', () => {
   beforeAll(() => {
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => ({
+    const canvas2DContext = {
       fillRect: vi.fn(),
       clearRect: vi.fn(),
       getImageData: vi.fn(),
@@ -70,7 +70,25 @@ describe('Neuro-Lingua App UI', () => {
       rect: vi.fn(),
       clip: vi.fn(),
       getExtension: vi.fn()
-    }) as unknown as CanvasRenderingContext2D);
+    } as unknown as CanvasRenderingContext2D;
+
+    const webgpuContext = {
+      __brand: 'GPUCanvasContext',
+      canvas: document.createElement('canvas'),
+      configure: vi.fn(),
+      unconfigure: vi.fn(),
+      getConfiguration: vi.fn(),
+      getCurrentTexture: vi.fn(() => ({
+        createView: vi.fn()
+      }))
+    } as unknown as GPUCanvasContext;
+
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((contextId: string) => {
+      if (contextId === 'webgpu') {
+        return webgpuContext as unknown as RenderingContext;
+      }
+      return canvas2DContext as unknown as RenderingContext;
+    });
   });
 
   beforeEach(() => {

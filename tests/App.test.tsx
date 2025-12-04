@@ -83,12 +83,14 @@ describe('Neuro-Lingua App UI', () => {
       }))
     } as unknown as GPUCanvasContext;
 
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((contextId: string) => {
-      if (contextId === 'webgpu') {
-        return webgpuContext as unknown as RenderingContext;
-      }
-      return canvas2DContext as unknown as RenderingContext;
-    });
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
+      ((contextId: string) => {
+        if (contextId === 'webgpu') {
+          return webgpuContext;
+        }
+        return canvas2DContext;
+      }) as unknown as typeof HTMLCanvasElement.prototype.getContext
+    );
   });
 
   beforeEach(() => {

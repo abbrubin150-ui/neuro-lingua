@@ -3,7 +3,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import React from 'react';
 import { ProjectProvider, useProjects } from '../../src/contexts/ProjectContext';
 import type { TrainingConfig } from '../../src/types/project';
-import { createDecisionLedger, computeExecutionStatus } from '../../src/types/project';
+import {
+  createDecisionLedger,
+  computeExecutionStatus,
+  createScenario,
+  createRun,
+  createProject
+} from '../../src/types/project';
 
 // Wrapper for hooks
 const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -577,6 +583,40 @@ describe('ProjectContext', () => {
       expect(result.current.getRunExecutionStatus(runId1)).toBe('EXECUTE');
       expect(result.current.getRunExecutionStatus(runId2)).toBe('ESCALATE');
       expect(result.current.getRunExecutionStatus(runId3)).toBe('HOLD');
+    });
+
+    it('restores scenario prompts and results from persisted run history', async () => {
+      const scenario = createScenario('Greeting safety', 'Hello?', 'Hi there');
+      const project = createProject('Persisted Governance', 'Loaded from disk');
+      project.scenarios = [scenario];
+
+      const ledger = createDecisionLedger('Valid rationale', 'safety-lead');
+      const run = createRun(project.id, 'Scenario Run', createTestConfig(), 'persisted corpus', ledger);
+      run.results = {
+        finalLoss: 0.25,
+        finalAccuracy: 0.91,
+        finalPerplexity: 1.2,
+        trainingHistory: [{ loss: 0.3, accuracy: 0.9, timestamp: Date.now() }],
+        scenarioResults: [
+          { scenarioId: scenario.id, response: 'Model greeting', score: 0.82, timestamp: Date.now() }
+        ]
+      };
+
+      project.runIds.push(run.id);
+
+      localStorage.setItem('neuro-lingua-projects-v1', JSON.stringify([project]));
+      localStorage.setItem('neuro-lingua-runs-v1', JSON.stringify([run]));
+      localStorage.setItem('neuro-lingua-active-project-v1', JSON.stringify(project.id));
+      localStorage.setItem('neuro-lingua-active-run-v1', JSON.stringify(run.id));
+
+      const { result } = renderHook(() => useProjects(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.activeProject?.scenarios[0].prompt).toBe('Hello?');
+        const loadedRun = result.current.getRunById(run.id);
+        expect(loadedRun?.results?.scenarioResults?.[0].response).toBe('Model greeting');
+        expect(loadedRun?.results?.scenarioResults?.[0].score).toBeCloseTo(0.82);
+      });
     });
 
     it('handles missing witness in decision ledger', () => {

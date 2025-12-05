@@ -292,3 +292,53 @@ export function createRun(
     status: 'pending'
   };
 }
+
+/**
+ * Create a new experiment comparison
+ */
+export function createExperimentComparison(
+  projectId: string,
+  name: string,
+  description: string,
+  runIds: string[]
+): import('../types/experiment').ExperimentComparison {
+  if (runIds.length < 2 || runIds.length > 3) {
+    throw new Error('Comparison requires 2-3 runs');
+  }
+
+  return {
+    id: `comp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    projectId,
+    name,
+    description,
+    runIds,
+    createdAt: Date.now()
+  };
+}
+
+/**
+ * Create a new decision entry (Decision Ledger 2.0)
+ */
+export function createDecisionEntry(
+  projectId: string,
+  problem: string,
+  alternatives: string[],
+  decision: string,
+  kpi: string,
+  affectedRunIds: string[],
+  witness: string = 'local-user',
+  category?: string
+): import('../types/experiment').DecisionEntry {
+  return {
+    id: `decision_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    projectId,
+    problem,
+    alternatives,
+    decision,
+    kpi,
+    affectedRunIds,
+    witness,
+    createdAt: Date.now(),
+    category
+  };
+}

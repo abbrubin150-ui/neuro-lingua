@@ -12,11 +12,14 @@ import type {
   TrainingConfig,
   ExecutionStatus
 } from '../types/project';
+import type { ExperimentComparison, DecisionEntry } from '../types/experiment';
 import {
   createProject,
   createRun,
   createScenario,
   createDecisionLedger,
+  createExperimentComparison,
+  createDecisionEntry,
   computeExecutionStatus
 } from '../types/project';
 import { StorageManager } from '../lib/storage';
@@ -24,6 +27,8 @@ import { StorageManager } from '../lib/storage';
 const STORAGE_KEYS = {
   PROJECTS: 'neuro-lingua-projects-v1',
   RUNS: 'neuro-lingua-runs-v1',
+  COMPARISONS: 'neuro-lingua-comparisons-v1',
+  DECISIONS: 'neuro-lingua-decisions-v1',
   ACTIVE_PROJECT: 'neuro-lingua-active-project-v1',
   ACTIVE_RUN: 'neuro-lingua-active-run-v1'
 } as const;
@@ -32,6 +37,8 @@ interface ProjectContextValue {
   // State
   projects: Project[];
   runs: Run[];
+  comparisons: ExperimentComparison[];
+  decisions: DecisionEntry[];
   activeProjectId: string | null;
   activeRunId: string | null;
 
@@ -39,6 +46,8 @@ interface ProjectContextValue {
   activeProject: Project | null;
   activeRun: Run | null;
   projectRuns: Run[];
+  projectComparisons: ExperimentComparison[];
+  projectDecisions: DecisionEntry[];
 
   // Project operations
   createNewProject: (
@@ -68,6 +77,34 @@ interface ProjectContextValue {
   updateScenario: (projectId: string, scenarioId: string, updates: Partial<Scenario>) => void;
   deleteScenario: (projectId: string, scenarioId: string) => void;
 
+  // Comparison operations
+  createNewComparison: (
+    projectId: string,
+    name: string,
+    description: string,
+    runIds: string[]
+  ) => ExperimentComparison;
+  updateComparison: (id: string, updates: Partial<ExperimentComparison>) => void;
+  deleteComparison: (id: string) => void;
+  getComparisonById: (id: string) => ExperimentComparison | undefined;
+  getComparisonsByProject: (projectId: string) => ExperimentComparison[];
+
+  // Decision operations
+  createNewDecision: (
+    projectId: string,
+    problem: string,
+    alternatives: string[],
+    decision: string,
+    kpi: string,
+    affectedRunIds: string[],
+    witness?: string,
+    category?: string
+  ) => DecisionEntry;
+  updateDecision: (id: string, updates: Partial<DecisionEntry>) => void;
+  deleteDecision: (id: string) => void;
+  getDecisionById: (id: string) => DecisionEntry | undefined;
+  getDecisionsByProject: (projectId: string) => DecisionEntry[];
+
   // Utility
   getProjectById: (id: string) => Project | undefined;
   getRunById: (id: string) => Run | undefined;
@@ -79,6 +116,8 @@ const ProjectContext = createContext<ProjectContextValue | null>(null);
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
+  const [comparisons, setComparisons] = useState<ExperimentComparison[]>([]);
+  const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
 
@@ -86,11 +125,18 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const savedProjects = StorageManager.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
     const savedRuns = StorageManager.get<Run[]>(STORAGE_KEYS.RUNS, []);
+    const savedComparisons = StorageManager.get<ExperimentComparison[]>(
+      STORAGE_KEYS.COMPARISONS,
+      []
+    );
+    const savedDecisions = StorageManager.get<DecisionEntry[]>(STORAGE_KEYS.DECISIONS, []);
     const savedActiveProject = StorageManager.get<string | null>(STORAGE_KEYS.ACTIVE_PROJECT, null);
     const savedActiveRun = StorageManager.get<string | null>(STORAGE_KEYS.ACTIVE_RUN, null);
 
     setProjects(savedProjects);
     setRuns(savedRuns);
+    setComparisons(savedComparisons);
+    setDecisions(savedDecisions);
     setActiveProjectId(savedActiveProject);
     setActiveRunId(savedActiveRun);
   }, []);
@@ -105,6 +151,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }, [runs]);
 
   useEffect(() => {
+    StorageManager.set(STORAGE_KEYS.COMPARISONS, comparisons);
+  }, [comparisons]);
+
+  useEffect(() => {
+    StorageManager.set(STORAGE_KEYS.DECISIONS, decisions);
+  }, [decisions]);
+
+  useEffect(() => {
     StorageManager.set(STORAGE_KEYS.ACTIVE_PROJECT, activeProjectId);
   }, [activeProjectId]);
 
@@ -116,6 +170,12 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
   const activeRun = runs.find((r) => r.id === activeRunId) ?? null;
   const projectRuns = activeProjectId ? runs.filter((r) => r.projectId === activeProjectId) : [];
+  const projectComparisons = activeProjectId
+    ? comparisons.filter((c) => c.projectId === activeProjectId)
+    : [];
+  const projectDecisions = activeProjectId
+    ? decisions.filter((d) => d.projectId === activeProjectId)
+    : [];
 
   // Project operations
   const createNewProject = useCallback(
@@ -262,6 +322,80 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  // Comparison operations
+  const createNewComparison = useCallback(
+    (projectId: string, name: string, description: string, runIds: string[]) => {
+      const newComparison = createExperimentComparison(projectId, name, description, runIds);
+      setComparisons((prev) => [...prev, newComparison]);
+      return newComparison;
+    },
+    []
+  );
+
+  const updateComparison = useCallback((id: string, updates: Partial<ExperimentComparison>) => {
+    setComparisons((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+  }, []);
+
+  const deleteComparison = useCallback((id: string) => {
+    setComparisons((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
+  const getComparisonById = useCallback(
+    (id: string) => comparisons.find((c) => c.id === id),
+    [comparisons]
+  );
+
+  const getComparisonsByProject = useCallback(
+    (projectId: string) => comparisons.filter((c) => c.projectId === projectId),
+    [comparisons]
+  );
+
+  // Decision operations
+  const createNewDecision = useCallback(
+    (
+      projectId: string,
+      problem: string,
+      alternatives: string[],
+      decision: string,
+      kpi: string,
+      affectedRunIds: string[],
+      witness: string = 'local-user',
+      category?: string
+    ) => {
+      const newDecision = createDecisionEntry(
+        projectId,
+        problem,
+        alternatives,
+        decision,
+        kpi,
+        affectedRunIds,
+        witness,
+        category
+      );
+      setDecisions((prev) => [...prev, newDecision]);
+      return newDecision;
+    },
+    []
+  );
+
+  const updateDecision = useCallback((id: string, updates: Partial<DecisionEntry>) => {
+    setDecisions((prev) => prev.map((d) => (d.id === id ? { ...d, ...updates } : d)));
+  }, []);
+
+  const deleteDecision = useCallback((id: string) => {
+    setDecisions((prev) => prev.filter((d) => d.id !== id));
+  }, []);
+
+  const getDecisionById = useCallback(
+    (id: string) => decisions.find((d) => d.id === id),
+    [decisions]
+  );
+
+  const getDecisionsByProject = useCallback(
+    (projectId: string) => decisions.filter((d) => d.projectId === projectId),
+    [decisions]
+  );
+
   // Utility
   const getProjectById = useCallback((id: string) => projects.find((p) => p.id === id), [projects]);
 
@@ -275,11 +409,15 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const value: ProjectContextValue = {
     projects,
     runs,
+    comparisons,
+    decisions,
     activeProjectId,
     activeRunId,
     activeProject,
     activeRun,
     projectRuns,
+    projectComparisons,
+    projectDecisions,
     createNewProject,
     updateProject,
     deleteProject,
@@ -292,6 +430,16 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     addScenarioToProject,
     updateScenario,
     deleteScenario,
+    createNewComparison,
+    updateComparison,
+    deleteComparison,
+    getComparisonById,
+    getComparisonsByProject,
+    createNewDecision,
+    updateDecision,
+    deleteDecision,
+    getDecisionById,
+    getDecisionsByProject,
     getProjectById,
     getRunById,
     getRunsByProject

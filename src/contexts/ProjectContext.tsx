@@ -3,7 +3,7 @@
  * Provides CRUD operations and persistence to localStorage
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type {
   Project,
   Run,
@@ -13,6 +13,13 @@ import type {
   ExecutionStatus
 } from '../types/project';
 import type { ExperimentComparison, DecisionEntry } from '../types/experiment';
+import type {
+  MetricSnapshot,
+  BoardAlert,
+  CalibrationAction,
+  GovernanceLedgerEntry,
+  GovernorConfig
+} from '../types/governance';
 import {
   createProject,
   createRun,
@@ -23,6 +30,7 @@ import {
   computeExecutionStatus
 } from '../types/project';
 import { StorageManager } from '../lib/storage';
+import { GovernanceEngine } from '../lib/GovernanceEngine';
 
 const STORAGE_KEYS = {
   PROJECTS: 'neuro-lingua-projects-v1',
@@ -30,7 +38,8 @@ const STORAGE_KEYS = {
   COMPARISONS: 'neuro-lingua-comparisons-v1',
   DECISIONS: 'neuro-lingua-decisions-v1',
   ACTIVE_PROJECT: 'neuro-lingua-active-project-v1',
-  ACTIVE_RUN: 'neuro-lingua-active-run-v1'
+  ACTIVE_RUN: 'neuro-lingua-active-run-v1',
+  GOVERNANCE: 'neuro-lingua-governance-v1'
 } as const;
 
 interface ProjectContextValue {
@@ -109,6 +118,29 @@ interface ProjectContextValue {
   getProjectById: (id: string) => Project | undefined;
   getRunById: (id: string) => Run | undefined;
   getRunsByProject: (projectId: string) => Run[];
+
+  // Governance operations
+  recordTrainingMetrics: (
+    sessionId: string,
+    epoch: number,
+    trainLoss: number,
+    trainAccuracy: number,
+    perplexity: number,
+    valLoss?: number,
+    valAccuracy?: number
+  ) => void;
+  checkGovernance: (
+    currentLearningRate: number,
+    currentDropout: number,
+    sessionId: string
+  ) => CalibrationAction[];
+  getActiveAlerts: () => BoardAlert[];
+  acknowledgeAlert: (alertId: string) => void;
+  clearAlerts: () => void;
+  getCalibrationHistory: () => CalibrationAction[];
+  getGovernanceLedger: () => GovernanceLedgerEntry[];
+  updateGovernorConfig: (config: Partial<GovernorConfig>) => void;
+  resetGovernance: () => void;
 }
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
@@ -120,6 +152,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
+
+  // Governance engine (use ref to persist across renders)
+  const governanceEngineRef = useRef<GovernanceEngine>(new GovernanceEngine());
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -139,6 +174,12 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     setDecisions(savedDecisions);
     setActiveProjectId(savedActiveProject);
     setActiveRunId(savedActiveRun);
+
+    // Load governance state
+    const savedGovernance = StorageManager.get<any>(STORAGE_KEYS.GOVERNANCE, null);
+    if (savedGovernance) {
+      governanceEngineRef.current.importState(savedGovernance);
+    }
   }, []);
 
   // Persist to localStorage on changes
@@ -406,6 +447,94 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     [runs]
   );
 
+  // Governance operations
+  const recordTrainingMetrics = useCallback(
+    (
+      sessionId: string,
+      epoch: number,
+      trainLoss: number,
+      trainAccuracy: number,
+      perplexity: number,
+      valLoss?: number,
+      valAccuracy?: number
+    ) => {
+      governanceEngineRef.current.recordMetrics({
+        sessionId,
+        epoch,
+        trainLoss,
+        trainAccuracy,
+        perplexity,
+        valLoss,
+        valAccuracy
+      });
+
+      // Persist governance state
+      StorageManager.set(STORAGE_KEYS.GOVERNANCE, governanceEngineRef.current.exportState());
+    },
+    []
+  );
+
+  const checkGovernance = useCallback(
+    (currentLearningRate: number, currentDropout: number, sessionId: string): CalibrationAction[] => {
+      if (!activeProjectId) {
+        return [];
+      }
+
+      if (!governanceEngineRef.current.shouldActivate()) {
+        return [];
+      }
+
+      const actions = governanceEngineRef.current.calibrate(
+        currentLearningRate,
+        currentDropout,
+        activeProjectId,
+        sessionId
+      );
+
+      // Persist governance state
+      StorageManager.set(STORAGE_KEYS.GOVERNANCE, governanceEngineRef.current.exportState());
+
+      return actions;
+    },
+    [activeProjectId]
+  );
+
+  const getActiveAlerts = useCallback(() => {
+    return governanceEngineRef.current.getActiveAlerts();
+  }, []);
+
+  const acknowledgeAlert = useCallback((alertId: string) => {
+    governanceEngineRef.current.acknowledgeAlert(alertId);
+    StorageManager.set(STORAGE_KEYS.GOVERNANCE, governanceEngineRef.current.exportState());
+  }, []);
+
+  const clearAlerts = useCallback(() => {
+    governanceEngineRef.current.clearAlerts();
+    StorageManager.set(STORAGE_KEYS.GOVERNANCE, governanceEngineRef.current.exportState());
+  }, []);
+
+  const getCalibrationHistory = useCallback(() => {
+    return governanceEngineRef.current.getCalibrationHistory();
+  }, []);
+
+  const getGovernanceLedger = useCallback(() => {
+    return governanceEngineRef.current.getLedger();
+  }, []);
+
+  const updateGovernorConfig = useCallback((config: Partial<GovernorConfig>) => {
+    const currentState = governanceEngineRef.current.getState();
+    governanceEngineRef.current.importState({
+      ...currentState,
+      config: { ...currentState.config, ...config }
+    });
+    StorageManager.set(STORAGE_KEYS.GOVERNANCE, governanceEngineRef.current.exportState());
+  }, []);
+
+  const resetGovernance = useCallback(() => {
+    governanceEngineRef.current.reset();
+    StorageManager.set(STORAGE_KEYS.GOVERNANCE, governanceEngineRef.current.exportState());
+  }, []);
+
   const value: ProjectContextValue = {
     projects,
     runs,
@@ -442,7 +571,16 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     getDecisionsByProject,
     getProjectById,
     getRunById,
-    getRunsByProject
+    getRunsByProject,
+    recordTrainingMetrics,
+    checkGovernance,
+    getActiveAlerts,
+    acknowledgeAlert,
+    clearAlerts,
+    getCalibrationHistory,
+    getGovernanceLedger,
+    updateGovernorConfig,
+    resetGovernance
   };
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;

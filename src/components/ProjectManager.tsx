@@ -4,6 +4,7 @@
 
 import React, { useState } from 'react';
 import { useProjects } from '../contexts/ProjectContext';
+import { RunComparisonPanel } from './RunComparisonPanel';
 
 interface ProjectManagerProps {
   direction?: 'ltr' | 'rtl';
@@ -25,6 +26,10 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [newProjectLanguage, setNewProjectLanguage] = useState<'en' | 'he' | 'mixed'>('en');
+
+  // Run comparison state
+  const [showComparison, setShowComparison] = useState(false);
+  const [comparisonProjectId, setComparisonProjectId] = useState<string | null>(null);
 
   const handleCreateProject = () => {
     if (!newProjectName.trim()) return;
@@ -382,9 +387,37 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
                     }}
                   >
                     <div
-                      style={{ fontSize: 13, fontWeight: 600, color: '#a78bfa', marginBottom: 8 }}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: 8
+                      }}
                     >
-                      Runs in this project:
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#a78bfa' }}>
+                        Runs in this project:
+                      </div>
+                      {runs.filter((r) => r.status === 'completed').length >= 2 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setComparisonProjectId(project.id);
+                            setShowComparison(true);
+                          }}
+                          style={{
+                            padding: '4px 10px',
+                            background: 'linear-gradient(90deg, #7c3aed, #059669)',
+                            border: 'none',
+                            borderRadius: 6,
+                            color: 'white',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🔬 Compare Runs
+                        </button>
+                      )}
                     </div>
                     {runs.map((run) => (
                       <div
@@ -435,6 +468,18 @@ export function ProjectManager({ direction = 'ltr', onClose }: ProjectManagerPro
           </div>
         )}
       </div>
+
+      {/* Run Comparison Panel */}
+      {showComparison && comparisonProjectId && (
+        <RunComparisonPanel
+          projectId={comparisonProjectId}
+          onClose={() => {
+            setShowComparison(false);
+            setComparisonProjectId(null);
+          }}
+          direction={direction}
+        />
+      )}
     </div>
   );
 }

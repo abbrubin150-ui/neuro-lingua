@@ -38,8 +38,12 @@ function DecisionCard({
     default: '#6b7280'
   }[decision.category || 'default'];
 
+  const handleToggle = () => setExpanded(!expanded);
+
   return (
     <div
+      role="button"
+      tabIndex={0}
       style={{
         background: 'rgba(30, 41, 59, 0.6)',
         border: `1px solid ${categoryColor}40`,
@@ -49,7 +53,13 @@ function DecisionCard({
         marginBottom: 12,
         cursor: 'pointer'
       }}
-      onClick={() => setExpanded(!expanded)}
+      onClick={handleToggle}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleToggle();
+        }
+      }}
     >
       {/* Header */}
       <div
@@ -192,7 +202,8 @@ function DecisionCard({
             <div style={{ fontSize: 11, color: '#94a3b8' }}>
               {decision.affectedRunIds.length} run(s):{' '}
               {decision.affectedRunIds.slice(0, 3).join(', ')}
-              {decision.affectedRunIds.length > 3 && ` + ${decision.affectedRunIds.length - 3} more`}
+              {decision.affectedRunIds.length > 3 &&
+                ` + ${decision.affectedRunIds.length - 3} more`}
             </div>
           </div>
 
@@ -259,9 +270,7 @@ export function DecisionEntry2Panel({
 
   // Filtered decisions
   const filteredDecisions = useMemo(() => {
-    let result = selectedProjectId
-      ? getDecisionsByProject(selectedProjectId)
-      : decisions;
+    let result = selectedProjectId ? getDecisionsByProject(selectedProjectId) : decisions;
 
     if (categoryFilter !== 'all') {
       result = result.filter((d) => d.category === categoryFilter);
@@ -282,7 +291,7 @@ export function DecisionEntry2Panel({
   }, [decisions, selectedProjectId, categoryFilter, searchQuery, getDecisionsByProject]);
 
   // Available runs for selection
-  const availableRuns = useMemo(() => {
+  const _availableRuns = useMemo(() => {
     if (formProjectId) {
       return getRunsByProject(formProjectId);
     }
@@ -344,6 +353,8 @@ export function DecisionEntry2Panel({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       style={{
         position: 'fixed',
         top: 0,
@@ -359,9 +370,20 @@ export function DecisionEntry2Panel({
         direction,
         overflow: 'auto'
       }}
-      onClick={onClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && onClose) {
+          onClose();
+        }
+      }}
+      onKeyDown={(e) => {
+        if ((e.key === 'Escape' || e.key === 'Enter') && onClose) {
+          onClose();
+        }
+      }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         style={{
           background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
           borderRadius: 16,
@@ -372,7 +394,6 @@ export function DecisionEntry2Panel({
           overflow: 'auto',
           border: '2px solid #475569'
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
@@ -408,9 +429,7 @@ export function DecisionEntry2Panel({
           style={{
             width: '100%',
             padding: 12,
-            background: showCreateForm
-              ? '#374151'
-              : 'linear-gradient(90deg, #7c3aed, #059669)',
+            background: showCreateForm ? '#374151' : 'linear-gradient(90deg, #7c3aed, #059669)',
             border: 'none',
             borderRadius: 10,
             color: 'white',
@@ -439,10 +458,14 @@ export function DecisionEntry2Panel({
 
             {/* Project Selection */}
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}>
+              <label
+                htmlFor="decision-project"
+                style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}
+              >
                 Project *
               </label>
               <select
+                id="decision-project"
                 value={formProjectId}
                 onChange={(e) => setFormProjectId(e.target.value)}
                 style={{
@@ -466,10 +489,14 @@ export function DecisionEntry2Panel({
 
             {/* Problem Statement */}
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}>
+              <label
+                htmlFor="decision-problem"
+                style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}
+              >
                 Problem Statement *
               </label>
               <input
+                id="decision-problem"
                 type="text"
                 value={formProblem}
                 onChange={(e) => setFormProblem(e.target.value)}
@@ -488,12 +515,16 @@ export function DecisionEntry2Panel({
 
             {/* Alternatives */}
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}>
+              <label
+                htmlFor="decision-alternative-0"
+                style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}
+              >
                 Alternatives Considered *
               </label>
               {formAlternatives.map((alt, i) => (
                 <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
                   <input
+                    id={`decision-alternative-${i}`}
                     type="text"
                     value={alt}
                     onChange={(e) => {
@@ -549,10 +580,14 @@ export function DecisionEntry2Panel({
 
             {/* Decision */}
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}>
+              <label
+                htmlFor="decision-chosen"
+                style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}
+              >
                 Chosen Decision *
               </label>
               <textarea
+                id="decision-chosen"
                 value={formDecision}
                 onChange={(e) => setFormDecision(e.target.value)}
                 placeholder="What was decided?"
@@ -573,10 +608,14 @@ export function DecisionEntry2Panel({
 
             {/* KPI */}
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}>
+              <label
+                htmlFor="decision-kpi"
+                style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}
+              >
                 Key Performance Indicator *
               </label>
               <input
+                id="decision-kpi"
                 type="text"
                 value={formKPI}
                 onChange={(e) => setFormKPI(e.target.value)}
@@ -595,10 +634,14 @@ export function DecisionEntry2Panel({
 
             {/* Category */}
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}>
+              <label
+                htmlFor="decision-category"
+                style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}
+              >
                 Category (optional)
               </label>
               <select
+                id="decision-category"
                 value={formCategory}
                 onChange={(e) => setFormCategory(e.target.value)}
                 style={{
@@ -621,10 +664,14 @@ export function DecisionEntry2Panel({
 
             {/* Witness */}
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}>
+              <label
+                htmlFor="decision-witness"
+                style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}
+              >
                 Witness (Decision Maker)
               </label>
               <input
+                id="decision-witness"
                 type="text"
                 value={formWitness}
                 onChange={(e) => setFormWitness(e.target.value)}
@@ -642,10 +689,14 @@ export function DecisionEntry2Panel({
 
             {/* Notes */}
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}>
+              <label
+                htmlFor="decision-notes"
+                style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 4 }}
+              >
                 Additional Notes
               </label>
               <textarea
+                id="decision-notes"
                 value={formNotes}
                 onChange={(e) => setFormNotes(e.target.value)}
                 placeholder="Any additional context..."

@@ -5,9 +5,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { useProjects } from '../contexts/ProjectContext';
-import { computeRunDiff, computeMultiRunComparison } from '../lib/experimentComparison';
+import { computeRunDiff } from '../lib/experimentComparison';
 import type { Run } from '../types/project';
-import type { RunDiff, MultiRunComparison, FieldDiff, DiffType } from '../types/experiment';
+import type { RunDiff, FieldDiff, DiffType } from '../types/experiment';
 
 interface RunComparisonPanelProps {
   /** Selected project ID to filter runs */
@@ -331,7 +331,7 @@ export function RunComparisonPanel({
   onClose,
   direction = 'ltr'
 }: RunComparisonPanelProps) {
-  const { runs, getRunsByProject, projects } = useProjects();
+  const { runs, getRunsByProject, projects: _projects } = useProjects();
 
   // Filter runs by project if specified
   const availableRuns = useMemo(() => {
@@ -377,6 +377,8 @@ export function RunComparisonPanel({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       style={{
         position: 'fixed',
         top: 0,
@@ -392,9 +394,20 @@ export function RunComparisonPanel({
         direction,
         overflow: 'auto'
       }}
-      onClick={onClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && onClose) {
+          onClose();
+        }
+      }}
+      onKeyDown={(e) => {
+        if ((e.key === 'Escape' || e.key === 'Enter') && onClose) {
+          onClose();
+        }
+      }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         style={{
           background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
           borderRadius: 16,
@@ -405,7 +418,6 @@ export function RunComparisonPanel({
           overflow: 'auto',
           border: '2px solid #475569'
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
@@ -454,14 +466,22 @@ export function RunComparisonPanel({
                 No completed runs available for comparison
               </div>
             )}
-            {availableRuns.map((run, index) => {
+            {availableRuns.map((run) => {
               const isSelected = selectedRunIds.includes(run.id);
               const isBaseline = selectedRunIds[0] === run.id;
 
               return (
                 <div
                   key={run.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => toggleRunSelection(run.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleRunSelection(run.id);
+                    }
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',

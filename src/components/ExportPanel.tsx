@@ -159,12 +159,12 @@ export function ExportPanel({ onClose, direction = 'ltr' }: ExportPanelProps) {
         direction
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
+        if (e.target === e.currentTarget && onClose) {
           onClose();
         }
       }}
       onKeyDown={(e) => {
-        if (e.key === 'Escape' || e.key === 'Enter') {
+        if ((e.key === 'Escape' || e.key === 'Enter') && onClose) {
           onClose();
         }
       }}

@@ -371,12 +371,12 @@ export function DecisionEntry2Panel({
         overflow: 'auto'
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
+        if (e.target === e.currentTarget && onClose) {
           onClose();
         }
       }}
       onKeyDown={(e) => {
-        if (e.key === 'Escape' || e.key === 'Enter') {
+        if ((e.key === 'Escape' || e.key === 'Enter') && onClose) {
           onClose();
         }
       }}

@@ -4,11 +4,7 @@
  * Part of Σ-SIG Experiment Explorer - Milestone 1: Data Layer
  */
 
-import type {
-  Run,
-  Project,
-  TrainingConfig
-} from '../types/project';
+import type { Run, Project, TrainingConfig } from '../types/project';
 
 import type {
   ExperimentComparison,
@@ -22,8 +18,7 @@ import type {
   ProjectExport,
   RunCSVRow,
   ComparisonCSVRow,
-  DecisionCSVRow,
-  EXPORT_SCHEMA_VERSION
+  DecisionCSVRow
 } from '../types/experiment';
 
 const EXPORT_SCHEMA_VERSION_CONST = '1.0.0';
@@ -78,10 +73,18 @@ export function computeHyperparameterDiff(
   compareConfig: TrainingConfig
 ): HyperparameterDiff {
   const diff: HyperparameterDiff = {
-    architecture: computeFieldDiff('architecture', baseConfig.architecture, compareConfig.architecture),
+    architecture: computeFieldDiff(
+      'architecture',
+      baseConfig.architecture,
+      compareConfig.architecture
+    ),
     hiddenSize: computeFieldDiff('hiddenSize', baseConfig.hiddenSize, compareConfig.hiddenSize),
     epochs: computeFieldDiff('epochs', baseConfig.epochs, compareConfig.epochs),
-    learningRate: computeFieldDiff('learningRate', baseConfig.learningRate, compareConfig.learningRate),
+    learningRate: computeFieldDiff(
+      'learningRate',
+      baseConfig.learningRate,
+      compareConfig.learningRate
+    ),
     optimizer: computeFieldDiff('optimizer', baseConfig.optimizer, compareConfig.optimizer),
     momentum: computeFieldDiff('momentum', baseConfig.momentum, compareConfig.momentum),
     dropout: computeFieldDiff('dropout', baseConfig.dropout, compareConfig.dropout),
@@ -93,19 +96,39 @@ export function computeHyperparameterDiff(
 
   // Add optional fields if present in either config
   if (baseConfig.activation || compareConfig.activation) {
-    diff.activation = computeFieldDiff('activation', baseConfig.activation, compareConfig.activation);
+    diff.activation = computeFieldDiff(
+      'activation',
+      baseConfig.activation,
+      compareConfig.activation
+    );
   }
   if (baseConfig.initialization || compareConfig.initialization) {
-    diff.initialization = computeFieldDiff('initialization', baseConfig.initialization, compareConfig.initialization);
+    diff.initialization = computeFieldDiff(
+      'initialization',
+      baseConfig.initialization,
+      compareConfig.initialization
+    );
   }
   if (baseConfig.lrSchedule || compareConfig.lrSchedule) {
-    diff.lrSchedule = computeFieldDiff('lrSchedule', baseConfig.lrSchedule, compareConfig.lrSchedule);
+    diff.lrSchedule = computeFieldDiff(
+      'lrSchedule',
+      baseConfig.lrSchedule,
+      compareConfig.lrSchedule
+    );
   }
   if (baseConfig.weightDecay !== undefined || compareConfig.weightDecay !== undefined) {
-    diff.weightDecay = computeFieldDiff('weightDecay', baseConfig.weightDecay, compareConfig.weightDecay);
+    diff.weightDecay = computeFieldDiff(
+      'weightDecay',
+      baseConfig.weightDecay,
+      compareConfig.weightDecay
+    );
   }
   if (baseConfig.useLayerNorm !== undefined || compareConfig.useLayerNorm !== undefined) {
-    diff.useLayerNorm = computeFieldDiff('useLayerNorm', baseConfig.useLayerNorm, compareConfig.useLayerNorm);
+    diff.useLayerNorm = computeFieldDiff(
+      'useLayerNorm',
+      baseConfig.useLayerNorm,
+      compareConfig.useLayerNorm
+    );
   }
 
   // Transformer-specific fields
@@ -122,17 +145,22 @@ export function computeHyperparameterDiff(
 /**
  * Compute metrics differences between two runs
  */
-export function computeMetricsDiff(
-  baseRun: Run,
-  compareRun: Run
-): MetricsDiff {
+export function computeMetricsDiff(baseRun: Run, compareRun: Run): MetricsDiff {
   const baseResults = baseRun.results;
   const compareResults = compareRun.results;
 
   const diff: MetricsDiff = {
     finalLoss: computeFieldDiff('finalLoss', baseResults?.finalLoss, compareResults?.finalLoss),
-    finalAccuracy: computeFieldDiff('finalAccuracy', baseResults?.finalAccuracy, compareResults?.finalAccuracy),
-    finalPerplexity: computeFieldDiff('finalPerplexity', baseResults?.finalPerplexity, compareResults?.finalPerplexity)
+    finalAccuracy: computeFieldDiff(
+      'finalAccuracy',
+      baseResults?.finalAccuracy,
+      compareResults?.finalAccuracy
+    ),
+    finalPerplexity: computeFieldDiff(
+      'finalPerplexity',
+      baseResults?.finalPerplexity,
+      compareResults?.finalPerplexity
+    )
   };
 
   // Add training time if both completed
@@ -155,7 +183,9 @@ export function computeMetricsDiff(
 /**
  * Determine improvement direction based on metrics
  */
-function determineImprovementDirection(metrics: MetricsDiff): 'better' | 'worse' | 'mixed' | 'unknown' {
+function determineImprovementDirection(
+  metrics: MetricsDiff
+): 'better' | 'worse' | 'mixed' | 'unknown' {
   const changes: ('better' | 'worse' | 'neutral')[] = [];
 
   // Loss: lower is better
@@ -164,12 +194,18 @@ function determineImprovementDirection(metrics: MetricsDiff): 'better' | 'worse'
   }
 
   // Accuracy: higher is better
-  if (metrics.finalAccuracy.type === 'changed' && metrics.finalAccuracy.percentChange !== undefined) {
+  if (
+    metrics.finalAccuracy.type === 'changed' &&
+    metrics.finalAccuracy.percentChange !== undefined
+  ) {
     changes.push(metrics.finalAccuracy.percentChange > 0 ? 'better' : 'worse');
   }
 
   // Perplexity: lower is better
-  if (metrics.finalPerplexity.type === 'changed' && metrics.finalPerplexity.percentChange !== undefined) {
+  if (
+    metrics.finalPerplexity.type === 'changed' &&
+    metrics.finalPerplexity.percentChange !== undefined
+  ) {
     changes.push(metrics.finalPerplexity.percentChange < 0 ? 'better' : 'worse');
   }
 
@@ -198,7 +234,9 @@ function identifySignificantChanges(
   // Check hyperparameters
   Object.entries(hyperparameters).forEach(([key, diff]) => {
     if (diff.percentChange !== undefined && Math.abs(diff.percentChange) > threshold) {
-      significant.push(`${key}: ${diff.percentChange > 0 ? '+' : ''}${diff.percentChange.toFixed(1)}%`);
+      significant.push(
+        `${key}: ${diff.percentChange > 0 ? '+' : ''}${diff.percentChange.toFixed(1)}%`
+      );
     } else if (diff.type === 'changed' && diff.percentChange === undefined) {
       // Non-numeric change (e.g., architecture, optimizer)
       significant.push(`${key}: ${diff.oldValue} → ${diff.newValue}`);
@@ -208,7 +246,9 @@ function identifySignificantChanges(
   // Check metrics
   Object.entries(metrics).forEach(([key, diff]) => {
     if (diff.percentChange !== undefined && Math.abs(diff.percentChange) > threshold) {
-      significant.push(`${key}: ${diff.percentChange > 0 ? '+' : ''}${diff.percentChange.toFixed(1)}%`);
+      significant.push(
+        `${key}: ${diff.percentChange > 0 ? '+' : ''}${diff.percentChange.toFixed(1)}%`
+      );
     }
   });
 
@@ -295,7 +335,10 @@ export function exportProjectToJSON(
 /**
  * Download JSON export
  */
-export function downloadProjectJSON(exportData: ProjectExport, filename: string = 'neuro-lingua-export.json') {
+export function downloadProjectJSON(
+  exportData: ProjectExport,
+  filename: string = 'neuro-lingua-export.json'
+) {
   const json = JSON.stringify(exportData, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);

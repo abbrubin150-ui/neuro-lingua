@@ -114,7 +114,9 @@ export function ExportPanel({ onClose, direction = 'ltr' }: ExportPanelProps) {
             downloadCSV(decisionsCSV, `neuro-lingua-decisions-${timestamp}.csv`);
           }
 
-          setLastExport(`CSV: Exported ${filteredData.runs.length} runs, ${filteredData.comparisons.length} comparisons, ${filteredData.decisions.length} decisions`);
+          setLastExport(
+            `CSV: Exported ${filteredData.runs.length} runs, ${filteredData.comparisons.length} comparisons, ${filteredData.decisions.length} decisions`
+          );
         } else if (exportType === 'runs') {
           const runsCSV = exportRunsToCSV(filteredData.runs, projectsMap);
           downloadCSV(runsCSV, `neuro-lingua-runs-${timestamp}.csv`);
@@ -140,6 +142,8 @@ export function ExportPanel({ onClose, direction = 'ltr' }: ExportPanelProps) {
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       style={{
         position: 'fixed',
         top: 0,
@@ -154,9 +158,20 @@ export function ExportPanel({ onClose, direction = 'ltr' }: ExportPanelProps) {
         padding: 20,
         direction
       }}
-      onClick={onClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' || e.key === 'Enter') {
+          onClose();
+        }
+      }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         style={{
           background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
           borderRadius: 16,
@@ -167,7 +182,6 @@ export function ExportPanel({ onClose, direction = 'ltr' }: ExportPanelProps) {
           overflow: 'auto',
           border: '2px solid #475569'
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
@@ -372,8 +386,7 @@ export function ExportPanel({ onClose, direction = 'ltr' }: ExportPanelProps) {
                 style={{
                   padding: 8,
                   background: exportType === 'comparisons' ? '#d97706' : 'rgba(30, 41, 59, 0.5)',
-                  border:
-                    exportType === 'comparisons' ? '2px solid #f59e0b' : '1px solid #475569',
+                  border: exportType === 'comparisons' ? '2px solid #f59e0b' : '1px solid #475569',
                   borderRadius: 8,
                   color: '#e2e8f0',
                   fontWeight: 600,
@@ -463,8 +476,7 @@ export function ExportPanel({ onClose, direction = 'ltr' }: ExportPanelProps) {
               exporting || (exportScope === 'project' && !selectedProjectId)
                 ? 'not-allowed'
                 : 'pointer',
-            opacity:
-              exporting || (exportScope === 'project' && !selectedProjectId) ? 0.5 : 1
+            opacity: exporting || (exportScope === 'project' && !selectedProjectId) ? 0.5 : 1
           }}
         >
           {exporting ? '⏳ Exporting...' : `⬇️ Export ${exportFormat.toUpperCase()}`}

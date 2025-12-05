@@ -764,6 +764,18 @@ export class ProNeuralLM {
     return this.contextSize;
   }
 
+  /**
+   * Get logits (raw model outputs before softmax) for a given context.
+   * Used for knowledge distillation to extract soft targets from teacher model.
+   *
+   * @param context - Array of token indices
+   * @returns Promise<number[]> - Raw logit values for each vocabulary token
+   */
+  async getLogitsForContext(context: number[]): Promise<number[]> {
+    const { logits } = await this.forward(context, false);
+    return logits;
+  }
+
   toJSON() {
     this.rngState = this.rng.getState();
     return {

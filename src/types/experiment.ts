@@ -4,7 +4,7 @@
  * Part of Σ-SIG Experiment Explorer epic
  */
 
-import type { Run, Project, Scenario } from './project';
+import type { Run, Project } from './project';
 
 /**
  * Version identifier for export schema

@@ -58,10 +58,18 @@ export function diffHyperparameters(baseRun: Run, compareRun: Run): Hyperparamet
   const compareConfig = compareRun.config;
 
   const diff: HyperparameterDiff = {
-    architecture: createFieldDiff('architecture', baseConfig.architecture, compareConfig.architecture),
+    architecture: createFieldDiff(
+      'architecture',
+      baseConfig.architecture,
+      compareConfig.architecture
+    ),
     hiddenSize: createFieldDiff('hiddenSize', baseConfig.hiddenSize, compareConfig.hiddenSize),
     epochs: createFieldDiff('epochs', baseConfig.epochs, compareConfig.epochs),
-    learningRate: createFieldDiff('learningRate', baseConfig.learningRate, compareConfig.learningRate),
+    learningRate: createFieldDiff(
+      'learningRate',
+      baseConfig.learningRate,
+      compareConfig.learningRate
+    ),
     optimizer: createFieldDiff('optimizer', baseConfig.optimizer, compareConfig.optimizer),
     momentum: createFieldDiff('momentum', baseConfig.momentum, compareConfig.momentum),
     dropout: createFieldDiff('dropout', baseConfig.dropout, compareConfig.dropout),
@@ -73,19 +81,39 @@ export function diffHyperparameters(baseRun: Run, compareRun: Run): Hyperparamet
 
   // Add advanced features if present
   if (baseConfig.activation || compareConfig.activation) {
-    diff.activation = createFieldDiff('activation', baseConfig.activation, compareConfig.activation);
+    diff.activation = createFieldDiff(
+      'activation',
+      baseConfig.activation,
+      compareConfig.activation
+    );
   }
   if (baseConfig.initialization || compareConfig.initialization) {
-    diff.initialization = createFieldDiff('initialization', baseConfig.initialization, compareConfig.initialization);
+    diff.initialization = createFieldDiff(
+      'initialization',
+      baseConfig.initialization,
+      compareConfig.initialization
+    );
   }
   if (baseConfig.lrSchedule || compareConfig.lrSchedule) {
-    diff.lrSchedule = createFieldDiff('lrSchedule', baseConfig.lrSchedule, compareConfig.lrSchedule);
+    diff.lrSchedule = createFieldDiff(
+      'lrSchedule',
+      baseConfig.lrSchedule,
+      compareConfig.lrSchedule
+    );
   }
   if (baseConfig.weightDecay !== undefined || compareConfig.weightDecay !== undefined) {
-    diff.weightDecay = createFieldDiff('weightDecay', baseConfig.weightDecay, compareConfig.weightDecay);
+    diff.weightDecay = createFieldDiff(
+      'weightDecay',
+      baseConfig.weightDecay,
+      compareConfig.weightDecay
+    );
   }
   if (baseConfig.useLayerNorm !== undefined || compareConfig.useLayerNorm !== undefined) {
-    diff.useLayerNorm = createFieldDiff('useLayerNorm', baseConfig.useLayerNorm, compareConfig.useLayerNorm);
+    diff.useLayerNorm = createFieldDiff(
+      'useLayerNorm',
+      baseConfig.useLayerNorm,
+      compareConfig.useLayerNorm
+    );
   }
 
   // Add transformer features if present
@@ -107,11 +135,7 @@ export function diffMetrics(baseRun: Run, compareRun: Run): MetricsDiff {
   const compareResults = compareRun.results;
 
   const diff: MetricsDiff = {
-    finalLoss: createFieldDiff(
-      'finalLoss',
-      baseResults?.finalLoss,
-      compareResults?.finalLoss
-    ),
+    finalLoss: createFieldDiff('finalLoss', baseResults?.finalLoss, compareResults?.finalLoss),
     finalAccuracy: createFieldDiff(
       'finalAccuracy',
       baseResults?.finalAccuracy,
@@ -143,26 +167,46 @@ export function determineImprovementDirection(
   const changes: ('better' | 'worse' | 'unchanged')[] = [];
 
   // Lower loss is better
-  if (metricsDiff.finalLoss.type === 'changed' && metricsDiff.finalLoss.newValue !== undefined && metricsDiff.finalLoss.oldValue !== undefined) {
-    changes.push(metricsDiff.finalLoss.newValue < metricsDiff.finalLoss.oldValue ? 'better' : 'worse');
+  if (
+    metricsDiff.finalLoss.type === 'changed' &&
+    metricsDiff.finalLoss.newValue !== undefined &&
+    metricsDiff.finalLoss.oldValue !== undefined
+  ) {
+    changes.push(
+      metricsDiff.finalLoss.newValue < metricsDiff.finalLoss.oldValue ? 'better' : 'worse'
+    );
   }
 
   // Higher accuracy is better
-  if (metricsDiff.finalAccuracy.type === 'changed' && metricsDiff.finalAccuracy.newValue !== undefined && metricsDiff.finalAccuracy.oldValue !== undefined) {
-    changes.push(metricsDiff.finalAccuracy.newValue > metricsDiff.finalAccuracy.oldValue ? 'better' : 'worse');
+  if (
+    metricsDiff.finalAccuracy.type === 'changed' &&
+    metricsDiff.finalAccuracy.newValue !== undefined &&
+    metricsDiff.finalAccuracy.oldValue !== undefined
+  ) {
+    changes.push(
+      metricsDiff.finalAccuracy.newValue > metricsDiff.finalAccuracy.oldValue ? 'better' : 'worse'
+    );
   }
 
   // Lower perplexity is better
-  if (metricsDiff.finalPerplexity.type === 'changed' && metricsDiff.finalPerplexity.newValue !== undefined && metricsDiff.finalPerplexity.oldValue !== undefined) {
-    changes.push(metricsDiff.finalPerplexity.newValue < metricsDiff.finalPerplexity.oldValue ? 'better' : 'worse');
+  if (
+    metricsDiff.finalPerplexity.type === 'changed' &&
+    metricsDiff.finalPerplexity.newValue !== undefined &&
+    metricsDiff.finalPerplexity.oldValue !== undefined
+  ) {
+    changes.push(
+      metricsDiff.finalPerplexity.newValue < metricsDiff.finalPerplexity.oldValue
+        ? 'better'
+        : 'worse'
+    );
   }
 
   if (changes.length === 0) {
     return 'unknown';
   }
 
-  const betterCount = changes.filter(c => c === 'better').length;
-  const worseCount = changes.filter(c => c === 'worse').length;
+  const betterCount = changes.filter((c) => c === 'better').length;
+  const worseCount = changes.filter((c) => c === 'worse').length;
 
   if (betterCount > 0 && worseCount === 0) return 'better';
   if (worseCount > 0 && betterCount === 0) return 'worse';
@@ -184,10 +228,14 @@ export function findSignificantChanges(diff: HyperparameterDiff): string[] {
     if (fieldDiff.type === 'changed') {
       // Numeric changes > 10%
       if (fieldDiff.percentChange !== undefined && Math.abs(fieldDiff.percentChange) > THRESHOLD) {
-        significant.push(`${key}: ${fieldDiff.percentChange > 0 ? '+' : ''}${fieldDiff.percentChange.toFixed(1)}%`);
+        significant.push(
+          `${key}: ${fieldDiff.percentChange > 0 ? '+' : ''}${fieldDiff.percentChange.toFixed(1)}%`
+        );
       }
       // Important categorical changes
-      else if (['architecture', 'optimizer', 'activation', 'lrSchedule', 'initialization'].includes(key)) {
+      else if (
+        ['architecture', 'optimizer', 'activation', 'lrSchedule', 'initialization'].includes(key)
+      ) {
         significant.push(`${key}: ${fieldDiff.oldValue} → ${fieldDiff.newValue}`);
       }
     } else if (fieldDiff.type === 'added') {
@@ -205,7 +253,7 @@ export function findSignificantChanges(diff: HyperparameterDiff): string[] {
  */
 export function countChanges(diff: HyperparameterDiff): number {
   const fields = Object.values(diff) as FieldDiff<unknown>[];
-  return fields.filter(f => f.type !== 'unchanged').length;
+  return fields.filter((f) => f.type !== 'unchanged').length;
 }
 
 /**

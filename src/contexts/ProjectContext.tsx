@@ -125,7 +125,10 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const savedProjects = StorageManager.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
     const savedRuns = StorageManager.get<Run[]>(STORAGE_KEYS.RUNS, []);
-    const savedComparisons = StorageManager.get<ExperimentComparison[]>(STORAGE_KEYS.COMPARISONS, []);
+    const savedComparisons = StorageManager.get<ExperimentComparison[]>(
+      STORAGE_KEYS.COMPARISONS,
+      []
+    );
     const savedDecisions = StorageManager.get<DecisionEntry[]>(STORAGE_KEYS.DECISIONS, []);
     const savedActiveProject = StorageManager.get<string | null>(STORAGE_KEYS.ACTIVE_PROJECT, null);
     const savedActiveRun = StorageManager.get<string | null>(STORAGE_KEYS.ACTIVE_RUN, null);
@@ -167,8 +170,12 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
   const activeRun = runs.find((r) => r.id === activeRunId) ?? null;
   const projectRuns = activeProjectId ? runs.filter((r) => r.projectId === activeProjectId) : [];
-  const projectComparisons = activeProjectId ? comparisons.filter((c) => c.projectId === activeProjectId) : [];
-  const projectDecisions = activeProjectId ? decisions.filter((d) => d.projectId === activeProjectId) : [];
+  const projectComparisons = activeProjectId
+    ? comparisons.filter((c) => c.projectId === activeProjectId)
+    : [];
+  const projectDecisions = activeProjectId
+    ? decisions.filter((d) => d.projectId === activeProjectId)
+    : [];
 
   // Project operations
   const createNewProject = useCallback(
@@ -379,7 +386,10 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     setDecisions((prev) => prev.filter((d) => d.id !== id));
   }, []);
 
-  const getDecisionById = useCallback((id: string) => decisions.find((d) => d.id === id), [decisions]);
+  const getDecisionById = useCallback(
+    (id: string) => decisions.find((d) => d.id === id),
+    [decisions]
+  );
 
   const getDecisionsByProject = useCallback(
     (projectId: string) => decisions.filter((d) => d.projectId === projectId),

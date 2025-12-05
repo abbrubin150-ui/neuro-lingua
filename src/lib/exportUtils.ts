@@ -104,10 +104,7 @@ export function comparisonToCSVRow(
 /**
  * Convert a DecisionEntry to a CSV row
  */
-export function decisionToCSVRow(
-  decision: DecisionEntry,
-  projectName: string
-): DecisionCSVRow {
+export function decisionToCSVRow(decision: DecisionEntry, projectName: string): DecisionCSVRow {
   return {
     decisionId: decision.id,
     projectName,
@@ -135,25 +132,27 @@ export function arrayToCSV<T extends Record<string, string | number | boolean>>(
   const headerRow = headers.join(',');
 
   // Convert each row
-  const rows = data.map(row => {
-    return headers.map(header => {
-      const value = row[header];
+  const rows = data.map((row) => {
+    return headers
+      .map((header) => {
+        const value = row[header];
 
-      // Handle different value types
-      if (value === null || value === undefined) {
-        return '';
-      }
+        // Handle different value types
+        if (value === null || value === undefined) {
+          return '';
+        }
 
-      // Convert to string and escape quotes
-      const stringValue = String(value);
+        // Convert to string and escape quotes
+        const stringValue = String(value);
 
-      // Wrap in quotes if contains comma, newline, or quote
-      if (stringValue.includes(',') || stringValue.includes('\n') || stringValue.includes('"')) {
-        return `"${stringValue.replace(/"/g, '""')}"`;
-      }
+        // Wrap in quotes if contains comma, newline, or quote
+        if (stringValue.includes(',') || stringValue.includes('\n') || stringValue.includes('"')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
 
-      return stringValue;
-    }).join(',');
+        return stringValue;
+      })
+      .join(',');
   });
 
   return [headerRow, ...rows].join('\n');
@@ -163,11 +162,9 @@ export function arrayToCSV<T extends Record<string, string | number | boolean>>(
  * Export runs to CSV format
  */
 export function exportRunsToCSV(runs: Run[], projects: Project[]): string {
-  const projectMap = new Map(projects.map(p => [p.id, p.name]));
+  const projectMap = new Map(projects.map((p) => [p.id, p.name]));
 
-  const rows = runs.map(run =>
-    runToCSVRow(run, projectMap.get(run.projectId) ?? 'Unknown')
-  );
+  const rows = runs.map((run) => runToCSVRow(run, projectMap.get(run.projectId) ?? 'Unknown'));
 
   return arrayToCSV(rows);
 }
@@ -179,9 +176,9 @@ export function exportComparisonsToCSV(
   comparisons: ExperimentComparison[],
   projects: Project[]
 ): string {
-  const projectMap = new Map(projects.map(p => [p.id, p.name]));
+  const projectMap = new Map(projects.map((p) => [p.id, p.name]));
 
-  const rows = comparisons.map(comparison =>
+  const rows = comparisons.map((comparison) =>
     comparisonToCSVRow(comparison, projectMap.get(comparison.projectId) ?? 'Unknown')
   );
 
@@ -191,13 +188,10 @@ export function exportComparisonsToCSV(
 /**
  * Export decisions to CSV format
  */
-export function exportDecisionsToCSV(
-  decisions: DecisionEntry[],
-  projects: Project[]
-): string {
-  const projectMap = new Map(projects.map(p => [p.id, p.name]));
+export function exportDecisionsToCSV(decisions: DecisionEntry[], projects: Project[]): string {
+  const projectMap = new Map(projects.map((p) => [p.id, p.name]));
 
-  const rows = decisions.map(decision =>
+  const rows = decisions.map((decision) =>
     decisionToCSVRow(decision, projectMap.get(decision.projectId) ?? 'Unknown')
   );
 
@@ -245,16 +239,11 @@ export function exportProjectData(
   decisions: DecisionEntry[]
 ): ProjectExport {
   // Filter data for this project only
-  const projectRuns = runs.filter(r => r.projectId === project.id);
-  const projectComparisons = comparisons.filter(c => c.projectId === project.id);
-  const projectDecisions = decisions.filter(d => d.projectId === project.id);
+  const projectRuns = runs.filter((r) => r.projectId === project.id);
+  const projectComparisons = comparisons.filter((c) => c.projectId === project.id);
+  const projectDecisions = decisions.filter((d) => d.projectId === project.id);
 
-  return createProjectExport(
-    [project],
-    projectRuns,
-    projectComparisons,
-    projectDecisions
-  );
+  return createProjectExport([project], projectRuns, projectComparisons, projectDecisions);
 }
 
 /**
@@ -276,7 +265,7 @@ export function importProjectExport(jsonString: string): ProjectExport {
     if (importMajor !== currentMajor) {
       throw new Error(
         `Incompatible schema version: ${data.schemaVersion}. ` +
-        `Expected major version ${currentMajor}.x.x`
+          `Expected major version ${currentMajor}.x.x`
       );
     }
 
@@ -300,7 +289,7 @@ export function importProjectExport(jsonString: string): ProjectExport {
 export function generateExportSummary(exportData: ProjectExport): string {
   const { projects, runs, comparisons = [], decisions = [] } = exportData;
 
-  const completedRuns = runs.filter(r => r.status === 'completed').length;
+  const completedRuns = runs.filter((r) => r.status === 'completed').length;
   const totalDecisions = decisions.length;
   const totalComparisons = comparisons.length;
 
@@ -317,9 +306,9 @@ export function generateExportSummary(exportData: ProjectExport): string {
   // Per-project breakdown
   summary += '## Project Breakdown\n\n';
   for (const project of projects) {
-    const projectRuns = runs.filter(r => r.projectId === project.id);
-    const projectComparisons = comparisons.filter(c => c.projectId === project.id);
-    const projectDecisions = decisions.filter(d => d.projectId === project.id);
+    const projectRuns = runs.filter((r) => r.projectId === project.id);
+    const projectComparisons = comparisons.filter((c) => c.projectId === project.id);
+    const projectDecisions = decisions.filter((d) => d.projectId === project.id);
 
     summary += `### ${project.name}\n`;
     summary += `- Runs: ${projectRuns.length}\n`;

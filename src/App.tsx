@@ -59,6 +59,8 @@ import {
   CompressionPanel,
   BrainPanel
 } from './components';
+import { ExportPanel } from './components/ExportPanel';
+import { DecisionEntry2Panel } from './components/DecisionEntry2Panel';
 
 import type { InformationMetrics } from './losses/information_bottleneck';
 import { getBetaSchedule } from './losses/information_bottleneck';
@@ -445,6 +447,8 @@ export default function NeuroLinguaDomesticaV324() {
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showProjectManager, setShowProjectManager] = useState(false);
   const [showCompressionPanel, setShowCompressionPanel] = useState(false);
+  const [showExportPanel, setShowExportPanel] = useState(false);
+  const [showDecisionPanel, setShowDecisionPanel] = useState(false);
 
   const modelRef = useRef<ProNeuralLM | null>(null);
   const trainingRef = useRef({ running: false, currentEpoch: 0 });
@@ -1671,6 +1675,12 @@ export default function NeuroLinguaDomesticaV324() {
           onMessage={addSystemMessage}
         />
       )}
+      {showExportPanel && (
+        <ExportPanel direction={direction} onClose={() => setShowExportPanel(false)} />
+      )}
+      {showDecisionPanel && (
+        <DecisionEntry2Panel direction={direction} onClose={() => setShowDecisionPanel(false)} />
+      )}
       <div
         dir={direction}
         style={{
@@ -1695,7 +1705,9 @@ export default function NeuroLinguaDomesticaV324() {
               style={{
                 display: 'flex',
                 justifyContent: direction === 'rtl' ? 'flex-start' : 'flex-end',
-                marginBottom: 16
+                marginBottom: 16,
+                gap: 8,
+                flexWrap: 'wrap'
               }}
             >
               <button
@@ -1709,11 +1721,42 @@ export default function NeuroLinguaDomesticaV324() {
                   borderRadius: 999,
                   color: 'white',
                   fontWeight: 700,
-                  cursor: 'pointer',
-                  marginRight: 8
+                  cursor: 'pointer'
                 }}
               >
                 📁 Projects
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDecisionPanel(true)}
+                aria-label="Open Decision Ledger 2.0"
+                style={{
+                  padding: '8px 16px',
+                  background: 'linear-gradient(90deg, #a78bfa, #059669)',
+                  border: 'none',
+                  borderRadius: 999,
+                  color: 'white',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                📋 Decisions
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowExportPanel(true)}
+                aria-label="Export Data"
+                style={{
+                  padding: '8px 16px',
+                  background: 'linear-gradient(90deg, #10b981, #3b82f6)',
+                  border: 'none',
+                  borderRadius: 999,
+                  color: 'white',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                📦 Export
               </button>
               <button
                 type="button"

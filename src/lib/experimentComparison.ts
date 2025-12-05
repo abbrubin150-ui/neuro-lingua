@@ -21,6 +21,9 @@ import type {
   DecisionCSVRow
 } from '../types/experiment';
 
+// Import version from package.json
+import packageJson from '../../package.json';
+
 const EXPORT_SCHEMA_VERSION_CONST = '1.0.0';
 
 /**
@@ -323,7 +326,7 @@ export function exportProjectToJSON(
       exportedAt: Date.now(),
       exportedBy: 'local-user',
       source: 'neuro-lingua-domestica',
-      version: '3.3.0' // TODO: Get from package.json
+      version: packageJson.version
     },
     projects,
     runs,

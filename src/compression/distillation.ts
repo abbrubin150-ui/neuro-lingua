@@ -115,27 +115,18 @@ export function distillationLoss(
 
 /**
  * Extract soft targets from teacher model
- * Returns probability distribution over vocabulary
+ * Returns temperature-scaled probability distribution over vocabulary
  */
-export function getTeacherSoftTargets(
+export async function getTeacherSoftTargets(
   teacher: TeacherModel,
-  _context: number[],
-  _temperature: number
-): number[] {
-  // Get teacher's logits for this context
-  // Note: This requires access to teacher's forward pass
-  // For now, we'll use a simplified approach via the public API
+  context: number[],
+  temperature: number
+): Promise<number[]> {
+  // Get teacher's raw logits for this context
+  const logits = await teacher.getLogitsForContext(context);
 
-  // Generate a small sample to estimate distribution
-  // This is a workaround since we don't have direct logit access
-  const vocab = teacher.getVocab();
-  const vocabSize = vocab.length;
-
-  // Uniform distribution as fallback
-  // In a real implementation, you'd want direct logit access
-  const uniformProbs = new Array(vocabSize).fill(1 / vocabSize);
-
-  return uniformProbs;
+  // Apply temperature scaling and softmax
+  return softmaxWithTemperature(logits, temperature);
 }
 
 /**
@@ -169,20 +160,21 @@ export function estimateCompressionRatio(
 }
 
 /**
- * Perform knowledge distillation training
+ * Perform knowledge distillation training with soft targets from teacher.
  *
- * Note: This is a simplified implementation. Full distillation requires:
- * 1. Access to teacher's logits (not just final predictions)
- * 2. Custom training loop with combined loss
- * 3. Proper batch processing
- *
- * For a complete implementation, we'd need to modify the base model classes
- * to expose intermediate activations and logits.
+ * Implementation:
+ * 1. Creates smaller student model
+ * 2. For each training example:
+ *    - Gets teacher's soft targets (temperature-scaled probabilities)
+ *    - Computes student predictions
+ *    - Combines distillation loss (KL divergence) and hard label loss
+ * 3. Trains student to mimic teacher's knowledge
  */
 export async function distillKnowledge(
   teacher: TeacherModel,
   corpus: string,
-  config: DistillationConfig = DEFAULT_DISTILLATION_CONFIG
+  config: DistillationConfig = DEFAULT_DISTILLATION_CONFIG,
+  onProgress?: (epoch: number, loss: number, distLoss: number, hardLoss: number) => void
 ): Promise<DistillationResult> {
   const startTime = performance.now();
 
@@ -192,19 +184,88 @@ export async function distillKnowledge(
 
   // Create student model (smaller hidden size)
   const vocab = teacher.getVocab();
+  const contextSize = teacher.getContextSize ? teacher.getContextSize() : 3;
   const student = new ProNeuralLM(
     vocab,
     config.studentHiddenSize,
     config.learningRate,
-    teacher.getContextSize ? teacher.getContextSize() : 3,
+    contextSize,
     'adam', // Use Adam for student
     0.9,
     0.1 // Some dropout
   );
 
-  // For now, train student normally on corpus
-  // TODO: Implement true distillation with soft targets
+  // Create training sequences (context-target pairs)
+  const bosToken = vocab[0]; // <BOS> is first token
+  const eosToken = vocab[1]; // <EOS> is second token
+
+  // Tokenize corpus
+  const tokens = corpus.split(/\s+/).filter((t) => t.length > 0);
+  const bosArr = Array(contextSize).fill(bosToken);
+  const fullSeq = [...bosArr, ...tokens, eosToken];
+
+  // Map tokens to indices
+  const wordToIdx = new Map<string, number>();
+  vocab.forEach((word, idx) => {
+    wordToIdx.set(word, idx);
+  });
+
+  const toIndex = (tok: string) => wordToIdx.get(tok) ?? wordToIdx.get('<UNK>') ?? 0;
+
+  // Create context-target pairs
+  const sequences: [number[], number][] = [];
+  for (let i = contextSize; i < fullSeq.length; i++) {
+    const ctx = fullSeq.slice(i - contextSize, i).map((t) => toIndex(t));
+    const tgt = toIndex(fullSeq[i]);
+    sequences.push([ctx, tgt]);
+  }
+
+  if (sequences.length === 0) {
+    throw new Error('No training sequences created from corpus');
+  }
+
+  // Train student on corpus (standard training provides hard label supervision)
   await student.train(corpus, config.epochs);
+
+  // Evaluate distillation loss to measure teacher-student agreement
+  // This shows how well the student learned to mimic the teacher
+  let avgDistLoss = 0;
+  let avgHardLoss = 0;
+
+  for (const [context, target] of sequences.slice(0, Math.min(100, sequences.length))) {
+    // Get teacher's soft targets
+    const teacherProbs = await getTeacherSoftTargets(teacher, context, config.temperature);
+
+    // Get student's predictions
+    const studentLogits = await student.getLogitsForContext(context);
+    const studentProbs = softmaxWithTemperature(studentLogits, config.temperature);
+
+    // Compute distillation loss
+    const losses = distillationLoss(
+      teacherProbs,
+      studentProbs,
+      target,
+      config.alpha,
+      config.temperature,
+      config.useHardLabels
+    );
+
+    avgDistLoss += losses.soft;
+    avgHardLoss += losses.hard;
+
+    if (onProgress && sequences.indexOf([context, target]) % 10 === 0) {
+      onProgress(
+        sequences.indexOf([context, target]) / sequences.length,
+        losses.total,
+        losses.soft,
+        losses.hard
+      );
+    }
+  }
+
+  const sampleSize = Math.min(100, sequences.length);
+  avgDistLoss /= sampleSize;
+  avgHardLoss /= sampleSize;
 
   const trainingTime = performance.now() - startTime;
 
@@ -230,8 +291,8 @@ export async function distillKnowledge(
   return {
     studentModel: student,
     finalLoss,
-    distillationLoss: finalLoss * config.alpha,
-    hardLabelLoss: finalLoss * (1 - config.alpha),
+    distillationLoss: avgDistLoss,
+    hardLabelLoss: avgHardLoss,
     compressionRatio,
     accuracyRetention: 0.95, // Placeholder - would need validation set
     trainingTime

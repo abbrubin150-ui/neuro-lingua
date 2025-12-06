@@ -13,10 +13,10 @@ describe('Governance Execution Status', () => {
     it('should return EXECUTE when all requirements are met', () => {
       const ledger: DecisionLedger = {
         rationale: 'Valid rationale for this decision',
-        alternatives: [],
-        decision: 'Proceed with training',
         witness: 'JohnDoe',
-        timestamp: Date.now()
+        expiry: null,
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('EXECUTE');
@@ -28,24 +28,22 @@ describe('Governance Execution Status', () => {
 
       const ledger: DecisionLedger = {
         rationale: 'Valid rationale',
-        alternatives: [],
-        decision: 'Proceed',
         witness: 'JohnDoe',
-        timestamp: Date.now(),
-        expiry: futureDate.toISOString()
+        expiry: futureDate.toISOString(),
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('EXECUTE');
     });
 
-    it('should return EXECUTE with approved status', () => {
+    it('should return EXECUTE with all fields populated', () => {
       const ledger: DecisionLedger = {
         rationale: 'Approved decision',
-        alternatives: [],
-        decision: 'Proceed',
         witness: 'JohnDoe',
-        timestamp: Date.now(),
-        approvals: ['Manager1', 'Manager2']
+        expiry: null,
+        rollback: 'archive',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('EXECUTE');
@@ -59,11 +57,10 @@ describe('Governance Execution Status', () => {
 
       const ledger: DecisionLedger = {
         rationale: 'Valid rationale',
-        alternatives: [],
-        decision: 'Proceed',
         witness: 'JohnDoe',
-        timestamp: Date.now(),
-        expiry: pastDate.toISOString()
+        expiry: pastDate.toISOString(),
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('HOLD');
@@ -75,11 +72,10 @@ describe('Governance Execution Status', () => {
 
       const ledger: DecisionLedger = {
         rationale: 'Valid rationale',
-        alternatives: [],
-        decision: 'Proceed',
         witness: 'JohnDoe',
-        timestamp: Date.now(),
-        expiry: pastDate.toISOString()
+        expiry: pastDate.toISOString(),
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('HOLD');
@@ -91,12 +87,10 @@ describe('Governance Execution Status', () => {
 
       const ledger: DecisionLedger = {
         rationale: 'Very detailed and valid rationale',
-        alternatives: ['Option A', 'Option B'],
-        decision: 'Proceed with training',
         witness: 'JohnDoe',
-        timestamp: Date.now(),
         expiry: pastDate.toISOString(),
-        approvals: ['Manager1', 'Manager2']
+        rollback: 'archive',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('HOLD');
@@ -107,10 +101,10 @@ describe('Governance Execution Status', () => {
     it('should return ESCALATE when rationale is missing', () => {
       const ledger: DecisionLedger = {
         rationale: '',
-        alternatives: [],
-        decision: 'Proceed',
         witness: 'JohnDoe',
-        timestamp: Date.now()
+        expiry: null,
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('ESCALATE');
@@ -119,10 +113,10 @@ describe('Governance Execution Status', () => {
     it('should return ESCALATE when rationale is only whitespace', () => {
       const ledger: DecisionLedger = {
         rationale: '   \n  \t  ',
-        alternatives: [],
-        decision: 'Proceed',
         witness: 'JohnDoe',
-        timestamp: Date.now()
+        expiry: null,
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('ESCALATE');
@@ -131,10 +125,10 @@ describe('Governance Execution Status', () => {
     it('should return ESCALATE when rationale is undefined', () => {
       const ledger: DecisionLedger = {
         rationale: undefined as any,
-        alternatives: [],
-        decision: 'Proceed',
         witness: 'JohnDoe',
-        timestamp: Date.now()
+        expiry: null,
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('ESCALATE');
@@ -145,10 +139,10 @@ describe('Governance Execution Status', () => {
     it('should return ESCALATE when witness is missing', () => {
       const ledger: DecisionLedger = {
         rationale: 'Valid rationale',
-        alternatives: [],
-        decision: 'Proceed',
         witness: '',
-        timestamp: Date.now()
+        expiry: null,
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('ESCALATE');
@@ -157,10 +151,10 @@ describe('Governance Execution Status', () => {
     it('should return ESCALATE when witness is only whitespace', () => {
       const ledger: DecisionLedger = {
         rationale: 'Valid rationale',
-        alternatives: [],
-        decision: 'Proceed',
         witness: '   \t\n   ',
-        timestamp: Date.now()
+        expiry: null,
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('ESCALATE');
@@ -169,10 +163,10 @@ describe('Governance Execution Status', () => {
     it('should return ESCALATE when witness is undefined', () => {
       const ledger: DecisionLedger = {
         rationale: 'Valid rationale',
-        alternatives: [],
-        decision: 'Proceed',
         witness: undefined as any,
-        timestamp: Date.now()
+        expiry: null,
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('ESCALATE');
@@ -183,10 +177,10 @@ describe('Governance Execution Status', () => {
     it('should return ESCALATE when both rationale and witness are missing', () => {
       const ledger: DecisionLedger = {
         rationale: '',
-        alternatives: [],
-        decision: 'Proceed',
         witness: '',
-        timestamp: Date.now()
+        expiry: null,
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('ESCALATE');
@@ -199,11 +193,10 @@ describe('Governance Execution Status', () => {
 
       const ledger: DecisionLedger = {
         rationale: 'Valid rationale',
-        alternatives: [],
-        decision: 'Proceed',
         witness: '', // Missing witness
-        timestamp: Date.now(),
-        expiry: pastDate.toISOString()
+        expiry: pastDate.toISOString(),
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       // Expiry is checked first, so should return HOLD
@@ -218,11 +211,10 @@ describe('Governance Execution Status', () => {
 
       const ledger: DecisionLedger = {
         rationale: '', // Missing
-        alternatives: [],
-        decision: 'Proceed',
         witness: '', // Missing
-        timestamp: Date.now(),
-        expiry: pastDate.toISOString() // Expired
+        expiry: pastDate.toISOString(), // Expired
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       // Should return HOLD, not ESCALATE, because expiry is checked first
@@ -234,28 +226,25 @@ describe('Governance Execution Status', () => {
     it('should handle ledger with minimal valid fields', () => {
       const ledger: DecisionLedger = {
         rationale: 'R',
-        alternatives: [],
-        decision: 'D',
         witness: 'W',
-        timestamp: Date.now()
+        expiry: null,
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('EXECUTE');
     });
 
-    it('should handle ledger with all optional fields populated', () => {
+    it('should handle ledger with all fields populated', () => {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 30);
 
       const ledger: DecisionLedger = {
         rationale: 'Comprehensive rationale',
-        alternatives: ['Alt1', 'Alt2', 'Alt3'],
-        decision: 'Proceed with Option 1',
         witness: 'JohnDoe',
-        timestamp: Date.now(),
         expiry: futureDate.toISOString(),
-        approvals: ['Manager1', 'Manager2', 'Manager3'],
-        linkedRunIds: ['run-1', 'run-2']
+        rollback: 'archive',
+        createdAt: Date.now()
       };
 
       expect(computeExecutionStatus(ledger)).toBe('EXECUTE');
@@ -266,11 +255,10 @@ describe('Governance Execution Status', () => {
 
       const ledger: DecisionLedger = {
         rationale: 'Valid rationale',
-        alternatives: [],
-        decision: 'Proceed',
         witness: 'JohnDoe',
-        timestamp: Date.now(),
-        expiry: now.toISOString()
+        expiry: now.toISOString(),
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       // At exact boundary, depends on millisecond precision
@@ -287,11 +275,10 @@ describe('Governance Execution Status', () => {
 
       const ledger: DecisionLedger = {
         rationale: 'Expired decision',
-        alternatives: [],
-        decision: 'Proceed',
         witness: 'JohnDoe',
-        timestamp: Date.now(),
-        expiry: pastDate.toISOString()
+        expiry: pastDate.toISOString(),
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       const status = computeExecutionStatus(ledger);
@@ -305,10 +292,10 @@ describe('Governance Execution Status', () => {
     it('documents that ESCALATE status should prevent training', () => {
       const ledger: DecisionLedger = {
         rationale: '', // Missing rationale
-        alternatives: [],
-        decision: 'Proceed',
         witness: 'JohnDoe',
-        timestamp: Date.now()
+        expiry: null,
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       const status = computeExecutionStatus(ledger);
@@ -322,10 +309,10 @@ describe('Governance Execution Status', () => {
     it('documents that only EXECUTE status should allow training', () => {
       const ledger: DecisionLedger = {
         rationale: 'Valid and complete rationale',
-        alternatives: ['Option A', 'Option B'],
-        decision: 'Proceed with Option A',
         witness: 'JohnDoe',
-        timestamp: Date.now()
+        expiry: null,
+        rollback: 'keep',
+        createdAt: Date.now()
       };
 
       const status = computeExecutionStatus(ledger);

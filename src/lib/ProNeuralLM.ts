@@ -765,6 +765,134 @@ export class ProNeuralLM {
   }
 
   /**
+   * Get all weight matrices and biases.
+   * Used by Cerebro injection system for snapshots and rollback.
+   */
+  getWeights(): {
+    embedding: number[][];
+    wHidden: number[][];
+    wOutput: number[][];
+    bHidden: number[];
+    bOutput: number[];
+  } {
+    return {
+      embedding: this.embedding.map((row) => [...row]),
+      wHidden: this.wHidden.map((row) => [...row]),
+      wOutput: this.wOutput.map((row) => [...row]),
+      bHidden: [...this.bHidden],
+      bOutput: [...this.bOutput]
+    };
+  }
+
+  /**
+   * Set all weight matrices and biases.
+   * Used by Cerebro injection system for rollback.
+   */
+  setWeights(weights: {
+    embedding: number[][];
+    wHidden: number[][];
+    wOutput: number[][];
+    bHidden: number[];
+    bOutput: number[];
+  }): void {
+    this.embedding = weights.embedding.map((row) => [...row]);
+    this.wHidden = weights.wHidden.map((row) => [...row]);
+    this.wOutput = weights.wOutput.map((row) => [...row]);
+    this.bHidden = [...weights.bHidden];
+    this.bOutput = [...weights.bOutput];
+
+    // Update hidden size if it changed
+    this.hiddenSize = this.wHidden.length;
+
+    // Reinitialize optimizer state for new dimensions
+    this.reinitializeOptimizerState();
+  }
+
+  /**
+   * Expand hidden layer by adding k neurons.
+   * Used by Cerebro neuron injection system.
+   * @param k Number of neurons to add
+   * @param useHeInit Use He initialization (for ReLU networks)
+   */
+  expandHiddenLayer(k: number, useHeInit = true): void {
+    if (k <= 0) return;
+
+    const vocabSize = this.vocab.length;
+    const inputDim = vocabSize * this.contextSize;
+    const newHiddenSize = this.hiddenSize + k;
+
+    // Calculate initialization scale
+    const scale = useHeInit ? Math.sqrt(2.0 / inputDim) : Math.sqrt(1.0 / inputDim);
+
+    // Expand wHidden: add k new rows
+    for (let i = 0; i < k; i++) {
+      const newRow: number[] = [];
+      for (let j = 0; j < inputDim; j++) {
+        newRow.push(this.randn(scale));
+      }
+      this.wHidden.push(newRow);
+    }
+
+    // Expand bHidden: add k zeros
+    for (let i = 0; i < k; i++) {
+      this.bHidden.push(0);
+    }
+
+    // Expand wOutput: add k columns to each row
+    const outputScale = useHeInit ? Math.sqrt(2.0 / newHiddenSize) : Math.sqrt(1.0 / newHiddenSize);
+    for (let i = 0; i < vocabSize; i++) {
+      for (let j = 0; j < k; j++) {
+        this.wOutput[i].push(this.randn(outputScale));
+      }
+    }
+
+    // Update hidden size
+    this.hiddenSize = newHiddenSize;
+
+    // Reinitialize optimizer state for new dimensions
+    this.reinitializeOptimizerState();
+  }
+
+  /**
+   * Reinitialize optimizer state for current weight dimensions.
+   * Called after weight structure changes (e.g., neuron injection).
+   */
+  private reinitializeOptimizerState(): void {
+    const V = this.vocab.length;
+    const H = this.hiddenSize;
+    const inputDim = V * this.contextSize;
+
+    // Momentum buffers
+    this.mEmbedding = this.embedding.map((row) => row.map(() => 0));
+    this.mWHidden = Array.from({ length: H }, () => Array(inputDim).fill(0));
+    this.mWOutput = Array.from({ length: V }, () => Array(H).fill(0));
+    this.mBHidden = Array(H).fill(0);
+    this.mBOutput = Array(V).fill(0);
+
+    // Adam buffers
+    this.aEmbedding = {
+      m: this.embedding.map((row) => row.map(() => 0)),
+      v: this.embedding.map((row) => row.map(() => 0))
+    };
+    this.aWHidden = {
+      m: Array.from({ length: H }, () => Array(inputDim).fill(0)),
+      v: Array.from({ length: H }, () => Array(inputDim).fill(0))
+    };
+    this.aWOutput = {
+      m: Array.from({ length: V }, () => Array(H).fill(0)),
+      v: Array.from({ length: V }, () => Array(H).fill(0))
+    };
+    this.aBHidden = {
+      m: Array(H).fill(0),
+      v: Array(H).fill(0)
+    };
+    this.aBOutput = {
+      m: Array(V).fill(0),
+      v: Array(V).fill(0)
+    };
+  }
+
+  /**
    * Get logits (raw model outputs before softmax) for a given context.
    * Used for knowledge distillation to extract soft targets from teacher model.
    *

@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Neuro-Lingua
 
-> **Last Updated**: 2025-11-26
-> **Version**: 3.3.0
+> **Last Updated**: 2025-12-06
+> **Version**: 3.2.4
 > **Purpose**: Comprehensive guide for AI assistants working on the Neuro-Lingua codebase
 
 ---
@@ -49,10 +49,15 @@
 - **4 Optimizers**: SGD with momentum, Adam, Damped Newton, L-BFGS
 - **5+ Generation Methods**: Greedy, Top-k, Top-p (nucleus), Beam Search, Contrastive Search
 - **Model Compression**: Int8 quantization, knowledge distillation, low-rank approximation (SVD)
-- **Advanced Features**: Dropout, layer normalization, learning rate scheduling, weight decay
+- **Advanced Features**: Dropout, layer normalization, RMSNorm, learning rate scheduling, weight decay
 - **Σ-SIG Compliance**: Experiment tracking with Decision Ledger governance
+- **Autonomous Governance**: GovernanceEngine for automatic parameter calibration
+- **Brain Vitals System**: BrainEngine tracks model "mood" and provides behavioral insights
+- **Model Interpretability**: SHAP values, integrated gradients, attention rollout
+- **Information Theory**: Information plane analysis (I(X;Z) vs I(Z;Y))
 - **Session Persistence**: localStorage-based state management
 - **GitHub Actions**: Automated model retraining workflow
+- **Bilingual UI**: English/Hebrew with RTL support
 
 ---
 
@@ -140,18 +145,29 @@
 │   ├── autodiff/                     # Automatic differentiation (experimental)
 │   ├── backend/                      # WebGPU integration
 │   │   ├── webgpu.ts                 # WebGPU backend and tensor operations
-│   │   └── gpu_neural_ops.ts        # High-level neural operations on GPU
+│   │   ├── gpu_neural_ops.ts        # High-level neural operations on GPU
+│   │   └── edgeLearning.ts          # Edge learning integration
 │   ├── components/                   # React UI components
-│   │   ├── TrainingPanel.tsx         # Main training configuration panel
-│   │   ├── ModelMetrics.tsx          # Performance metrics dashboard
-│   │   ├── ProjectManager.tsx        # Project/run management (Σ-SIG)
-│   │   ├── ScenarioManager.tsx       # Test scenario editor
-│   │   ├── DecisionLedgerEditor.tsx  # Governance/decision tracking
-│   │   ├── TokenizerConfig.tsx       # Tokenizer settings
-│   │   ├── ChatInterface.tsx         # Chat-style generation UI
-│   │   ├── CompressionPanel.tsx      # Model compression UI
-│   │   ├── OnboardingCard.tsx        # First-time user guide
-│   │   └── ErrorBoundary.tsx         # React error boundary
+│   │   ├── TrainingPanel.tsx         # Main training configuration panel (1619 lines)
+│   │   ├── DecisionEntry2Panel.tsx   # Enhanced decision entry UI (841 lines)
+│   │   ├── BrainPanel.tsx            # Brain vitals and mood system (731 lines)
+│   │   ├── EmbeddingVisualizationPanel.tsx # t-SNE/UMAP visualization (660 lines)
+│   │   ├── ModelMetrics.tsx          # Performance metrics dashboard (593 lines)
+│   │   ├── GovernanceBoard.tsx       # Governance monitoring dashboard (590 lines)
+│   │   ├── RunComparisonPanel.tsx    # Compare training runs (558 lines)
+│   │   ├── CompressionPanel.tsx      # Model compression UI (513 lines)
+│   │   ├── ExportPanel.tsx           # Model/data export interface (505 lines)
+│   │   ├── ProjectManager.tsx        # Project/run management (485 lines)
+│   │   ├── ExplainabilityPanel.tsx   # SHAP/gradients/attention (412 lines)
+│   │   ├── BrainTelemetryPanel.tsx   # Brain telemetry display (373 lines)
+│   │   ├── InformationTheoryPanel.tsx # Information plane analysis (365 lines)
+│   │   ├── ScenarioManager.tsx       # Test scenario editor (285 lines)
+│   │   ├── ChatInterface.tsx         # Chat-style generation UI (272 lines)
+│   │   ├── DecisionLedgerEditor.tsx  # Governance/decision tracking (254 lines)
+│   │   ├── TokenizerConfig.tsx       # Tokenizer settings (196 lines)
+│   │   ├── ErrorBoundary.tsx         # React error boundary (107 lines)
+│   │   ├── OnboardingCard.tsx        # First-time user guide (106 lines)
+│   │   └── OnboardingTooltip.tsx     # Interactive onboarding tips (78 lines)
 │   ├── compression/                  # Model compression system
 │   │   ├── compress.ts               # Unified compression interface
 │   │   ├── quantization.ts           # Int8/16 quantization
@@ -177,8 +193,14 @@
 │   │   ├── AdvancedNeuralLM.ts       # Enhanced LM with advanced features (21KB)
 │   │   ├── TransformerLM.ts          # Transformer architecture (15KB)
 │   │   ├── MathUtils.ts              # Numerical stability utilities (16KB)
+│   │   ├── BrainEngine.ts            # Brain vitals and mood system
+│   │   ├── GovernanceEngine.ts       # Autonomous parameter calibration
+│   │   ├── RMSNorm.ts                # Root Mean Square Normalization (v4.0)
 │   │   ├── storage.ts                # localStorage abstraction
 │   │   ├── utils.ts                  # Tokenizer and CSV utilities
+│   │   ├── diffUtils.ts              # Diff computation utilities
+│   │   ├── exportUtils.ts            # Model export utilities
+│   │   ├── experimentComparison.ts   # Run comparison utilities
 │   │   └── traceExport.ts            # Σ-SIG compliant experiment tracing
 │   ├── losses/                       # Advanced loss functions
 │   ├── math/                         # Mathematical utilities
@@ -398,7 +420,7 @@ model.setGPUOps(gpuOps);
 
 #### **CompressionPanel.tsx** - Model Compression UI
 
-**Location**: `/home/user/neuro-lingua/src/components/CompressionPanel.tsx` (~513 lines)
+**Location**: `/home/user/neuro-lingua/src/components/CompressionPanel.tsx` (513 lines)
 
 **Purpose**: User interface for model compression operations
 
@@ -418,6 +440,235 @@ model.setGPUOps(gpuOps);
 - Faster model loading and inference
 - Experimenting with compression trade-offs
 - Creating student models from larger teachers
+
+#### **GovernanceBoard.tsx** - Governance Monitoring Dashboard
+
+**Location**: `/home/user/neuro-lingua/src/components/GovernanceBoard.tsx` (590 lines)
+
+**Purpose**: Real-time monitoring dashboard for autonomous governance
+
+**Features**:
+
+- Live metric visualization (loss, accuracy, perplexity trends)
+- Alert feed with severity indicators (info, warning, critical)
+- Calibration history timeline
+- Parameter change tracking
+- Governor configuration controls
+- Session-by-session analysis
+- Alert acknowledgment system
+
+**When to Use**:
+
+- Monitoring autonomous governance in action
+- Reviewing parameter calibration decisions
+- Debugging training issues detected by governor
+- Compliance reporting (Σ-SIG)
+
+#### **BrainPanel.tsx** - Brain Vitals and Mood System
+
+**Location**: `/home/user/neuro-lingua/src/components/BrainPanel.tsx` (731 lines)
+
+**Purpose**: Interactive UI for brain vitals and mood tracking
+
+**Features**:
+
+- Mood indicator with visual representation
+- Creativity and stability gauges (0-100)
+- Pet name editing
+- Event diary with timeline
+- Training/generation statistics
+- Mood history chart
+- Suggestion system (non-intrusive)
+- Manual mood override controls
+
+**When to Use**:
+
+- Gamifying the training experience
+- Understanding model lifecycle
+- Educational demonstrations
+- Tracking long-term model behavior
+
+#### **BrainTelemetryPanel.tsx** - Brain Telemetry Display
+
+**Location**: `/home/user/neuro-lingua/src/components/BrainTelemetryPanel.tsx` (373 lines)
+
+**Purpose**: Detailed telemetry and analytics for brain system
+
+**Features**:
+
+- Real-time vitals monitoring
+- Mood transition graph
+- Event frequency analysis
+- Diary entry search and filter
+- Export brain state data
+- Historical trend visualization
+
+**When to Use**:
+
+- Deep-dive analysis of brain behavior
+- Debugging mood calculation
+- Exporting brain data for research
+- Long-term tracking
+
+#### **InformationTheoryPanel.tsx** - Information Plane Analysis
+
+**Location**: `/home/user/neuro-lingua/src/components/InformationTheoryPanel.tsx` (365 lines)
+
+**Purpose**: Information-theoretic analysis and visualization
+
+**Features**:
+
+- I(X;Z) vs I(Z;Y) information plane plot
+- Compression-prediction trade-off visualization
+- Information bottleneck analysis
+- Layer-wise information flow
+- Interactive canvas with zoom/pan
+- Epoch-by-epoch animation
+- Export plots as PNG/SVG
+
+**When to Use**:
+
+- Understanding representation learning
+- Analyzing information bottleneck dynamics
+- Research on deep learning theory
+- Visualizing compression during training
+
+#### **ExplainabilityPanel.tsx** - Model Interpretability
+
+**Location**: `/home/user/neuro-lingua/src/components/ExplainabilityPanel.tsx` (412 lines)
+
+**Purpose**: Model interpretation and explanation tools
+
+**Features**:
+
+- SHAP value calculation and visualization
+- Integrated gradients attribution
+- Attention rollout (for Transformers)
+- Token-level importance heatmaps
+- Layer activation visualization
+- Export attribution maps
+
+**When to Use**:
+
+- Understanding model predictions
+- Debugging unexpected outputs
+- Research on model interpretability
+- Compliance requirements (explainable AI)
+
+#### **EmbeddingVisualizationPanel.tsx** - Embedding Visualization
+
+**Location**: `/home/user/neuro-lingua/src/components/EmbeddingVisualizationPanel.tsx` (660 lines)
+
+**Purpose**: Interactive embedding space visualization
+
+**Features**:
+
+- t-SNE projection with configurable perplexity
+- UMAP projection with neighbor parameters
+- Interactive canvas (pan, zoom, hover)
+- Token label display
+- Cluster highlighting
+- 2D/3D view toggle
+- Export visualizations
+- Snapshot saving
+
+**When to Use**:
+
+- Exploring learned embeddings
+- Understanding token relationships
+- Visualizing semantic clusters
+- Research presentations
+
+#### **RunComparisonPanel.tsx** - Training Run Comparison
+
+**Location**: `/home/user/neuro-lingua/src/components/RunComparisonPanel.tsx` (558 lines)
+
+**Purpose**: Side-by-side comparison of training runs
+
+**Features**:
+
+- Multi-run selection
+- Loss curve overlay
+- Hyperparameter diff view
+- Metric comparison table
+- Statistical significance testing
+- Best run highlighting
+- Export comparison reports
+
+**When to Use**:
+
+- Hyperparameter tuning experiments
+- A/B testing different architectures
+- Finding optimal configurations
+- Reporting experiment results
+
+#### **DecisionEntry2Panel.tsx** - Enhanced Decision Entry
+
+**Location**: `/home/user/neuro-lingua/src/components/DecisionEntry2Panel.tsx` (841 lines)
+
+**Purpose**: Advanced decision ledger entry interface
+
+**Features**:
+
+- Rich text decision rationale
+- Alternative options tracking
+- Witness/approval signatures
+- Expiry date management
+- Linked run references
+- Decision impact tracking
+- Compliance status indicators
+
+**When to Use**:
+
+- Formal governance decisions
+- Σ-SIG compliance requirements
+- Multi-stakeholder approvals
+- Audit trail maintenance
+
+#### **ExportPanel.tsx** - Model and Data Export
+
+**Location**: `/home/user/neuro-lingua/src/components/ExportPanel.tsx` (505 lines)
+
+**Purpose**: Comprehensive export functionality
+
+**Features**:
+
+- Model export (JSON, optimized formats)
+- Training history CSV export
+- Experiment metadata export
+- Σ-SIG trace bundles
+- Embedding exports
+- Batch export operations
+- Export configuration presets
+
+**When to Use**:
+
+- Saving trained models
+- Data analysis in external tools
+- Compliance reporting
+- Archiving experiments
+
+#### **OnboardingTooltip.tsx** - Interactive Onboarding
+
+**Location**: `/home/user/neuro-lingua/src/components/OnboardingTooltip.tsx` (78 lines)
+
+**Purpose**: Context-sensitive onboarding tooltips
+
+**Features**:
+
+- Step-by-step guided tours
+- Context-aware hints
+- Dismissible tooltips
+- Progress tracking
+- Multi-language support
+- Keyboard navigation
+
+**When to Use**:
+
+- First-time user experience
+- Feature discovery
+- UI element explanations
+- Reducing learning curve
 
 ### 4. Model Compression System (`src/compression/`)
 
@@ -560,6 +811,282 @@ function MyComponent() {
 - Adding new configuration options
 - Adjusting validation constraints
 
+### 7. Autonomous Governance System (`src/lib/GovernanceEngine.ts`)
+
+#### **GovernanceEngine** - Automatic Parameter Calibration
+
+**Location**: `/home/user/neuro-lingua/src/lib/GovernanceEngine.ts`
+
+**Purpose**: Autonomous parameter calibration with Σ-SIG compliance
+
+**Key Features**:
+
+- **Metric Monitoring**: Tracks training/validation loss, accuracy, perplexity
+- **Issue Detection**: Identifies plateau, overfitting, underfitting, divergence
+- **Automatic Calibration**: Adjusts learning rate and dropout based on metrics
+- **Decision Ledger**: Full audit trail of all parameter changes
+- **Alert System**: Generates warnings for training issues
+- **Probabilistic Activation**: Configurable check intervals and activation probability
+
+**Core Components**:
+
+```typescript
+interface GovernorConfig {
+  enabled: boolean;
+  checkInterval: number; // Check every N sessions
+  activationProbability: number; // 0-1 chance of activation
+  improvementThreshold: number; // Minimum % improvement
+  learningRate: {
+    min: number;
+    max: number;
+    decreaseFactor: number;
+    increaseFactor: number;
+  };
+  dropout: {
+    min: number;
+    max: number;
+    increaseStep: number;
+    decreaseStep: number;
+  };
+  overfittingThreshold: number; // Train/val gap %
+  underfittingThreshold: number; // Absolute loss threshold
+  plateauWindow: number; // Look back N sessions
+}
+```
+
+**Usage**:
+
+```typescript
+import { GovernanceEngine } from '../lib/GovernanceEngine';
+
+// Initialize
+const governor = new GovernanceEngine({
+  enabled: true,
+  checkInterval: 2,
+  activationProbability: 0.5
+});
+
+// Record metrics after training
+governor.recordMetrics({
+  sessionId: 'run-123',
+  epoch: 10,
+  trainLoss: 1.234,
+  valLoss: 1.456,
+  trainAccuracy: 0.75,
+  perplexity: 3.45
+});
+
+// Check if should activate
+if (governor.shouldActivate()) {
+  const analysis = governor.analyze();
+  const action = governor.calibrate();
+
+  if (action) {
+    console.log(`Adjusting ${action.parameter}: ${action.previousValue} → ${action.newValue}`);
+    console.log(`Reason: ${action.reason}`);
+  }
+}
+```
+
+**Alert Types**:
+
+- `plateau`: No improvement detected over N sessions
+- `overfitting`: Train/validation gap exceeding threshold
+- `underfitting`: Both losses above threshold
+- `divergence`: Loss increasing trend
+- `oscillation`: High variance in metrics
+- `calibration`: Parameter adjusted by governor
+
+**When to Use**:
+
+- Automated hyperparameter tuning during long training runs
+- Detecting and responding to training issues
+- Maintaining audit trail for experiments
+- Governance compliance (Σ-SIG)
+
+### 8. Brain Vitals System (`src/lib/BrainEngine.ts`)
+
+#### **BrainEngine** - Model Mood and Behavioral Tracking
+
+**Location**: `/home/user/neuro-lingua/src/lib/BrainEngine.ts`
+
+**Purpose**: Track the "life" of the neural model through mood and vitals
+
+**Key Features**:
+
+- **Mood System**: CALM, FOCUSED, AGITATED, DREAMY, BURNT_OUT
+- **Brain Vitals**: Creativity (0-100), Stability (0-100)
+- **Event Tracking**: Training runs, generation, feeding corpus, idle time
+- **Diary System**: Log of major events and mood shifts
+- **Autonomous Suggestions**: Non-intrusive recommendations (never auto-executes)
+- **Pet Naming**: Assign friendly labels to model instances
+
+**Mood States**:
+
+```typescript
+type Mood =
+  | 'CALM'        // Balanced, stable state
+  | 'FOCUSED'     // High stability + good creativity
+  | 'AGITATED'    // Low stability, needs training
+  | 'DREAMY'      // High creativity, low stability
+  | 'BURNT_OUT';  // Low creativity + high stability (overtrained)
+```
+
+**BrainStats Interface**:
+
+```typescript
+interface BrainStats {
+  id: string;                    // Linked to model artifact
+  label: string;                 // Pet name (e.g., "Avi-LM-Pet #1")
+  createdAt: string;             // ISO timestamp
+  updatedAt: string;             // ISO timestamp
+
+  // Training metrics
+  totalTrainSteps: number;       // Total epochs completed
+  totalTokensSeen: number;       // Total tokens processed
+  vocabSize: number;             // Current vocabulary size
+
+  // Brain vitals (0-100)
+  creativity: number;            // Generation diversity
+  stability: number;             // Training stability
+
+  // State
+  mood: Mood;                    // Current mood
+  lastFeedSummary: string | null; // Last corpus summary
+  autonomyEnabled: boolean;      // Autonomous mode active
+
+  // Memory
+  diary: DiaryEntry[];           // Event log
+}
+```
+
+**Event Types**:
+
+- `TRAIN_RUN`: Training epoch completed → increases stability
+- `GEN_RUN`: Text generation performed → affects creativity
+- `FEED`: New corpus fed → adds vocabulary, changes mood
+- `IDLE_TICK`: Time passing without activity → natural decay
+- `MOOD_OVERRIDE`: Manual mood change by user
+
+**Usage**:
+
+```typescript
+import { BrainEngine } from '../lib/BrainEngine';
+
+// Initialize or load
+const brain = BrainEngine.initialize('model-v1', 'My Neural Pet');
+
+// Record training event
+brain.recordEvent({
+  type: 'TRAIN_RUN',
+  timestamp: Date.now(),
+  payload: { epochs: 10, finalLoss: 1.234 }
+});
+
+// Record generation event
+brain.recordEvent({
+  type: 'GEN_RUN',
+  timestamp: Date.now(),
+  payload: { tokensGenerated: 50, temperature: 0.8 }
+});
+
+// Check mood and get suggestions
+const stats = brain.getStats();
+console.log(`Mood: ${stats.mood}`);
+console.log(`Creativity: ${stats.creativity}, Stability: ${stats.stability}`);
+
+if (stats.mood === 'AGITATED') {
+  console.log('Suggestion: Model needs more training for stability');
+}
+
+// Save state
+brain.save();
+```
+
+**Mood Determination Logic**:
+
+- **FOCUSED**: stability ≥ 70 AND creativity ≥ 60
+- **DREAMY**: creativity ≥ 80 AND stability < 50
+- **AGITATED**: stability < 30
+- **BURNT_OUT**: creativity < 20 AND stability ≥ 60
+- **CALM**: Default balanced state
+
+**When to Use**:
+
+- Gamifying model training experience
+- Providing intuitive feedback to users
+- Tracking model lifecycle and usage patterns
+- Educational demonstrations of model behavior
+- Experiment logging with personality
+
+**Important Note**: BrainEngine NEVER performs heavy operations autonomously. It only suggests actions via UI.
+
+### 9. RMSNorm Layer (`src/lib/RMSNorm.ts`)
+
+#### **RMSNorm** - Root Mean Square Normalization
+
+**Location**: `/home/user/neuro-lingua/src/lib/RMSNorm.ts`
+
+**Purpose**: Efficient normalization layer for neural networks (v4.0 feature)
+
+**Key Benefits**:
+
+- **20% less memory**: Only γ parameters (no β like LayerNorm)
+- **2x faster**: No mean calculation required
+- **Equivalent performance**: Matches LayerNorm in practice
+- **Simpler**: Fewer parameters to learn
+
+**Formula**:
+
+```
+RMSNorm(x) = (x / RMS(x)) ⊙ γ
+where RMS(x) = sqrt(mean(x²) + ε)
+```
+
+**Reference**: Zhang & Sennrich (2019) "Root Mean Square Layer Normalization"
+
+**Used in**: T5, LLaMA, PaLM architectures
+
+**Interface**:
+
+```typescript
+class RMSNorm {
+  constructor(dimension: number, epsilon?: number);
+
+  forward(x: number[]): number[];
+  backward(gradOutput: number[]): number[];
+  updateWeights(learningRate: number): void;
+
+  getState(): RMSNormState;
+  loadState(state: RMSNormState): void;
+}
+```
+
+**Usage**:
+
+```typescript
+import { RMSNorm } from '../lib/RMSNorm';
+
+// Create RMSNorm layer for 128-dim vectors
+const rmsNorm = new RMSNorm(128, 1e-6);
+
+// Forward pass
+const normalized = rmsNorm.forward(hiddenState);
+
+// Backward pass during training
+const gradInput = rmsNorm.backward(gradOutput);
+
+// Update parameters
+rmsNorm.updateWeights(learningRate);
+```
+
+**When to Use**:
+
+- As replacement for LayerNorm in attention layers
+- In transformer architectures (v4.0 upgrade path)
+- When memory efficiency is critical
+- For faster training/inference
+
 ---
 
 ## Development Workflows
@@ -683,18 +1210,32 @@ pnpm test:watch
 ```
 tests/
 ├── ProNeuralLM.test.ts          # Core model tests
-├── AdvancedNeuralLM.test.ts     # Advanced features
-├── TransformerLM.test.ts        # Transformer architecture
-├── MathUtils.test.ts            # Math utilities
-├── tokenizer.test.ts            # Tokenization
-├── sampler.test.ts              # Generation algorithms
-├── App.test.tsx                 # React component
-├── numerics/                    # Numerical correctness
+├── ProNeuralLM.device.test.ts   # Device-specific model tests
+├── AdvancedNeuralLM.test.ts     # Advanced features tests
+├── TransformerLM.test.ts        # Transformer architecture tests
+├── GovernanceEngine.test.ts     # Autonomous governance tests
+├── MathUtils.test.ts            # Math utilities tests
+├── tokenizer.test.ts            # Tokenization tests
+├── sampler.test.ts              # Generation algorithms tests
+├── embedding_extraction.test.ts # Embedding extraction tests
+├── App.test.tsx                 # Main React app tests
+├── backend/                     # Backend tests (WebGPU, edge learning)
+├── components/                  # Component tests (UI panels)
+├── compression/                 # Compression system tests
+├── contexts/                    # Context provider tests
+├── lib/                         # Library module tests
+├── losses/                      # Loss function tests
+├── math/                        # Mathematical analysis tests
+│   └── analysis.test.ts
+├── numerics/                    # Numerical correctness tests
 │   ├── sampling.test.ts
 │   └── bayesian.test.ts
-└── math/                        # Mathematical analysis
-    └── analysis.test.ts
+├── test_edge_analyzer.py        # Python edge analyzer tests
+├── test_on_the_edge_learning.py # Python edge learning tests
+└── test_recursive_optimizer.py  # Python recursive optimizer tests
 ```
+
+**Total Test Files**: ~30 test files covering frontend, backend, and Python modules
 
 ### Writing Tests
 
@@ -1650,14 +2191,29 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
 
 ### UI Component Files
 
-| File                                 | Lines | Purpose            | Modify For          |
-| ------------------------------------ | ----- | ------------------ | ------------------- |
-| `src/App.tsx`                        | ~500  | Main application   | App structure       |
-| `src/components/TrainingPanel.tsx`   | ~1400 | Training UI        | Training controls   |
-| `src/components/ModelMetrics.tsx`    | ~450  | Metrics display    | Visualization       |
-| `src/components/ProjectManager.tsx`  | ~550  | Project management | Experiment tracking |
-| `src/components/ChatInterface.tsx`   | ~200  | Generation UI      | Chat features       |
-| `src/components/CompressionPanel.tsx` | ~513  | Compression UI     | Model compression   |
+| File                                       | Lines | Purpose                        | Modify For                   |
+| ------------------------------------------ | ----- | ------------------------------ | ---------------------------- |
+| `src/App.tsx`                              | ~500  | Main application               | App structure, i18n          |
+| `src/components/TrainingPanel.tsx`         | 1619  | Training UI                    | Training controls            |
+| `src/components/DecisionEntry2Panel.tsx`   | 841   | Enhanced decision entry        | Governance decisions         |
+| `src/components/BrainPanel.tsx`            | 731   | Brain vitals and mood          | Brain system UI              |
+| `src/components/EmbeddingVisualizationPanel.tsx` | 660   | t-SNE/UMAP visualization      | Embedding plots              |
+| `src/components/ModelMetrics.tsx`          | 593   | Metrics display                | Visualization                |
+| `src/components/GovernanceBoard.tsx`       | 590   | Governance monitoring          | Governance UI                |
+| `src/components/RunComparisonPanel.tsx`    | 558   | Compare training runs          | Experiment comparison        |
+| `src/components/CompressionPanel.tsx`      | 513   | Compression UI                 | Model compression            |
+| `src/components/ExportPanel.tsx`           | 505   | Model/data export              | Export functionality         |
+| `src/components/ProjectManager.tsx`        | 485   | Project management             | Experiment tracking          |
+| `src/components/ExplainabilityPanel.tsx`   | 412   | SHAP/gradients/attention       | Model interpretability       |
+| `src/components/BrainTelemetryPanel.tsx`   | 373   | Brain telemetry                | Brain stats display          |
+| `src/components/InformationTheoryPanel.tsx`| 365   | Information plane analysis     | Info theory visualization    |
+| `src/components/ScenarioManager.tsx`       | 285   | Test scenario editor           | Scenario testing             |
+| `src/components/ChatInterface.tsx`         | 272   | Generation UI                  | Chat features                |
+| `src/components/DecisionLedgerEditor.tsx`  | 254   | Governance/decision tracking   | Decision ledger              |
+| `src/components/TokenizerConfig.tsx`       | 196   | Tokenizer settings             | Tokenization config          |
+| `src/components/ErrorBoundary.tsx`         | 107   | React error boundary           | Error handling               |
+| `src/components/OnboardingCard.tsx`        | 106   | First-time user guide          | Onboarding UX                |
+| `src/components/OnboardingTooltip.tsx`     | 78    | Interactive onboarding tips    | Tooltips and hints           |
 
 ### Compression Module Files
 
@@ -2406,10 +2962,10 @@ gh workflow run train-model.yml \
 **Versioning**: Semantic versioning (vX.Y.Z)
 
 - **Major (X)**: Breaking changes to model architecture or API
-- **Minor (Y)**: New features (new optimizer, generation method)
+- **Minor (Y)**: New features (new optimizer, generation method, new UI panels)
 - **Patch (Z)**: Bug fixes, performance improvements
 
-**Current Version**: v3.2.4
+**Current Version**: v3.2.4 (runtime), v0.0.0 (package.json - not published to npm)
 
 **Creating a Release**:
 
@@ -2464,16 +3020,35 @@ gh workflow run train-model.yml \
 
 ### Documentation Files
 
+#### Core Documentation
 - **README.md**: Project overview and quickstart
+- **CLAUDE.md**: This file - comprehensive AI assistant guide
+- **CHANGELOG_v3.3.md**: Version history and changes
+
+#### Architecture & Implementation
 - **MATHEMATICAL_ENHANCEMENTS.md**: Detailed math formulations
 - **NEURO_LINGUA_V4_UPGRADES.md**: v4.0 roadmap with RoPE, SwiGLU, RMSNorm, Mirostat v2
 - **TRANSFORMER_GUIDE.md**: Transformer architecture explanation
 - **TRANSFORMER_IMPLEMENTATION.md**: Implementation details
 - **GPU_ACCELERATION_GUIDE.md**: WebGPU setup and usage
+
+#### Governance & Systems
+- **GOVERNANCE_INTEGRATION_GUIDE.md**: Autonomous governance system integration
+- **GOVERNANCE_ARCHITECTURE.md**: GovernanceEngine architecture and design
+- **INTEGRATION_COMPLETE.md**: System integration status and checklist
 - **SYSTEM_CALIBRATION_AGENT_SPEC.md**: Agent calibration and instruction specification
+
+#### Development
 - **DEVELOPMENT_SETUP_GUIDE.md**: Development environment setup
 - **DEVELOPMENT_ROADMAP.md**: Future plans and features
-- **CHANGELOG_v3.3.md**: Version history and changes
+- **IMMEDIATE_ACTIONS.md**: Priority tasks and action items
+
+#### Theory & Research
+- **docs/generalization-theory.md**: Generalization theory documentation
+- **docs/on-the-edge-formalism.md**: Edge learning formalism
+- **docs/theory/information.md**: Information theory foundations
+- **docs/losses.md**: Loss functions documentation
+- **docs/experiments/logbook.md**: Experiment logbook
 
 ### External References
 

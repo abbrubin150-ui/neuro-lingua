@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import type { CerebroBubble, InjectionEvent, InjectionProposal } from '../types/injection';
 import type { InjectableLayer } from '../lib/expandable/InjectableLayer';
 import { InjectionEngine } from '../lib/expandable/InjectionEngine';
@@ -19,7 +19,11 @@ function createPlaceholderBubbles(dModel: number): CerebroBubble[] {
       id: `bubble-${i}`,
       label: `b${i}`,
       activation: 0.4 + 0.6 * Math.random(),
-      embedding: [Math.cos(angle), Math.sin(angle), ...Array.from({ length: padding }, () => Math.random() * 0.1)],
+      embedding: [
+        Math.cos(angle),
+        Math.sin(angle),
+        ...Array.from({ length: padding }, () => Math.random() * 0.1)
+      ],
       tag: ['body', 'desire', 'risk', 'value', 'action'][i % 5] as CerebroBubble['tag'],
       ts: Date.now() - i * 1000
     };
@@ -33,10 +37,18 @@ function formatNumber(value: number): string {
 
 export function CerebroPanel({ layer, bubbles, engine }: CerebroPanelProps) {
   const target = layer.getTarget();
-  const bubbleSet = useMemo(() => bubbles ?? createPlaceholderBubbles(target.dModel), [bubbles, target.dModel]);
-  const ledger: InjectionEvent[] = [];
+  const bubbleSet = useMemo(
+    () => bubbles ?? createPlaceholderBubbles(target.dModel),
+    [bubbles, target.dModel]
+  );
+  const ledgerRef = useRef<InjectionEvent[]>([]);
   const session = useMemo(
-    () => new InjectionRunSession(layer, createLedgerAdapter(ledger), engine ?? new InjectionEngine()),
+    () =>
+      new InjectionRunSession(
+        layer,
+        createLedgerAdapter(ledgerRef.current),
+        engine ?? new InjectionEngine()
+      ),
     [engine, layer]
   );
 
@@ -94,8 +106,8 @@ export function CerebroPanel({ layer, bubbles, engine }: CerebroPanelProps) {
           <div className="border border-gray-200 rounded p-3 bg-gray-50">
             <h3 className="font-semibold mb-2">Observe → Propose → Inject</h3>
             <p className="text-sm text-gray-700 mb-3">
-              Cerebro scans bubble residual energy and proposes orthogonal neurons to add. The ledger keeps
-              every injection and allows rollback.
+              Cerebro scans bubble residual energy and proposes orthogonal neurons to add. The ledger keeps every
+              injection and allows rollback.
             </p>
             <div className="flex gap-2 mb-2">
               <button className="px-3 py-2 bg-blue-600 text-white rounded" onClick={handlePropose}>
@@ -123,10 +135,22 @@ export function CerebroPanel({ layer, bubbles, engine }: CerebroPanelProps) {
             <h4 className="font-semibold mb-2">Ledger Snapshot</h4>
             {lastEvent ? (
               <div className="text-sm text-gray-800">
-                <div className="flex justify-between"><span>Accepted</span><span>{lastEvent.accepted ? '✅' : '⚠️'}</span></div>
-                <div className="flex justify-between"><span>Δ residual</span><span>{formatNumber(lastEvent.delta.meanResidual ?? 0)}</span></div>
-                <div className="flex justify-between"><span>Δ trace⊥</span><span>{formatNumber(lastEvent.delta.tracePerp ?? 0)}</span></div>
-                <div className="flex justify-between"><span>Seed</span><span>{lastEvent.seed}</span></div>
+                <div className="flex justify-between">
+                  <span>Accepted</span>
+                  <span>{lastEvent.accepted ? '✅' : '⚠️'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Δ residual</span>
+                  <span>{formatNumber(lastEvent.delta.meanResidual ?? 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Δ trace⊥</span>
+                  <span>{formatNumber(lastEvent.delta.tracePerp ?? 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Seed</span>
+                  <span>{lastEvent.seed}</span>
+                </div>
               </div>
             ) : (
               <p className="text-sm text-gray-600">No injections yet.</p>
@@ -152,7 +176,9 @@ export function CerebroPanel({ layer, bubbles, engine }: CerebroPanelProps) {
             </button>
             {showAdvanced ? (
               <div className="mt-2 text-sm text-gray-800 space-y-1">
-                <div>Orth penalty: {proposal ? formatNumber(proposal.orthPenalty) : formatNumber(0.1)}</div>
+                <div>
+                  Orth penalty: {proposal ? formatNumber(proposal.orthPenalty) : formatNumber(0.1)}
+                </div>
                 <div>Min gain: {proposal ? formatNumber(proposal.minGain) : formatNumber(0.01)}</div>
                 <div>Run ID: {proposal?.target.modelId ?? target.modelId}</div>
                 <div>Layer type: {target.type}</div>

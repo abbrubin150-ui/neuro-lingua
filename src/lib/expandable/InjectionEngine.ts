@@ -79,7 +79,11 @@ export class InjectionEngine {
     };
   }
 
-  execute(proposal: InjectionProposal, layer: InjectableLayer, bubbles: CerebroBubble[] = []): InjectionEvent {
+  execute(
+    proposal: InjectionProposal,
+    layer: InjectableLayer,
+    bubbles: CerebroBubble[] = []
+  ): InjectionEvent {
     const preDiagnostics = this.diagnose(bubbles, layer);
     const seed = Math.floor(Math.random() * 1_000_000);
     const initMethod = proposal.method === 'svd_local' ? 'residual_eig' : proposal.method;
@@ -88,7 +92,10 @@ export class InjectionEngine {
       return {
         proposal,
         accepted: false,
-        metricsPre: { meanResidual: preDiagnostics.meanResidual, tracePerp: preDiagnostics.tracePerp },
+        metricsPre: {
+          meanResidual: preDiagnostics.meanResidual,
+          tracePerp: preDiagnostics.tracePerp
+        },
         metricsPost: {},
         delta: {},
         seed,
@@ -105,7 +112,10 @@ export class InjectionEngine {
       return {
         proposal,
         accepted: false,
-        metricsPre: { meanResidual: preDiagnostics.meanResidual, tracePerp: preDiagnostics.tracePerp },
+        metricsPre: {
+          meanResidual: preDiagnostics.meanResidual,
+          tracePerp: preDiagnostics.tracePerp
+        },
         metricsPost: {},
         delta: {},
         seed,

@@ -139,10 +139,7 @@ export function multiplyMatrices(A: number[][], B: number[][]): number[][] {
   return result;
 }
 
-export function projectCovariance(
-  covariance: number[][],
-  projector: number[][]
-): number[][] {
+export function projectCovariance(covariance: number[][], projector: number[][]): number[][] {
   // Σ^⊥ = P Σ P
   const temp = multiplyMatrices(projector, covariance);
   return multiplyMatrices(temp, projector);

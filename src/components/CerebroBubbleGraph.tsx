@@ -20,7 +20,11 @@ export function CerebroBubbleGraph({ bubbles, onSelectBubble }: CerebroBubbleGra
 
   return (
     <div className="cerebro-bubble-graph">
-      <svg width={radius * 2 + 40} height={radius * 2 + 40} viewBox={`0 0 ${radius * 2 + 40} ${radius * 2 + 40}`}>
+      <svg
+        width={radius * 2 + 40}
+        height={radius * 2 + 40}
+        viewBox={`0 0 ${radius * 2 + 40} ${radius * 2 + 40}`}
+      >
         <circle
           cx={radius + 20}
           cy={radius + 20}

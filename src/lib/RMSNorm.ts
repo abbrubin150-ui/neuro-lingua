@@ -52,7 +52,9 @@ export class RMSNorm {
    */
   forward(x: number[]): number[] {
     if (x.length !== this.dimension) {
-      throw new Error(`Input dimension ${x.length} doesn't match layer dimension ${this.dimension}`);
+      throw new Error(
+        `Input dimension ${x.length} doesn't match layer dimension ${this.dimension}`
+      );
     }
 
     // Compute RMS: sqrt(mean(x²) + ε)
@@ -118,7 +120,7 @@ export class RMSNorm {
 
     for (let i = 0; i < this.dimension; i++) {
       // Derivative of normalization
-      const dNorm = (1.0 / rms) - (x[i] * x[i]) / (this.dimension * rms3);
+      const dNorm = 1.0 / rms - (x[i] * x[i]) / (this.dimension * rms3);
       gradInput[i] = gradNormalized[i] * dNorm;
 
       // Account for contribution through RMS
@@ -192,11 +194,7 @@ export class RMSNorm {
  * Standalone RMSNorm function (no gradients)
  * Useful for inference or when you don't need backprop
  */
-export function rmsNorm(
-  x: number[],
-  gamma: number[],
-  epsilon: number = 1e-6
-): number[] {
+export function rmsNorm(x: number[], gamma: number[], epsilon: number = 1e-6): number[] {
   const dimension = x.length;
 
   // Compute RMS

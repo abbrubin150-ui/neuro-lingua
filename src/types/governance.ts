@@ -29,12 +29,12 @@ export interface MetricSnapshot {
  * Board alert types
  */
 export type AlertType =
-  | 'plateau'           // No improvement detected
-  | 'overfitting'       // Train/val gap increasing
-  | 'underfitting'      // Both train and val loss high
-  | 'divergence'        // Loss increasing
-  | 'oscillation'       // High variance in loss
-  | 'calibration';      // Parameter adjusted by governor
+  | 'plateau' // No improvement detected
+  | 'overfitting' // Train/val gap increasing
+  | 'underfitting' // Both train and val loss high
+  | 'divergence' // Loss increasing
+  | 'oscillation' // High variance in loss
+  | 'calibration'; // Parameter adjusted by governor
 
 /**
  * Alert severity

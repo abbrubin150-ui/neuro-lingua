@@ -14,7 +14,6 @@ import type {
 } from '../types/project';
 import type { ExperimentComparison, DecisionEntry } from '../types/experiment';
 import type {
-  MetricSnapshot,
   BoardAlert,
   CalibrationAction,
   GovernanceLedgerEntry,
@@ -475,7 +474,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   );
 
   const checkGovernance = useCallback(
-    (currentLearningRate: number, currentDropout: number, sessionId: string): CalibrationAction[] => {
+    (
+      currentLearningRate: number,
+      currentDropout: number,
+      sessionId: string
+    ): CalibrationAction[] => {
       if (!activeProjectId) {
         return [];
       }

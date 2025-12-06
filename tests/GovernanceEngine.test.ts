@@ -2,7 +2,7 @@
  * Tests for GovernanceEngine
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { GovernanceEngine, DEFAULT_GOVERNOR_CONFIG } from '../src/lib/GovernanceEngine';
 
 describe('GovernanceEngine', () => {
@@ -220,6 +220,7 @@ describe('GovernanceEngine', () => {
 
   describe('Overfitting Detection', () => {
     it('should detect overfitting when train/val gap is large', () => {
+      // Need at least 2 metrics for analysis
       engine.recordMetrics({
         sessionId: 'session1',
         epoch: 0,
@@ -228,6 +229,16 @@ describe('GovernanceEngine', () => {
         perplexity: 2.7,
         valLoss: 2.5, // 150% higher than train
         valAccuracy: 0.6
+      });
+
+      engine.recordMetrics({
+        sessionId: 'session2',
+        epoch: 1,
+        trainLoss: 0.9,
+        trainAccuracy: 0.92,
+        perplexity: 2.5,
+        valLoss: 2.6,
+        valAccuracy: 0.58
       });
 
       const analysis = engine.analyzeMetrics();
@@ -266,6 +277,7 @@ describe('GovernanceEngine', () => {
 
   describe('Underfitting Detection', () => {
     it('should detect underfitting when both losses are high', () => {
+      // Need at least 2 metrics for analysis
       engine.recordMetrics({
         sessionId: 'session1',
         epoch: 0,
@@ -274,6 +286,16 @@ describe('GovernanceEngine', () => {
         perplexity: 20.0,
         valLoss: 3.2,
         valAccuracy: 0.28
+      });
+
+      engine.recordMetrics({
+        sessionId: 'session2',
+        epoch: 1,
+        trainLoss: 3.1,
+        trainAccuracy: 0.29,
+        perplexity: 22.0,
+        valLoss: 3.3,
+        valAccuracy: 0.27
       });
 
       const analysis = engine.analyzeMetrics();

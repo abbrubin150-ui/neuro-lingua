@@ -33,13 +33,13 @@ export const DEFAULT_GOVERNOR_CONFIG: GovernorConfig = {
     min: 1e-6,
     max: 1.0,
     decreaseFactor: 0.8, // Reduce by 20%
-    increaseFactor: 1.1  // Increase by 10%
+    increaseFactor: 1.1 // Increase by 10%
   },
   dropout: {
     min: 0.0,
     max: 0.5,
     increaseStep: 0.05, // Increase by 5%
-    decreaseStep: 0.05  // Decrease by 5%
+    decreaseStep: 0.05 // Decrease by 5%
   },
   overfittingThreshold: 10.0, // 10% train/val gap
   underfittingThreshold: 2.0, // Absolute loss > 2.0
@@ -125,32 +125,45 @@ export class GovernanceEngine {
 
     // Plateau: Decrease learning rate
     if (plateauDetected) {
-      alertsToCreate.push(this.createAlert('plateau', 'warning',
-        'No improvement detected in recent sessions'));
+      alertsToCreate.push(
+        this.createAlert('plateau', 'warning', 'No improvement detected in recent sessions')
+      );
     }
 
     // Overfitting: Increase dropout
     if (overfittingDetected) {
-      alertsToCreate.push(this.createAlert('overfitting', 'warning',
-        'Training/validation gap increasing - possible overfitting'));
+      alertsToCreate.push(
+        this.createAlert(
+          'overfitting',
+          'warning',
+          'Training/validation gap increasing - possible overfitting'
+        )
+      );
     }
 
     // Underfitting: Both losses high
     if (underfittingDetected) {
-      alertsToCreate.push(this.createAlert('underfitting', 'info',
-        'Model may be underfitting - consider increasing capacity'));
+      alertsToCreate.push(
+        this.createAlert(
+          'underfitting',
+          'info',
+          'Model may be underfitting - consider increasing capacity'
+        )
+      );
     }
 
     // Divergence: Loss increasing
     if (divergenceDetected) {
-      alertsToCreate.push(this.createAlert('divergence', 'critical',
-        'Loss is increasing - training may be diverging'));
+      alertsToCreate.push(
+        this.createAlert('divergence', 'critical', 'Loss is increasing - training may be diverging')
+      );
     }
 
     // Oscillation: High variance
     if (oscillationDetected) {
-      alertsToCreate.push(this.createAlert('oscillation', 'warning',
-        'High variance in loss - training is unstable'));
+      alertsToCreate.push(
+        this.createAlert('oscillation', 'warning', 'High variance in loss - training is unstable')
+      );
     }
 
     return {
@@ -180,7 +193,7 @@ export class GovernanceEngine {
     const actions: CalibrationAction[] = [];
 
     // Add alerts to state
-    analysis.alertsToCreate.forEach(alert => {
+    analysis.alertsToCreate.forEach((alert) => {
       this.state.alerts.push(alert);
       this.addLedgerEntry('alert', alert.message, projectId, sessionId, undefined, alert);
     });
@@ -274,9 +287,14 @@ export class GovernanceEngine {
     }
 
     // If no action taken, log decision not to act
-    if (!actionTaken && (analysis.plateauDetected || analysis.overfittingDetected ||
-                         analysis.underfittingDetected || analysis.divergenceDetected ||
-                         analysis.oscillationDetected)) {
+    if (
+      !actionTaken &&
+      (analysis.plateauDetected ||
+        analysis.overfittingDetected ||
+        analysis.underfittingDetected ||
+        analysis.divergenceDetected ||
+        analysis.oscillationDetected)
+    ) {
       this.addLedgerEntry(
         'no-action',
         'Issues detected but no calibration needed (parameters at safety limits)',
@@ -286,7 +304,7 @@ export class GovernanceEngine {
     }
 
     // Record all actions
-    actions.forEach(action => {
+    actions.forEach((action) => {
       this.state.calibrationHistory.push(action);
       this.addLedgerEntry('calibration', action.reason, projectId, sessionId, action);
 
@@ -347,8 +365,9 @@ export class GovernanceEngine {
     const latest = metrics[metrics.length - 1];
 
     const trainHigh = latest.trainLoss > this.state.config.underfittingThreshold;
-    const valHigh = latest.valLoss ?
-      latest.valLoss > this.state.config.underfittingThreshold : false;
+    const valHigh = latest.valLoss
+      ? latest.valLoss > this.state.config.underfittingThreshold
+      : false;
 
     return trainHigh && (latest.valLoss ? valHigh : true);
   }
@@ -377,10 +396,11 @@ export class GovernanceEngine {
     }
 
     const recent = metrics.slice(-3);
-    const losses = recent.map(m => m.trainLoss);
+    const losses = recent.map((m) => m.trainLoss);
 
     const mean = losses.reduce((a, b) => a + b, 0) / losses.length;
-    const variance = losses.reduce((sum, loss) => sum + Math.pow(loss - mean, 2), 0) / losses.length;
+    const variance =
+      losses.reduce((sum, loss) => sum + Math.pow(loss - mean, 2), 0) / losses.length;
     const stdDev = Math.sqrt(variance);
 
     // High variance if std dev > 20% of mean
@@ -514,14 +534,14 @@ export class GovernanceEngine {
    * Get active (unacknowledged) alerts
    */
   public getActiveAlerts(): BoardAlert[] {
-    return this.state.alerts.filter(a => !a.acknowledged);
+    return this.state.alerts.filter((a) => !a.acknowledged);
   }
 
   /**
    * Acknowledge an alert
    */
   public acknowledgeAlert(alertId: string): void {
-    const alert = this.state.alerts.find(a => a.id === alertId);
+    const alert = this.state.alerts.find((a) => a.id === alertId);
     if (alert) {
       alert.acknowledged = true;
     }

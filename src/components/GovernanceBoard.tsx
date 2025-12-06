@@ -62,11 +62,7 @@ export function GovernanceBoard({ visible = true }: GovernanceBoardProps) {
 
       <div style={styles.content}>
         {activeTab === 'alerts' && (
-          <AlertsPanel
-            alerts={alerts}
-            onAcknowledge={acknowledgeAlert}
-            onClearAll={clearAlerts}
-          />
+          <AlertsPanel alerts={alerts} onAcknowledge={acknowledgeAlert} onClearAll={clearAlerts} />
         )}
 
         {activeTab === 'calibration' && (
@@ -103,7 +99,9 @@ function AlertsPanel({
   return (
     <div>
       <div style={styles.panelHeader}>
-        <span style={styles.panelTitle}>{alerts.length} Active Alert{alerts.length > 1 ? 's' : ''}</span>
+        <span style={styles.panelTitle}>
+          {alerts.length} Active Alert{alerts.length > 1 ? 's' : ''}
+        </span>
         <button style={styles.clearButton} onClick={onClearAll}>
           Clear All
         </button>
@@ -163,9 +161,7 @@ function AlertCard({
       )}
 
       <div style={styles.alertFooter}>
-        <span style={styles.alertTime}>
-          {new Date(alert.timestamp).toLocaleTimeString()}
-        </span>
+        <span style={styles.alertTime}>{new Date(alert.timestamp).toLocaleTimeString()}</span>
         <button style={styles.acknowledgeButton} onClick={() => onAcknowledge(alert.id)}>
           Acknowledge
         </button>
@@ -177,11 +173,7 @@ function AlertCard({
 /**
  * Calibration panel
  */
-function CalibrationPanel({
-  calibrationHistory
-}: {
-  calibrationHistory: CalibrationAction[];
-}) {
+function CalibrationPanel({ calibrationHistory }: { calibrationHistory: CalibrationAction[] }) {
   if (calibrationHistory.length === 0) {
     return (
       <div style={styles.emptyState}>
@@ -256,9 +248,7 @@ function LedgerPanel({ ledger }: { ledger: GovernanceLedgerEntry[] }) {
     return (
       <div style={styles.emptyState}>
         <p>📝 No ledger entries</p>
-        <p style={styles.emptyStateSubtext}>
-          All governance decisions will be recorded here
-        </p>
+        <p style={styles.emptyStateSubtext}>All governance decisions will be recorded here</p>
       </div>
     );
   }
@@ -305,9 +295,7 @@ function LedgerCard({ entry }: { entry: GovernanceLedgerEntry }) {
 
       <div style={styles.ledgerFooter}>
         <span style={styles.ledgerSession}>Session: {entry.sessionId.substring(0, 8)}...</span>
-        <span style={styles.ledgerTime}>
-          {new Date(entry.timestamp).toLocaleString()}
-        </span>
+        <span style={styles.ledgerTime}>{new Date(entry.timestamp).toLocaleString()}</span>
       </div>
     </div>
   );

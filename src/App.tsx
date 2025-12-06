@@ -57,8 +57,11 @@ import {
   ExplainabilityPanel,
   EmbeddingVisualizationPanel,
   CompressionPanel,
-  BrainPanel
+  BrainPanel,
+  CerebroPanel
 } from './components';
+import { createProNeuralLMAdapter } from './lib/expandable';
+import type { InjectionEvent } from './types/injection';
 import { ExportPanel } from './components/ExportPanel';
 import { DecisionEntry2Panel } from './components/DecisionEntry2Panel';
 
@@ -449,6 +452,11 @@ export default function NeuroLinguaDomesticaV324() {
   const [showCompressionPanel, setShowCompressionPanel] = useState(false);
   const [showExportPanel, setShowExportPanel] = useState(false);
   const [showDecisionPanel, setShowDecisionPanel] = useState(false);
+
+  // Cerebro mode (neuron injection)
+  const [cerebroEnabled, setCerebroEnabled] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_cerebroInjectionHistory, _setCerebroInjectionHistory] = useState<InjectionEvent[]>([]);
 
   const modelRef = useRef<ProNeuralLM | null>(null);
   const trainingRef = useRef({ running: false, currentEpoch: 0 });
@@ -1760,6 +1768,24 @@ export default function NeuroLinguaDomesticaV324() {
               </button>
               <button
                 type="button"
+                onClick={() => setCerebroEnabled((prev) => !prev)}
+                aria-label={cerebroEnabled ? 'Disable Cerebro Mode' : 'Enable Cerebro Mode'}
+                style={{
+                  padding: '8px 16px',
+                  background: cerebroEnabled
+                    ? 'linear-gradient(90deg, #f59e0b, #ef4444)'
+                    : 'linear-gradient(90deg, #6b7280, #4b5563)',
+                  border: 'none',
+                  borderRadius: 999,
+                  color: 'white',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                {cerebroEnabled ? '🧠 Cerebro ON' : '🧠 Cerebro'}
+              </button>
+              <button
+                type="button"
                 onClick={toggleLocale}
                 aria-label={t.toggle.aria}
                 style={{
@@ -2072,6 +2098,24 @@ export default function NeuroLinguaDomesticaV324() {
           >
             <BrainPanel />
           </div>
+
+          {cerebroEnabled && modelRef.current && (
+            <div
+              style={{
+                marginTop: 20,
+                background: 'rgba(30,41,59,0.9)',
+                border: '1px solid #f59e0b',
+                borderRadius: 12
+              }}
+            >
+              <CerebroPanel
+                layer={createProNeuralLMAdapter(
+                  modelRef.current,
+                  activeRun?.id ?? `model-${Date.now()}`
+                )}
+              />
+            </div>
+          )}
 
           <div
             style={{

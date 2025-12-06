@@ -6,6 +6,7 @@
 import type { Optimizer, TokenizerConfig } from '../lib/ProNeuralLM';
 import type { ActivationFunction, LRSchedule, InitializationScheme } from '../lib/AdvancedNeuralLM';
 import type { Architecture } from '../components/TrainingPanel';
+import type { InjectionEvent } from './injection';
 
 /**
  * Decision Ledger - Tracks rationale and governance for each run
@@ -132,6 +133,8 @@ export interface Run {
   };
   /** Model weights (JSON serialized) */
   modelData?: unknown;
+  /** Cerebro neuron injection events (for expandable networks) */
+  injectionEvents?: InjectionEvent[];
   /** When this run was created */
   createdAt: number;
   /** When training started */
@@ -340,5 +343,47 @@ export function createDecisionEntry(
     witness,
     createdAt: Date.now(),
     category
+  };
+}
+
+/**
+ * Create a decision entry from a Cerebro injection event.
+ * Connects neuron injection to Σ-SIG compliance.
+ */
+export function createDecisionEntryFromInjection(
+  projectId: string,
+  runId: string,
+  event: InjectionEvent,
+  witness: string = 'cerebro-engine'
+): import('../types/experiment').DecisionEntry {
+  const { proposal, accepted, metricsPre, metricsPost, delta } = event;
+
+  const problem = `Residual energy detected: mean=${(metricsPre.meanResidual ?? 0).toFixed(4)}, trace⊥=${(metricsPre.tracePerp ?? 0).toFixed(4)}`;
+
+  const alternatives = [
+    `Add ${proposal.k} neurons via ${proposal.method}`,
+    'Continue training without expansion',
+    'Reduce learning rate instead'
+  ];
+
+  const decision = accepted
+    ? `Injected ${proposal.k} neurons using ${proposal.method} method`
+    : `Rejected injection: insufficient gain (Δ residual=${(delta.meanResidual ?? 0).toFixed(4)})`;
+
+  const kpi = accepted
+    ? `Δ residual: ${(delta.meanResidual ?? 0).toFixed(4)}, Δ trace⊥: ${(delta.tracePerp ?? 0).toFixed(4)}, Δ gain: ${(delta.estimatedGain ?? 0).toFixed(4)}`
+    : `Pre-gain: ${(metricsPre.estimatedGain ?? 0).toFixed(4)}, Post-gain: ${(metricsPost.estimatedGain ?? 0).toFixed(4)}`;
+
+  return {
+    id: `injection_${event.seed}_${Date.now()}`,
+    projectId,
+    problem,
+    alternatives,
+    decision,
+    kpi,
+    affectedRunIds: [runId],
+    witness,
+    createdAt: Date.now(),
+    category: 'cerebro-injection'
   };
 }

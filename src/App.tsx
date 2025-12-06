@@ -60,7 +60,11 @@ import {
   BrainPanel,
   CerebroPanel
 } from './components';
-import { createProNeuralLMAdapter } from './lib/expandable';
+import {
+  createProNeuralLMAdapter,
+  createAdvancedNeuralLMAdapter,
+  extractBubblesFromModel
+} from './lib/expandable';
 import type { InjectionEvent } from './types/injection';
 import { ExportPanel } from './components/ExportPanel';
 import { DecisionEntry2Panel } from './components/DecisionEntry2Panel';
@@ -2109,10 +2113,18 @@ export default function NeuroLinguaDomesticaV324() {
               }}
             >
               <CerebroPanel
-                layer={createProNeuralLMAdapter(
-                  modelRef.current,
-                  activeRun?.id ?? `model-${Date.now()}`
-                )}
+                layer={
+                  architecture === 'advanced'
+                    ? createAdvancedNeuralLMAdapter(
+                        modelRef.current as AdvancedNeuralLM,
+                        activeRun?.id ?? `model-${Date.now()}`
+                      )
+                    : createProNeuralLMAdapter(
+                        modelRef.current,
+                        activeRun?.id ?? `model-${Date.now()}`
+                      )
+                }
+                bubbles={extractBubblesFromModel(modelRef.current, { maxBubbles: 24 })}
               />
             </div>
           )}

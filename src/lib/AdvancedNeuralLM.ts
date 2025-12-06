@@ -645,6 +645,53 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   }
 
   /**
+   * Get advanced weights (layer normalization parameters).
+   * Used by Cerebro injection system for snapshot/rollback.
+   */
+  getAdvancedWeights(): { layerNormGamma: number[]; layerNormBeta: number[] } | null {
+    if (!this.advancedConfig.useLayerNorm || this.layerNormGamma.length === 0) {
+      return null;
+    }
+    return {
+      layerNormGamma: [...this.layerNormGamma],
+      layerNormBeta: [...this.layerNormBeta]
+    };
+  }
+
+  /**
+   * Set advanced weights (layer normalization parameters).
+   * Used by Cerebro injection system for rollback.
+   */
+  setAdvancedWeights(weights: { layerNormGamma: number[]; layerNormBeta: number[] }): void {
+    this.layerNormGamma = [...weights.layerNormGamma];
+    this.layerNormBeta = [...weights.layerNormBeta];
+    // Reset gradients for new dimensions
+    this.layerNormGammaGrad = new Array(this.layerNormGamma.length).fill(0);
+    this.layerNormBetaGrad = new Array(this.layerNormBeta.length).fill(0);
+  }
+
+  /**
+   * Expand hidden layer by adding k neurons.
+   * Overrides base class to also expand layer normalization parameters.
+   * Used by Cerebro neuron injection system.
+   */
+  expandHiddenLayer(k: number, useHeInit = true): void {
+    // Call parent method to expand base weights
+    super.expandHiddenLayer(k, useHeInit);
+
+    // Expand layer normalization parameters if enabled
+    if (this.advancedConfig.useLayerNorm && this.layerNormGamma.length > 0) {
+      // Add k new gamma values (initialized to 1.0)
+      for (let i = 0; i < k; i++) {
+        this.layerNormGamma.push(1.0);
+        this.layerNormBeta.push(0.0);
+        this.layerNormGammaGrad.push(0.0);
+        this.layerNormBetaGrad.push(0.0);
+      }
+    }
+  }
+
+  /**
    * Export model with advanced config
    */
   toJSONAdvanced() {

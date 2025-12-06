@@ -28,12 +28,14 @@ export interface InjectionEvent {
   runId: string;
 }
 
+export type CerebroBubbleTag = 'body' | 'desire' | 'risk' | 'value' | 'action' | 'other';
+
 export interface CerebroBubble {
   id: string;
   label: string;
   embedding: number[];
   activation: number; // 0..1
-  tag?: 'body' | 'desire' | 'risk' | 'value' | 'action' | 'other';
+  tag?: CerebroBubbleTag;
   ts: number;
   members?: string[]; // token ids or sample ids
 }

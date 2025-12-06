@@ -168,8 +168,8 @@ describe('InjectionRunSession with ProNeuralLMAdapter', () => {
       const proposal = session.propose(bubbles);
       session.inject(proposal, bubbles);
 
-      // Size may have changed
-      const postInjectSize = model.getHiddenSize();
+      // Verify injection happened (size may have changed)
+      expect(model.getHiddenSize()).toBeGreaterThanOrEqual(initialSize);
 
       const undone = session.undoLast();
 

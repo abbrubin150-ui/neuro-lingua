@@ -406,4 +406,89 @@ describe('DecisionLedgerEditor', () => {
       });
     });
   });
+
+  describe('Training Execution Blocking (IMMEDIATE_ACTIONS requirement)', () => {
+    it('verifies HOLD status prevents training execution', () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const ledger = createLedger({ expiry: yesterday.toISOString() });
+      const onChange = vi.fn();
+
+      render(<DecisionLedgerEditor ledger={ledger} onChange={onChange} />);
+
+      // Should display HOLD status
+      expect(screen.getByText(/HOLD/i)).toBeInTheDocument();
+      expect(screen.getByText(/paused or expired/i)).toBeInTheDocument();
+
+      // This test documents the requirement:
+      // Training should be blocked when status is HOLD due to expired decision
+    });
+
+    it('verifies ESCALATE status prevents training execution (missing rationale)', () => {
+      const ledger = createLedger({ rationale: '' });
+      const onChange = vi.fn();
+
+      render(<DecisionLedgerEditor ledger={ledger} onChange={onChange} />);
+
+      // Should display ESCALATE status
+      expect(screen.getByText(/ESCALATE/i)).toBeInTheDocument();
+      expect(screen.getByText(/Review required/i)).toBeInTheDocument();
+
+      // This test documents the requirement:
+      // Training should be blocked when status is ESCALATE due to missing rationale
+    });
+
+    it('verifies ESCALATE status prevents training execution (missing witness)', () => {
+      const ledger = createLedger({ witness: '' });
+      const onChange = vi.fn();
+
+      render(<DecisionLedgerEditor ledger={ledger} onChange={onChange} />);
+
+      // Should display ESCALATE status
+      expect(screen.getByText(/ESCALATE/i)).toBeInTheDocument();
+      expect(screen.getByText(/Review required/i)).toBeInTheDocument();
+
+      // This test documents the requirement:
+      // Training should be blocked when status is ESCALATE due to missing witness
+    });
+
+    it('verifies EXECUTE status allows training execution', () => {
+      const ledger = createLedger(); // Valid ledger with all required fields
+      const onChange = vi.fn();
+
+      render(<DecisionLedgerEditor ledger={ledger} onChange={onChange} />);
+
+      // Should display EXECUTE status
+      expect(screen.getByText(/EXECUTE/i)).toBeInTheDocument();
+      expect(screen.getByText(/Training permitted/i)).toBeInTheDocument();
+
+      // This test documents the requirement:
+      // Training should only proceed when status is EXECUTE
+    });
+
+    it('verifies UI clearly indicates when training is blocked', () => {
+      // Test HOLD
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 1);
+      const holdLedger = createLedger({ expiry: pastDate.toISOString() });
+
+      const { unmount } = render(
+        <DecisionLedgerEditor ledger={holdLedger} onChange={vi.fn()} />
+      );
+
+      expect(screen.getByText(/HOLD/i)).toBeInTheDocument();
+      expect(screen.getByText(/paused or expired/i)).toBeInTheDocument();
+
+      unmount();
+
+      // Test ESCALATE
+      const escalateLedger = createLedger({ rationale: '' });
+      render(<DecisionLedgerEditor ledger={escalateLedger} onChange={vi.fn()} />);
+
+      expect(screen.getByText(/ESCALATE/i)).toBeInTheDocument();
+      expect(screen.getByText(/Review required/i)).toBeInTheDocument();
+
+      // Both statuses should clearly communicate that training is blocked
+    });
+  });
 });

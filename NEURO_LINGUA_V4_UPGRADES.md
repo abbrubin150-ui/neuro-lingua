@@ -11,6 +11,7 @@
 
 1. [מבוא](#מבוא)
 2. [סקירת שיפורים](#סקירת-שיפורים)
+3. [סדר פיתוח מומלץ ל-v4](#סדר-פיתוח-מומלץ-ל-v4)
 3. [RoPE - Rotary Positional Embeddings](#rope---rotary-positional-embeddings)
 4. [SwiGLU / GeGLU Activation](#swiglu--geglu-activation)
 5. [RMSNorm במקום LayerNorm](#rmsnorm-במקום-layernorm)
@@ -36,6 +37,45 @@
 - **תמיכה רב-לשונית**: עברית, ערבית, רוסית, סינית ברמה גבוהה
 - **זיכרון יעיל**: קוונטיזציה 4-bit מאפשרת מודלים של 3B פרמטרים בדפדפן רגיל
 - **Context ארוך**: עד 32k tokens בזכות RoPE
+
+---
+
+## סדר פיתוח מומלץ ל-v4
+הסדר הבא מתואם עם היעדים שסומנו כבר ל-v4 (RoPE, SwiGLU, RMSNorm, Mirostat v2), ומקטין רעשי רגרסיה בזמן החלפת רכיבים.
+
+0. **הכנה/ייצוב (חובה לפני ארכיטקטורה)**
+   - לוודא שמבחני נומריקה מכסים `softmax` / `logsumexp` ומקרי overflow/underflow.
+   - להוסיף או להדק בדיקות התאמה CPU↔GPU כדי לאתר סטיות מוקדם.
+
+1. **מעבר לנורמליזציה מודרנית**
+   - להחליף Batch Renorm/LayerNorm ב-RMSNorm ולהעדיף Pre-Norm בתוך בלוקי ה-Transformer.
+   - קבצים: `src/lib/TransformerLM.ts` + טבלאות השוואה/דוקומנטציה + presets ב-`TrainingPanel` כך שפריסט ה-Transformer יעדכן דגלים/ברירות מחדל בהתאם.
+
+2. **שדרוג FFN לשער מודרני**
+   - להחליף FFN ל-SwiGLU (או GeGLU אם נדרש התאמה). מגיע אחרי שהנורמות מסודרות.
+
+3. **החלפת positional encoding**
+   - להחליף learned position embeddings ב-RoPE כדי לתמוך בחלונות הקשר ארוכים וליישר קו עם בלוק קשב “נקי”.
+
+4. **שדרוג דקודינג (נפרד מהאימון)**
+   - להוסיף Mirostat v2 כמצב דגימה ב-`src/generation/sampler.ts` + UI ב-ChatInterface + בדיקות sampler.
+
+5. **התאמות קונפיגורציה ומדיניות**
+   - לעדכן `DEFAULT_GENERATION` ו-`DEFAULT_HYPERPARAMETERS` + “Recommended TransformerLM Configuration”.
+
+6. **אופציונלי אחרי v4 בסיסי**
+   - GQA ליעילות קשב.
+   - YaRN/long-context אם נדרש חלון הקשר ארוך יותר (v4.1+).
+
+> למה הסדר הזה? RMSNorm + Pre-Norm יוצרים תשתית יציבות; בלעדיהם SwiGLU ורכיבי RoPE עלולים להוביל לרעש אבחון. Mirostat v2 הוא שדרוג דקודינג ולכן ניתן לשחרר אותו גם לפני השלמת כל שינויי האימון.
+
+### צ׳ק-ליסט קבצים מרכזי
+- `src/lib/TransformerLM.ts`
+- `src/models/attention.ts`, `src/models/mini_transformer.ts`
+- `src/config/constants.ts`
+- `src/components/TrainingPanel.tsx` (פריסטים)
+- `src/generation/sampler.ts`
+- `tests/TransformerLM.test.ts`, `tests/sampler.test.ts`, `tests/numerics/*`
 
 ---
 

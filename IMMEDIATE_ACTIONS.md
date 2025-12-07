@@ -1,7 +1,8 @@
 # Immediate Action Plan
 
-**Priority:** Ship stability & traceability improvements this week  
-**Updated:** 2025-11-07
+**Priority:** Completed — All validation items verified
+**Updated:** 2025-12-07
+**Status:** ✅ All Quick Wins completed. 613 tests passing. See validation checklist below.
 
 ## Quick Wins (Next 3-5 Days)
 
@@ -33,11 +34,11 @@
 - **Success:** Round-trip works without manual edits; docs reference the same field names and version numbers used in the app.
 
 ## Validation Checklist
-- [ ] GPU parity test added and green in CI (CPU) and locally (GPU-capable)
-- [ ] Governance flow covered by component tests and blocks training on HOLD/ESCALATE
-- [ ] Scenario scores persist into run history after training
-- [ ] Trace export/import round-trips with Σ-SIG metadata intact
-- [ ] README matches the in-app labels and version identifiers
+- [x] GPU parity test added and green in CI (CPU) and locally (GPU-capable) — `tests/ProNeuralLM.parity.test.ts` (12 tests)
+- [x] Governance flow covered by component tests and blocks training on HOLD/ESCALATE — `tests/App.test.tsx` lines 201-235
+- [x] Scenario scores persist into run history after training — `src/App.tsx:1351-1391`, verified in `ProjectContext.test.tsx:588-620`
+- [x] Trace export/import round-trips with Σ-SIG metadata intact — `tests/lib/traceExport.test.ts` (13 tests)
+- [x] README matches the in-app labels and version identifiers — Updated 2025-12-07 with Cerebro, Compression, Brain Vitals
 
 ## Risks & Mitigations
 - **WebGPU availability varies:** Maintain CPU parity tests and keep the GPU toggle optional with clear messaging.

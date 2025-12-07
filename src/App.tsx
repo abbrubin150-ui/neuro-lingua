@@ -63,6 +63,7 @@ import {
 import {
   createProNeuralLMAdapter,
   createAdvancedNeuralLMAdapter,
+  createTransformerLMAdapter,
   extractBubblesFromModel
 } from './lib/expandable';
 import type { InjectionEvent } from './types/injection';
@@ -2114,15 +2115,20 @@ export default function NeuroLinguaDomesticaV324() {
             >
               <CerebroPanel
                 layer={
-                  architecture === 'advanced'
-                    ? createAdvancedNeuralLMAdapter(
-                        modelRef.current as AdvancedNeuralLM,
+                  architecture === 'transformer'
+                    ? createTransformerLMAdapter(
+                        modelRef.current as TransformerLM,
                         activeRun?.id ?? `model-${Date.now()}`
                       )
-                    : createProNeuralLMAdapter(
-                        modelRef.current,
-                        activeRun?.id ?? `model-${Date.now()}`
-                      )
+                    : architecture === 'advanced'
+                      ? createAdvancedNeuralLMAdapter(
+                          modelRef.current as AdvancedNeuralLM,
+                          activeRun?.id ?? `model-${Date.now()}`
+                        )
+                      : createProNeuralLMAdapter(
+                          modelRef.current,
+                          activeRun?.id ?? `model-${Date.now()}`
+                        )
                 }
                 bubbles={extractBubblesFromModel(modelRef.current, { maxBubbles: 24 })}
               />

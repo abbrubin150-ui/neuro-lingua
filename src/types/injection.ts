@@ -1,4 +1,4 @@
-export type InjectionTargetType = 'ffn' | 'mlp' | 'adapter';
+export type InjectionTargetType = 'ffn' | 'mlp' | 'adapter' | 'transformer';
 
 export interface InjectionTarget {
   modelId: string;
@@ -6,6 +6,14 @@ export interface InjectionTarget {
   type: InjectionTargetType;
   dModel: number;
   hiddenSize: number; // before injection
+  /** Optional transformer-specific metadata */
+  metadata?: {
+    numLayers?: number;
+    numHeads?: number;
+    ffHiddenDim?: number;
+    vocabSize?: number;
+    contextSize?: number;
+  };
 }
 
 export interface InjectionProposal {

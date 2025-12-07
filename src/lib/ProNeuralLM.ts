@@ -838,12 +838,14 @@ export class ProNeuralLM {
       this.bHidden.push(0);
     }
 
-    // Expand wOutput: add k columns to each row
+    // Expand wOutput: wOutput is [H x V], so add k new rows
     const outputScale = useHeInit ? Math.sqrt(2.0 / newHiddenSize) : Math.sqrt(1.0 / newHiddenSize);
-    for (let i = 0; i < vocabSize; i++) {
-      for (let j = 0; j < k; j++) {
-        this.wOutput[i].push(this.randn(outputScale));
+    for (let i = 0; i < k; i++) {
+      const newRow: number[] = [];
+      for (let j = 0; j < vocabSize; j++) {
+        newRow.push(this.randn(outputScale));
       }
+      this.wOutput.push(newRow);
     }
 
     // Update hidden size

@@ -409,6 +409,7 @@ export class TransformerLM extends ProNeuralLM {
     for (let j = 0; j < V; j++) {
       let sum = bOutput[j];
       for (let i = 0; i < H; i++) {
+        // wOutput is [hiddenSize x vocabSize], so index as [i][j]
         sum += wOutput[i][j] * h[i];
       }
       logits[j] = sum;
@@ -457,12 +458,14 @@ export class TransformerLM extends ProNeuralLM {
     const dLogits = probs.map((p, i) => p - (i === target ? 1 : 0));
 
     // Gradient w.r.t. output weights
+    // wOutput is [H x V], so dWout should also be [H x V]
     const wOutput = (this as any).wOutput as number[][];
     const dWout = this.createZerosMat(H, V);
     const dBout = new Array(V).fill(0);
 
     for (let i = 0; i < H; i++) {
       for (let j = 0; j < V; j++) {
+        // dL/dW[i][j] = h[i] * dL/dLogits[j]
         dWout[i][j] = h[i] * dLogits[j];
       }
     }
@@ -471,6 +474,7 @@ export class TransformerLM extends ProNeuralLM {
     }
 
     // Gradient w.r.t. hidden state (pooled transformer output)
+    // dL/dh[i] = sum_j(W[i][j] * dL/dLogits[j])
     const dHidden = new Array(H).fill(0);
     for (let i = 0; i < H; i++) {
       for (let j = 0; j < V; j++) {
@@ -562,6 +566,180 @@ export class TransformerLM extends ProNeuralLM {
 
   private createZerosMat(r: number, c: number): number[][] {
     return new Array(r).fill(0).map(() => new Array(c).fill(0));
+  }
+
+  /**
+   * Expand hidden layer (modelDim) by adding k neurons.
+   * Used by Cerebro neuron injection system.
+   * Extends base class expansion with transformer-specific weights.
+   * @param k Number of neurons to add
+   * @param useHeInit Use He initialization (for ReLU networks)
+   */
+  expandHiddenLayer(k: number, useHeInit = true): void {
+    if (k <= 0) return;
+
+    const oldModelDim = this.getHiddenSize();
+    const newModelDim = oldModelDim + k;
+    const { ffHiddenDim } = this.transformerConfig;
+
+    // Call parent to expand base weights (wHidden, wOutput, etc.)
+    // Note: This will also update hiddenSize
+    super.expandHiddenLayer(k, useHeInit);
+
+    // Calculate initialization scale
+    const scale = useHeInit ? Math.sqrt(2.0 / oldModelDim) : Math.sqrt(1.0 / oldModelDim);
+
+    // Expand token embeddings: add k dimensions to each token
+    // In transformer, embeddings are used directly for attention so must match modelDim
+    const embedding = (this as any).embedding as number[][];
+    for (let i = 0; i < embedding.length; i++) {
+      for (let j = 0; j < k; j++) {
+        embedding[i].push((Math.random() - 0.5) * 2 * scale);
+      }
+    }
+
+    // Expand position embeddings: add k dimensions to each position
+    for (let pos = 0; pos < this.positionEmbeddings.length; pos++) {
+      const posEmb = this.positionEmbeddings[pos];
+      for (let i = 0; i < k; i++) {
+        // Use sinusoidal encoding for new dimensions
+        const dimIdx = oldModelDim + i;
+        const angle = pos / Math.pow(10000, (2 * Math.floor(dimIdx / 2)) / newModelDim);
+        posEmb.push(dimIdx % 2 === 0 ? Math.sin(angle) : Math.cos(angle));
+      }
+    }
+
+    // Expand each transformer layer's weights
+    for (let layerIdx = 0; layerIdx < this.transformerConfig.numLayers; layerIdx++) {
+      const attention = this.attentionWeights[layerIdx];
+      const ff1 = this.ffWeights1[layerIdx];
+      const ff2 = this.ffWeights2[layerIdx];
+      const renormState = this.renormStates[layerIdx];
+
+      // Expand attention weights: query, key, value are [modelDim x modelDim]
+      // Add k new rows to each matrix
+      for (let i = 0; i < k; i++) {
+        const newQueryRow: number[] = [];
+        const newKeyRow: number[] = [];
+        const newValueRow: number[] = [];
+        for (let j = 0; j < oldModelDim; j++) {
+          newQueryRow.push((Math.random() - 0.5) * 2 * scale);
+          newKeyRow.push((Math.random() - 0.5) * 2 * scale);
+          newValueRow.push((Math.random() - 0.5) * 2 * scale);
+        }
+        attention.query.push(newQueryRow);
+        attention.key.push(newKeyRow);
+        attention.value.push(newValueRow);
+      }
+      // Add k new columns to each existing row
+      for (let i = 0; i < oldModelDim; i++) {
+        for (let j = 0; j < k; j++) {
+          attention.query[i].push((Math.random() - 0.5) * 2 * scale);
+          attention.key[i].push((Math.random() - 0.5) * 2 * scale);
+          attention.value[i].push((Math.random() - 0.5) * 2 * scale);
+        }
+      }
+      // Also add columns to the new rows
+      for (let i = oldModelDim; i < newModelDim; i++) {
+        for (let j = 0; j < k; j++) {
+          attention.query[i].push((Math.random() - 0.5) * 2 * scale);
+          attention.key[i].push((Math.random() - 0.5) * 2 * scale);
+          attention.value[i].push((Math.random() - 0.5) * 2 * scale);
+        }
+      }
+
+      // Expand ffWeights1: [modelDim x ffHiddenDim] -> add k rows
+      for (let i = 0; i < k; i++) {
+        const newRow: number[] = [];
+        for (let j = 0; j < ffHiddenDim; j++) {
+          newRow.push((Math.random() - 0.5) * 2 * scale);
+        }
+        ff1.push(newRow);
+      }
+
+      // Expand ffWeights2: [ffHiddenDim x modelDim] -> add k columns to each row
+      for (let i = 0; i < ffHiddenDim; i++) {
+        for (let j = 0; j < k; j++) {
+          ff2[i].push((Math.random() - 0.5) * 2 * scale);
+        }
+      }
+
+      // Expand renorm state: runningMean and runningVar need k more elements
+      for (let i = 0; i < k; i++) {
+        renormState.runningMean.push(0);
+        renormState.runningVar.push(1);
+      }
+    }
+
+    // Reinitialize transformer layers with new dimensions
+    this.reinitializeTransformerLayers();
+  }
+
+  /**
+   * Reinitialize transformer layer objects after dimension change.
+   * Preserves existing weights while updating internal structures.
+   */
+  private reinitializeTransformerLayers(): void {
+    const modelDim = this.getHiddenSize();
+    const { numLayers, ffHiddenDim, attentionDropout, dropConnectRate } = this.transformerConfig;
+    const normalizedHeads = this.normalizeHeadCount(modelDim, this.transformerConfig.numHeads);
+    if (normalizedHeads !== this.transformerConfig.numHeads) {
+      this.transformerConfig = { ...this.transformerConfig, numHeads: normalizedHeads };
+    }
+
+    // Recreate transformer blocks with new dimensions but existing weights
+    this.transformerLayers = [];
+    for (let i = 0; i < numLayers; i++) {
+      const config: MiniTransformerConfig = {
+        modelDim,
+        heads: this.transformerConfig.numHeads,
+        ff: {
+          hiddenDim: ffHiddenDim,
+          activation: (x: number) => Math.max(0, x)
+        },
+        attentionDropout,
+        dropConnectRate,
+        renormState: this.renormStates[i]
+      };
+      this.transformerLayers.push(new MiniTransformerBlock(config));
+    }
+  }
+
+  /**
+   * Get transformer-specific weights for adapter serialization.
+   */
+  getTransformerWeights(): {
+    attentionWeights: AttentionWeights[];
+    ffWeights1: Matrix[];
+    ffWeights2: Matrix[];
+    positionEmbeddings: number[][];
+    renormStates: BatchRenormState[];
+  } {
+    return {
+      attentionWeights: this.attentionWeights,
+      ffWeights1: this.ffWeights1,
+      ffWeights2: this.ffWeights2,
+      positionEmbeddings: this.positionEmbeddings,
+      renormStates: this.renormStates
+    };
+  }
+
+  /**
+   * Set transformer-specific weights from adapter (for rollback).
+   */
+  setTransformerWeights(weights: {
+    attentionWeights: AttentionWeights[];
+    ffWeights1: Matrix[];
+    ffWeights2: Matrix[];
+    positionEmbeddings: number[][];
+    renormStates: BatchRenormState[];
+  }): void {
+    this.attentionWeights = weights.attentionWeights;
+    this.ffWeights1 = weights.ffWeights1;
+    this.ffWeights2 = weights.ffWeights2;
+    this.positionEmbeddings = weights.positionEmbeddings;
+    this.renormStates = weights.renormStates;
+    this.reinitializeTransformerLayers();
   }
 
   toJSON() {

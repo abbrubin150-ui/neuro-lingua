@@ -1,0 +1,112 @@
+{
+  "name": "תרחישי בדיקה בסיסיים",
+  "description": "תרחישי אימות בסיסיים למודלי שפה בעברית",
+  "language": "he",
+  "version": "1.0.0",
+  "scenarios": [
+    {
+      "id": "he_completion_1",
+      "name": "השלמת ביטוי נפוץ",
+      "prompt": "היום מזג האוויר",
+      "expectedResponse": null,
+      "category": "completion",
+      "difficulty": "easy",
+      "notes": "צריך להשלים עם מונח הקשור למזג אוויר"
+    },
+    {
+      "id": "he_completion_2",
+      "name": "המשך סיפור",
+      "prompt": "היה היה פעם",
+      "expectedResponse": null,
+      "category": "completion",
+      "difficulty": "easy",
+      "notes": "צריך לייצר המשך בסגנון סיפור"
+    },
+    {
+      "id": "he_completion_3",
+      "name": "השלמת משפט",
+      "prompt": "החתול ישב על",
+      "expectedResponse": null,
+      "category": "completion",
+      "difficulty": "easy",
+      "notes": "צריך להשלים עם מקום מתאים"
+    },
+    {
+      "id": "he_coherence_1",
+      "name": "קוהרנטיות משפט",
+      "prompt": "הילד הלך לבית הספר",
+      "expectedResponse": null,
+      "category": "coherence",
+      "difficulty": "medium",
+      "notes": "צריך לייצר המשך קוהרנטי"
+    },
+    {
+      "id": "he_coherence_2",
+      "name": "המשך פעולה",
+      "prompt": "היא קמה בבוקר ו",
+      "expectedResponse": null,
+      "category": "coherence",
+      "difficulty": "medium",
+      "notes": "צריך לייצר פעולה הגיונית"
+    },
+    {
+      "id": "he_repetition_1",
+      "name": "בדיקת חזרות",
+      "prompt": "שלום",
+      "expectedResponse": null,
+      "category": "quality",
+      "difficulty": "easy",
+      "notes": "הפלט לא צריך לכלול חזרות מוגזמות (פחות מ-3 פעמים ב-20 טוקנים)"
+    },
+    {
+      "id": "he_vocab_1",
+      "name": "מגוון אוצר מילים",
+      "prompt": "בבית",
+      "expectedResponse": null,
+      "category": "diversity",
+      "difficulty": "medium",
+      "notes": "הרץ 5 פעמים - צריך לייצר לפחות 3 המשכים שונים"
+    },
+    {
+      "id": "he_formal_1",
+      "name": "שפה פורמלית",
+      "prompt": "לכבוד הגברת",
+      "expectedResponse": null,
+      "category": "style",
+      "difficulty": "hard",
+      "notes": "צריך להמשיך בסגנון פורמלי"
+    },
+    {
+      "id": "he_nikud_1",
+      "name": "טקסט עם ניקוד",
+      "prompt": "הַשָּׁמַיִם",
+      "expectedResponse": null,
+      "category": "special",
+      "difficulty": "hard",
+      "notes": "בדיקה שהמודל מטפל בניקוד נכון"
+    },
+    {
+      "id": "he_length_1",
+      "name": "יצירה קצרה",
+      "prompt": "הבוקר החל",
+      "expectedResponse": null,
+      "category": "length",
+      "difficulty": "easy",
+      "generationConfig": {
+        "maxTokens": 10,
+        "temperature": 0.8
+      },
+      "notes": "צריך לכבד מגבלת טוקנים"
+    }
+  ],
+  "evaluationCriteria": {
+    "completion": "המילה/ביטוי הצפויים מופיעים בפלט",
+    "coherence": "הפלט תקין דקדוקית וסמנטית",
+    "diversity": "הרצות מרובות מייצרות פלטים מגוונים",
+    "quality": "אין חזרות מוגזמות, זרימה טבעית",
+    "length": "הפלט מכבד את פרמטרי היצירה",
+    "style": "סגנון הכתיבה מתאים להקשר",
+    "special": "טיפול נכון בתווים מיוחדים (ניקוד, סופיות)"
+  },
+  "suggestedUse": "הרץ אחרי אימון לאימות פונקציונליות בסיסית של המודל"
+}

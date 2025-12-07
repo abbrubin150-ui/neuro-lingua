@@ -111,11 +111,130 @@ function TrainingChart({
 }
 
 /**
+ * WebGPU browser compatibility info
+ */
+const WEBGPU_COMPATIBILITY = {
+  supported: [
+    { browser: 'Chrome', version: '113+', status: 'Full support' },
+    { browser: 'Edge', version: '113+', status: 'Full support' },
+    { browser: 'Opera', version: '99+', status: 'Full support' }
+  ],
+  partial: [{ browser: 'Firefox', version: '127+', status: 'Behind flag' }],
+  unsupported: [
+    { browser: 'Safari', version: 'N/A', status: 'Not supported (WebGPU via Metal planned)' }
+  ]
+};
+
+/**
+ * Get friendly reason for GPU unavailability
+ */
+function getGPUUnavailableReason(metrics: GPUMetrics): string {
+  if (metrics.lastError) {
+    if (metrics.lastError.includes('not supported')) {
+      return 'WebGPU is not supported in this browser.';
+    }
+    if (metrics.lastError.includes('adapter')) {
+      return 'No compatible GPU adapter found.';
+    }
+    if (metrics.lastError.includes('device')) {
+      return 'GPU device initialization failed.';
+    }
+    return metrics.lastError;
+  }
+  return 'WebGPU is not available in this browser.';
+}
+
+/**
+ * GPUStatusPanel shows GPU status when not available
+ */
+function GPUStatusPanel({ metrics }: { metrics: GPUMetrics }) {
+  const reason = getGPUUnavailableReason(metrics);
+
+  return (
+    <div
+      style={{
+        background: 'rgba(100, 116, 139, 0.1)',
+        border: '1px solid rgba(100, 116, 139, 0.3)',
+        borderRadius: 12,
+        padding: 16,
+        marginTop: 16
+      }}
+    >
+      <h4
+        style={{
+          color: '#94a3b8',
+          margin: '0 0 12px 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8
+        }}
+      >
+        ⚡ GPU Acceleration
+        <span
+          style={{
+            fontSize: 11,
+            padding: '2px 8px',
+            background: '#64748b',
+            borderRadius: 12,
+            color: 'white'
+          }}
+        >
+          UNAVAILABLE
+        </span>
+      </h4>
+
+      <div
+        style={{
+          background: 'rgba(251, 191, 36, 0.1)',
+          border: '1px solid rgba(251, 191, 36, 0.3)',
+          borderRadius: 8,
+          padding: '10px 12px',
+          marginBottom: 12
+        }}
+      >
+        <div style={{ fontSize: 12, color: '#fbbf24', marginBottom: 4 }}>⚠️ {reason}</div>
+        <div style={{ fontSize: 11, color: '#94a3b8' }}>
+          Training will use CPU (slower but fully functional).
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 6 }}>
+          Browser Compatibility:
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {WEBGPU_COMPATIBILITY.supported.map((b) => (
+            <div key={b.browser} style={{ fontSize: 11, display: 'flex', alignItems: 'center' }}>
+              <span style={{ color: '#10b981', marginRight: 6 }}>✓</span>
+              <span style={{ color: '#cbd5f5' }}>
+                {b.browser} {b.version}
+              </span>
+            </div>
+          ))}
+          {WEBGPU_COMPATIBILITY.partial.map((b) => (
+            <div key={b.browser} style={{ fontSize: 11, display: 'flex', alignItems: 'center' }}>
+              <span style={{ color: '#fbbf24', marginRight: 6 }}>◐</span>
+              <span style={{ color: '#94a3b8' }}>
+                {b.browser} {b.version} ({b.status})
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ fontSize: 10, color: '#64748b', marginTop: 8 }}>
+        💡 Tip: Use Chrome or Edge for 2-5x faster training with GPU acceleration.
+      </div>
+    </div>
+  );
+}
+
+/**
  * GPUMetricsPanel displays GPU acceleration metrics
  */
 function GPUMetricsPanel({ metrics }: { metrics: GPUMetrics }) {
   if (!metrics.available) {
-    return null;
+    return <GPUStatusPanel metrics={metrics} />;
   }
 
   const utilization = Math.max(0, Math.min(100, metrics.utilizationPercent ?? 0));
@@ -452,7 +571,7 @@ export function ModelMetrics({
           )}
         </div>
       )}
-      {gpuMetrics && gpuMetrics.available && <GPUMetricsPanel metrics={gpuMetrics} />}
+      {gpuMetrics && <GPUMetricsPanel metrics={gpuMetrics} />}
       {edgeLearningDiagnostics && (
         <div
           style={{

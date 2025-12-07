@@ -10,7 +10,7 @@ import {
   type SecondOrderState
 } from '../training/optimizer';
 import { stableSoftmax } from './MathUtils';
-import { sampleFromLogits as drawToken } from '../generation/sampling';
+import { sampleFromLogits as drawToken, typicalSample } from '../generation/sampling';
 import { GPUNeuralOps } from '../backend/gpu_neural_ops';
 
 export type Optimizer = 'momentum' | 'adam' | 'newton' | 'bfgs';
@@ -675,11 +675,32 @@ export class ProNeuralLM {
     return payload;
   }
 
-  private sampleFromLogits(logits: number[], temperature = 1.0, topK = 0, topP = 0): number {
+  private sampleFromLogits(
+    logits: number[],
+    temperature = 1.0,
+    topK = 0,
+    topP = 0,
+    generatedTokens: number[] = [],
+    frequencyPenalty = 0,
+    presencePenalty = 0,
+    typicalTau = 0
+  ): number {
+    // If typical sampling is enabled (tau > 0), use it instead
+    if (typicalTau > 0 && typicalTau < 1) {
+      return typicalSample(logits, typicalTau, {
+        temperature,
+        rng: () => this.nextRandom()
+      });
+    }
+
+    // Otherwise use standard sampling with penalties
     return drawToken(logits, {
       temperature,
       topK,
       topP,
+      frequencyPenalty,
+      presencePenalty,
+      generatedTokens,
       rng: () => this.nextRandom()
     });
   }
@@ -689,21 +710,36 @@ export class ProNeuralLM {
     maxLen = 25,
     temperature = 0.9,
     topK = 0,
-    topP = 0
+    topP = 0,
+    frequencyPenalty = 0,
+    presencePenalty = 0,
+    typicalTau = 0
   ): Promise<string> {
     const seedToks = this.tokenize(seedText).map((t) => this.toIndex(t));
     const ctx: number[] = new Array(this.contextSize).fill(this.toIndex(this.bos));
     for (const t of seedToks) ctx.push(t);
 
     const out: string[] = [];
+    const generatedTokenIds: number[] = [];
+
     while (out.length < maxLen) {
       const window = ctx.slice(-this.contextSize);
       const { logits } = await this.forward(window, false);
-      const idx = this.sampleFromLogits(logits, temperature, topK, topP);
+      const idx = this.sampleFromLogits(
+        logits,
+        temperature,
+        topK,
+        topP,
+        generatedTokenIds,
+        frequencyPenalty,
+        presencePenalty,
+        typicalTau
+      );
       const tok = this.idxToWord.get(idx)!;
       if (tok === this.eos) break;
       out.push(tok);
       ctx.push(idx);
+      generatedTokenIds.push(idx); // Track for repetition penalty
     }
     return out.join(' ');
   }

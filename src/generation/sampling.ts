@@ -7,6 +7,9 @@ export interface SamplingOptions {
   topK?: number;
   topP?: number;
   minProbability?: number;
+  frequencyPenalty?: number; // Penalize tokens based on their frequency (0.0-2.0, default 0)
+  presencePenalty?: number; // Penalize tokens that have appeared at all (0.0-2.0, default 0)
+  generatedTokens?: number[]; // Previously generated tokens for repetition penalty
   rng?: SamplingRng;
 }
 
@@ -108,6 +111,58 @@ function applyMinProbability(probs: number[], minProbability = 0): number[] {
   return renormalize(filtered);
 }
 
+/**
+ * Apply repetition penalty to logits to reduce repetitive output.
+ * Uses both frequency penalty (linear based on count) and presence penalty (binary).
+ *
+ * Frequency penalty: penalty = count * frequencyPenalty
+ * Presence penalty: penalty = (count > 0 ? 1 : 0) * presencePenalty
+ *
+ * Reference: OpenAI API documentation on frequency and presence penalties
+ *
+ * @param logits - Raw logits from the model
+ * @param generatedTokens - Previously generated tokens in the sequence
+ * @param frequencyPenalty - Linear penalty based on token frequency (0.0-2.0)
+ * @param presencePenalty - Binary penalty for any token presence (0.0-2.0)
+ * @returns Modified logits with penalties applied
+ */
+function applyRepetitionPenalty(
+  logits: number[],
+  generatedTokens: number[] = [],
+  frequencyPenalty: number = 0,
+  presencePenalty: number = 0
+): number[] {
+  if (frequencyPenalty === 0 && presencePenalty === 0) {
+    return logits;
+  }
+  if (generatedTokens.length === 0) {
+    return logits;
+  }
+
+  // Count token frequencies
+  const tokenCounts = new Map<number, number>();
+  for (const token of generatedTokens) {
+    tokenCounts.set(token, (tokenCounts.get(token) || 0) + 1);
+  }
+
+  // Apply penalties
+  const penalized = [...logits];
+  for (const [tokenId, count] of tokenCounts.entries()) {
+    if (tokenId >= 0 && tokenId < penalized.length) {
+      // Frequency penalty: proportional to count
+      const freqPenalty = count * frequencyPenalty;
+      // Presence penalty: binary (1 if present, 0 otherwise)
+      const presPenalty = presencePenalty;
+      // Total penalty
+      const totalPenalty = freqPenalty + presPenalty;
+      // Subtract from logit (higher penalty = lower probability)
+      penalized[tokenId] -= totalPenalty;
+    }
+  }
+
+  return penalized;
+}
+
 export function normalizeLogWeights(logWeights: number[]): number[] {
   if (logWeights.length === 0) return [];
   const norm = logSumExp(logWeights);
@@ -144,6 +199,85 @@ export function nucleusSample(
 }
 
 /**
+ * Typical sampling (locally typical sampling): filters tokens based on information content.
+ * This method keeps tokens that have typical information content (close to the expected value),
+ * which tends to produce higher quality and more coherent text than top-p sampling.
+ *
+ * The algorithm:
+ * 1. Compute entropy H(p) = -Σ p_i log(p_i) (expected information)
+ * 2. For each token, compute information content: -log(p_i)
+ * 3. Keep tokens where |H - (-log(p_i))| / H < tau (relative deviation threshold)
+ * 4. Sample from the filtered distribution
+ *
+ * Reference: Meister et al. (2022) "Typical Decoding for Natural Language Generation"
+ * https://arxiv.org/abs/2202.00666
+ *
+ * @param logits - Raw logits from the model
+ * @param tau - Threshold for typicality (0.0-1.0, default 0.9). Lower = more filtering.
+ * @param options - Additional sampling options
+ * @returns Index of the sampled token
+ */
+export function typicalSample(
+  logits: number[],
+  tau: number = 0.9,
+  options: SamplingOptions = {}
+): number {
+  if (logits.length === 0) {
+    throw new Error('Cannot perform typical sampling on empty logits.');
+  }
+  if (tau <= 0 || tau > 1) {
+    throw new Error('tau must be between 0 and 1 for typical sampling.');
+  }
+
+  const { temperature = 1, rng = defaultRng } = options;
+
+  // Apply temperature scaling
+  const scaled = logits.map((value) => value / clip(temperature, 0.05, 5));
+  const probs = stableSoftmax(scaled);
+
+  // Compute entropy H(p) = -Σ p_i log(p_i)
+  let entropy = 0;
+  for (const p of probs) {
+    if (p > 0) {
+      entropy -= p * Math.log(p);
+    }
+  }
+
+  // Compute information content for each token: -log(p_i)
+  const informationContent = probs.map((p) => (p > 0 ? -Math.log(p) : Infinity));
+
+  // Filter tokens based on typicality
+  // Keep tokens where the absolute deviation from entropy is small
+  const indexed = probs.map((value, index) => ({
+    value,
+    index,
+    deviation: Math.abs(entropy - informationContent[index])
+  }));
+
+  // Sort by deviation (most typical first)
+  indexed.sort((a, b) => a.deviation - b.deviation);
+
+  // Keep tokens until we reach the tau threshold
+  let cumulativeProb = 0;
+  const keep = new Set<number>();
+  for (const item of indexed) {
+    keep.add(item.index);
+    cumulativeProb += item.value;
+    if (cumulativeProb >= tau) break;
+  }
+
+  // Filter probabilities
+  const filtered = probs.map((value, index) => (keep.has(index) ? value : 0));
+  const renormalized = renormalize(filtered);
+
+  if (renormalized.every((value) => value === 0)) {
+    return argMax(probs);
+  }
+
+  return sampleCategorical(renormalized, rng);
+}
+
+/**
  * Greedy decoding: selects the token with the highest probability (argmax).
  * This is deterministic and always picks the most likely token.
  *
@@ -162,9 +296,29 @@ export function sampleFromLogits(logits: number[], options: SamplingOptions = {}
     throw new Error('Cannot sample from empty logits.');
   }
 
-  const { temperature = 1, topK = 0, topP = 0, minProbability = 0, rng = defaultRng } = options;
+  const {
+    temperature = 1,
+    topK = 0,
+    topP = 0,
+    minProbability = 0,
+    frequencyPenalty = 0,
+    presencePenalty = 0,
+    generatedTokens = [],
+    rng = defaultRng
+  } = options;
 
-  const scaled = logits.map((value) => value / clip(temperature, 0.05, 5));
+  // Apply repetition penalties first (before temperature scaling)
+  const processedLogits = applyRepetitionPenalty(
+    logits,
+    generatedTokens,
+    frequencyPenalty,
+    presencePenalty
+  );
+
+  // Apply temperature scaling
+  const scaled = processedLogits.map((value) => value / clip(temperature, 0.05, 5));
+
+  // Convert to probabilities and apply filters
   let probs = stableSoftmax(scaled);
   probs = applyMinProbability(probs, minProbability);
   probs = applyTopK(probs, topK);

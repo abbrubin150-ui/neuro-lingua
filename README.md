@@ -72,6 +72,29 @@
 - ✅ **Information Bottleneck** - Compression-prediction trade-off analysis
 - ✅ **Canvas Interaction** - Pan, zoom, and explore embedding spaces
 
+### 🧠 Cerebro: Adaptive Neuron Injection
+
+- ✅ **Bubble Detection** - Identify residual clusters in embedding space
+- ✅ **Neuron Injection** - Dynamically grow hidden layer to capture missed patterns
+- ✅ **Architecture Adapters** - Works with ProNeuralLM, AdvancedNeuralLM, and TransformerLM
+- ✅ **Rollback Support** - Undo injection if validation loss increases
+- ✅ **Decision Ledger Integration** - All injections logged for Σ-SIG compliance
+
+### 🗜️ Model Compression
+
+- ✅ **Int8 Quantization** - 4x size reduction with minimal accuracy loss
+- ✅ **Knowledge Distillation** - Train smaller student models from teacher
+- ✅ **Low-Rank Approximation** - SVD-based weight compression with configurable rank
+- ✅ **Compression Panel** - Interactive UI for compression operations
+
+### 🧬 Brain Vitals System
+
+- ✅ **Mood Tracking** - CALM, FOCUSED, AGITATED, DREAMY, BURNT_OUT states
+- ✅ **Creativity & Stability Gauges** - 0-100 vitals based on usage
+- ✅ **Event Diary** - Logs training, generation, and feeding events
+- ✅ **Pet Naming** - Assign friendly labels to model instances
+- ✅ **Telemetry Panel** - Detailed brain analytics and trends
+
 📚 **[See full mathematical documentation →](./MATHEMATICAL_ENHANCEMENTS.md)**
 🚀 **[v4.0 Mathematical & Architectural Upgrades (Hebrew) →](./NEURO_LINGUA_V4_UPGRADES.md)**
 📖 **[Transformer architecture guide →](./TRANSFORMER_GUIDE.md)**
@@ -141,6 +164,11 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 │   ├── backend/
 │   │   ├── webgpu.ts               # WebGPU backend and tensor operations
 │   │   └── gpu_neural_ops.ts      # High-level neural operations on GPU
+│   ├── compression/
+│   │   ├── compress.ts             # Unified compression interface
+│   │   ├── quantization.ts         # Int8 weight quantization
+│   │   ├── distillation.ts         # Knowledge distillation
+│   │   └── lowrank.ts              # SVD-based low-rank approximation
 │   ├── components/
 │   │   ├── TrainingPanel.tsx       # Main training configuration panel
 │   │   ├── ModelMetrics.tsx        # Performance metrics dashboard
@@ -150,6 +178,9 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 │   │   ├── ExplainabilityPanel.tsx # SHAP/gradients/attention visualization
 │   │   ├── EmbeddingVisualizationPanel.tsx # t-SNE/UMAP interactive canvas
 │   │   ├── InformationTheoryPanel.tsx # Information bottleneck metrics
+│   │   ├── CompressionPanel.tsx    # Model compression UI
+│   │   ├── BrainPanel.tsx          # Brain vitals and mood tracking
+│   │   ├── CerebroPanel.tsx        # Cerebro neuron injection UI
 │   │   ├── ChatInterface.tsx       # Chat-style generation UI
 │   │   └── TokenizerConfig.tsx     # Tokenizer settings
 │   ├── contexts/
@@ -167,9 +198,20 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 │   │   ├── AdvancedNeuralLM.ts     # Enhanced LM with advanced features
 │   │   ├── TransformerLM.ts        # Transformer architecture
 │   │   ├── MathUtils.ts            # Numerical stability utilities
+│   │   ├── BrainEngine.ts          # Brain vitals and mood system
+│   │   ├── GovernanceEngine.ts     # Autonomous parameter calibration
+│   │   ├── RMSNorm.ts              # Root Mean Square Normalization
 │   │   ├── storage.ts              # localStorage abstraction
 │   │   ├── utils.ts                # Tokenizer and CSV utilities
-│   │   └── traceExport.ts          # Σ-SIG compliant experiment tracing
+│   │   ├── traceExport.ts          # Σ-SIG compliant experiment tracing
+│   │   └── expandable/             # Cerebro neuron injection system
+│   │       ├── InjectionEngine.ts  # Diagnostics, proposals, execution
+│   │       ├── InjectableLayer.ts  # Minimal interface for injection
+│   │       ├── ProNeuralLMAdapter.ts
+│   │       ├── AdvancedNeuralLMAdapter.ts
+│   │       ├── TransformerLMAdapter.ts
+│   │       ├── bubbleExtractor.ts  # Extract bubbles from embeddings
+│   │       └── injection_math.ts   # Residual analysis, eigenvectors
 │   ├── losses/                     # Advanced loss functions
 │   ├── training/                   # Optimization algorithms
 │   ├── types/                      # TypeScript type definitions

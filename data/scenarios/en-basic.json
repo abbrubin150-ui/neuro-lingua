@@ -1,0 +1,113 @@
+{
+  "name": "English Basic Scenarios",
+  "description": "Basic validation scenarios for English language models",
+  "language": "en",
+  "version": "1.0.0",
+  "scenarios": [
+    {
+      "id": "en_completion_1",
+      "name": "Common Phrase Completion",
+      "prompt": "The quick brown",
+      "expectedResponse": "fox",
+      "category": "completion",
+      "difficulty": "easy"
+    },
+    {
+      "id": "en_completion_2",
+      "name": "Story Continuation",
+      "prompt": "Once upon a time",
+      "expectedResponse": null,
+      "category": "completion",
+      "difficulty": "easy",
+      "notes": "Should produce coherent story-like continuation"
+    },
+    {
+      "id": "en_completion_3",
+      "name": "Article Completion",
+      "prompt": "The weather today is",
+      "expectedResponse": null,
+      "category": "completion",
+      "difficulty": "medium",
+      "notes": "Should produce weather-related terms"
+    },
+    {
+      "id": "en_repetition_1",
+      "name": "Repetition Check",
+      "prompt": "Hello",
+      "expectedResponse": null,
+      "category": "quality",
+      "difficulty": "easy",
+      "notes": "Output should not repeat 'Hello' excessively (< 3 times in 20 tokens)"
+    },
+    {
+      "id": "en_coherence_1",
+      "name": "Sentence Coherence",
+      "prompt": "The cat sat on the",
+      "expectedResponse": null,
+      "category": "coherence",
+      "difficulty": "easy",
+      "notes": "Should complete with a location-appropriate word"
+    },
+    {
+      "id": "en_coherence_2",
+      "name": "Action Continuation",
+      "prompt": "She walked to the store and",
+      "expectedResponse": null,
+      "category": "coherence",
+      "difficulty": "medium",
+      "notes": "Should produce action-related continuation"
+    },
+    {
+      "id": "en_vocab_1",
+      "name": "Vocabulary Diversity",
+      "prompt": "In the",
+      "expectedResponse": null,
+      "category": "diversity",
+      "difficulty": "medium",
+      "notes": "Run 5 times with same prompt - should produce at least 3 unique continuations"
+    },
+    {
+      "id": "en_technical_1",
+      "name": "Technical Text",
+      "prompt": "The function returns",
+      "expectedResponse": null,
+      "category": "technical",
+      "difficulty": "hard",
+      "notes": "For code-trained models, should produce programming-related terms"
+    },
+    {
+      "id": "en_length_1",
+      "name": "Short Generation",
+      "prompt": "Hello world",
+      "expectedResponse": null,
+      "category": "length",
+      "difficulty": "easy",
+      "generationConfig": {
+        "maxTokens": 5,
+        "temperature": 0.8
+      },
+      "notes": "Should respect max token limit"
+    },
+    {
+      "id": "en_length_2",
+      "name": "Medium Generation",
+      "prompt": "The story begins with",
+      "expectedResponse": null,
+      "category": "length",
+      "difficulty": "medium",
+      "generationConfig": {
+        "maxTokens": 50,
+        "temperature": 0.8
+      },
+      "notes": "Should produce coherent 50-token output"
+    }
+  ],
+  "evaluationCriteria": {
+    "completion": "Expected word/phrase appears in output",
+    "coherence": "Output is grammatically and semantically coherent",
+    "diversity": "Multiple runs produce varied outputs",
+    "quality": "No excessive repetition, natural flow",
+    "length": "Output respects generation parameters"
+  },
+  "suggestedUse": "Run after training to validate basic model functionality"
+}

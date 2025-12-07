@@ -50,6 +50,18 @@
 - ✅ **GPU Metrics Dashboard** - Real-time performance monitoring
 - ✅ **Automatic Fallback** - Seamless CPU fallback when GPU unavailable
 
+#### WebGPU Browser Compatibility
+
+| Browser | Version | Status |
+|---------|---------|--------|
+| Chrome | 113+ | ✅ Full support |
+| Edge | 113+ | ✅ Full support |
+| Opera | 99+ | ✅ Full support |
+| Firefox | 127+ | ⚠️ Behind flag (`dom.webgpu.enabled`) |
+| Safari | — | ❌ Not yet supported |
+
+> **Note:** WebGPU requires a compatible GPU and up-to-date drivers. If GPU acceleration is unavailable, Neuro-Lingua automatically falls back to CPU with full functionality (2-5x slower).
+
 ### 🎯 Experiment Management (Σ-SIG Compliance)
 
 - ✅ **Project & Run Architecture** - Full experiment tracking with frozen configurations

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ProNeuralLM } from '../src/lib/ProNeuralLM';
+import { mirostatV2Sample } from '../src/generation/sampling';
 
 describe('Text Sampler / Generator', () => {
   const vocab = ['<PAD>', '<BOS>', '<EOS>', '<UNK>', 'hello', 'world', 'test', 'foo', 'bar'];
@@ -222,6 +223,20 @@ describe('Text Sampler / Generator', () => {
           vocab.includes(token) || token === '<BOS>' || token === '<PAD>' || token === '<UNK>';
         expect(isValid).toBe(true);
       }
+    });
+  });
+
+  describe('Mirostat v2', () => {
+    it('returns adaptive state updates', () => {
+      const logits = [2, 1, 0];
+      const { index, state, surprise } = mirostatV2Sample(logits, {
+        targetEntropy: 5,
+        learningRate: 0.3,
+        rng: () => 0.12
+      });
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(state.mu).toBeTypeOf('number');
+      expect(Number.isFinite(surprise)).toBe(true);
     });
   });
 });

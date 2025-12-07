@@ -22,7 +22,7 @@ interface TrainingPanelProps {
   temperature: number;
   topK: number;
   topP: number;
-  samplingMode: 'off' | 'topk' | 'topp' | 'typical';
+  samplingMode: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat';
   seed: number;
   resume: boolean;
 
@@ -81,7 +81,7 @@ interface TrainingPanelProps {
   onTemperatureChange: (value: number) => void;
   onTopKChange: (value: number) => void;
   onTopPChange: (value: number) => void;
-  onSamplingModeChange: (value: 'off' | 'topk' | 'topp') => void;
+  onSamplingModeChange: (value: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat') => void;
   onSeedChange: (value: number) => void;
   onResumeChange: (value: boolean) => void;
 

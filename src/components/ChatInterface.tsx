@@ -44,14 +44,18 @@ interface ChatInterfaceProps {
   onTemperatureChange?: (value: number) => void;
   maxTokens?: number;
   onMaxTokensChange?: (value: number) => void;
-  samplingMode?: 'off' | 'topk' | 'topp' | 'typical';
-  onSamplingModeChange?: (value: 'off' | 'topk' | 'topp' | 'typical') => void;
+  samplingMode?: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat';
+  onSamplingModeChange?: (value: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat') => void;
   topK?: number;
   onTopKChange?: (value: number) => void;
   topP?: number;
   onTopPChange?: (value: number) => void;
   typicalTau?: number;
   onTypicalTauChange?: (value: number) => void;
+  mirostatTau?: number;
+  onMirostatTauChange?: (value: number) => void;
+  mirostatEta?: number;
+  onMirostatEtaChange?: (value: number) => void;
   frequencyPenalty?: number;
   onFrequencyPenaltyChange?: (value: number) => void;
   presencePenalty?: number;
@@ -87,6 +91,10 @@ export function ChatInterface({
   onTopPChange,
   typicalTau = 0.9,
   onTypicalTauChange,
+  mirostatTau = 5,
+  onMirostatTauChange,
+  mirostatEta = 0.1,
+  onMirostatEtaChange,
   frequencyPenalty = 0,
   onFrequencyPenaltyChange,
   presencePenalty = 0,
@@ -305,7 +313,9 @@ export function ChatInterface({
                 id="sampling-mode-select"
                 value={samplingMode}
                 onChange={(e) =>
-                  onSamplingModeChange(e.target.value as 'off' | 'topk' | 'topp' | 'typical')
+                  onSamplingModeChange(
+                    e.target.value as 'off' | 'topk' | 'topp' | 'typical' | 'mirostat'
+                  )
                 }
                 style={{
                   width: '100%',
@@ -321,6 +331,7 @@ export function ChatInterface({
                 <option value="topk">Top-K</option>
                 <option value="topp">Top-P (Nucleus)</option>
                 <option value="typical">Typical (entropy-based)</option>
+                <option value="mirostat">Mirostat v2</option>
               </select>
             </div>
           )}
@@ -451,6 +462,56 @@ export function ChatInterface({
                 onChange={(e) => onTypicalTauChange(Number(e.target.value))}
                 style={{ width: '100%' }}
               />
+            </div>
+          )}
+
+          {/* Mirostat v2 controls */}
+          {samplingMode === 'mirostat' && onMirostatTauChange && onMirostatEtaChange && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: 11,
+                    color: '#94a3b8',
+                    marginBottom: 4,
+                    fontWeight: 600
+                  }}
+                >
+                  Target Surprise (τ): {mirostatTau.toFixed(1)}
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  step="0.1"
+                  value={mirostatTau}
+                  onChange={(e) => onMirostatTauChange(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: 11,
+                    color: '#94a3b8',
+                    marginBottom: 4,
+                    fontWeight: 600
+                  }}
+                >
+                  Adapt Rate (η): {mirostatEta.toFixed(2)}
+                </label>
+                <input
+                  type="range"
+                  min="0.01"
+                  max="1"
+                  step="0.01"
+                  value={mirostatEta}
+                  onChange={(e) => onMirostatEtaChange(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
             </div>
           )}
 

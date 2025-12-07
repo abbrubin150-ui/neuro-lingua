@@ -290,6 +290,7 @@ export function ChatInterface({
           {onSamplingModeChange && (
             <div>
               <label
+                htmlFor="sampling-mode-select"
                 style={{
                   display: 'block',
                   fontSize: 11,
@@ -301,6 +302,7 @@ export function ChatInterface({
                 Sampling Mode
               </label>
               <select
+                id="sampling-mode-select"
                 value={samplingMode}
                 onChange={(e) =>
                   onSamplingModeChange(e.target.value as 'off' | 'topk' | 'topp' | 'typical')

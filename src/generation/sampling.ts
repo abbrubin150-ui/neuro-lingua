@@ -308,7 +308,7 @@ export function sampleFromLogits(logits: number[], options: SamplingOptions = {}
   } = options;
 
   // Apply repetition penalties first (before temperature scaling)
-  let processedLogits = applyRepetitionPenalty(
+  const processedLogits = applyRepetitionPenalty(
     logits,
     generatedTokens,
     frequencyPenalty,

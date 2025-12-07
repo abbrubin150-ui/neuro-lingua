@@ -39,6 +39,25 @@ interface ChatInterfaceProps {
   useBayesian?: boolean;
   onUseBayesianChange?: (value: boolean) => void;
   confidence?: number | null;
+  // Generation controls
+  temperature?: number;
+  onTemperatureChange?: (value: number) => void;
+  maxTokens?: number;
+  onMaxTokensChange?: (value: number) => void;
+  samplingMode?: 'off' | 'topk' | 'topp' | 'typical';
+  onSamplingModeChange?: (value: 'off' | 'topk' | 'topp' | 'typical') => void;
+  topK?: number;
+  onTopKChange?: (value: number) => void;
+  topP?: number;
+  onTopPChange?: (value: number) => void;
+  typicalTau?: number;
+  onTypicalTauChange?: (value: number) => void;
+  frequencyPenalty?: number;
+  onFrequencyPenaltyChange?: (value: number) => void;
+  presencePenalty?: number;
+  onPresencePenaltyChange?: (value: number) => void;
+  useBeamSearch?: boolean;
+  onUseBeamSearchChange?: (value: boolean) => void;
 }
 
 /**
@@ -55,7 +74,25 @@ export function ChatInterface({
   locale,
   useBayesian = false,
   onUseBayesianChange,
-  confidence = null
+  confidence = null,
+  temperature = 0.8,
+  onTemperatureChange,
+  maxTokens = 25,
+  onMaxTokensChange,
+  samplingMode = 'topp',
+  onSamplingModeChange,
+  topK = 20,
+  onTopKChange,
+  topP = 0.9,
+  onTopPChange,
+  typicalTau = 0.9,
+  onTypicalTauChange,
+  frequencyPenalty = 0,
+  onFrequencyPenaltyChange,
+  presencePenalty = 0,
+  onPresencePenaltyChange,
+  useBeamSearch = false,
+  onUseBeamSearchChange
 }: ChatInterfaceProps) {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -224,6 +261,276 @@ export function ChatInterface({
           💡 Monte Carlo dropout enabled: generating multiple samples for uncertainty quantification
         </div>
       )}
+
+      {/* Generation Controls */}
+      <details
+        open
+        style={{
+          marginBottom: 12,
+          padding: '12px 14px',
+          background: 'rgba(59, 130, 246, 0.1)',
+          border: '1px solid rgba(59, 130, 246, 0.3)',
+          borderRadius: 10
+        }}
+      >
+        <summary
+          style={{
+            cursor: 'pointer',
+            fontWeight: 600,
+            color: '#60a5fa',
+            fontSize: 13,
+            marginBottom: 8
+          }}
+        >
+          ⚙️ Generation Settings
+        </summary>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
+          {/* Sampling Mode */}
+          {onSamplingModeChange && (
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 11,
+                  color: '#94a3b8',
+                  marginBottom: 4,
+                  fontWeight: 600
+                }}
+              >
+                Sampling Mode
+              </label>
+              <select
+                value={samplingMode}
+                onChange={(e) =>
+                  onSamplingModeChange(e.target.value as 'off' | 'topk' | 'topp' | 'typical')
+                }
+                style={{
+                  width: '100%',
+                  padding: '6px 8px',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  color: '#e2e8f0',
+                  fontSize: 12
+                }}
+              >
+                <option value="off">Greedy (deterministic)</option>
+                <option value="topk">Top-K</option>
+                <option value="topp">Top-P (Nucleus)</option>
+                <option value="typical">Typical (entropy-based)</option>
+              </select>
+            </div>
+          )}
+
+          {/* Max Tokens */}
+          {onMaxTokensChange && (
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 11,
+                  color: '#94a3b8',
+                  marginBottom: 4,
+                  fontWeight: 600
+                }}
+              >
+                Max Tokens: {maxTokens}
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="200"
+                value={maxTokens}
+                onChange={(e) => onMaxTokensChange(Number(e.target.value))}
+                style={{ width: '100%' }}
+              />
+            </div>
+          )}
+
+          {/* Temperature */}
+          {onTemperatureChange && (
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 11,
+                  color: '#94a3b8',
+                  marginBottom: 4,
+                  fontWeight: 600
+                }}
+              >
+                Temperature: {temperature.toFixed(2)}
+              </label>
+              <input
+                type="range"
+                min="0.05"
+                max="2"
+                step="0.05"
+                value={temperature}
+                onChange={(e) => onTemperatureChange(Number(e.target.value))}
+                style={{ width: '100%' }}
+              />
+            </div>
+          )}
+
+          {/* Top-K (shown when topk mode) */}
+          {samplingMode === 'topk' && onTopKChange && (
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 11,
+                  color: '#94a3b8',
+                  marginBottom: 4,
+                  fontWeight: 600
+                }}
+              >
+                Top-K: {topK}
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="100"
+                value={topK}
+                onChange={(e) => onTopKChange(Number(e.target.value))}
+                style={{ width: '100%' }}
+              />
+            </div>
+          )}
+
+          {/* Top-P (shown when topp mode) */}
+          {samplingMode === 'topp' && onTopPChange && (
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 11,
+                  color: '#94a3b8',
+                  marginBottom: 4,
+                  fontWeight: 600
+                }}
+              >
+                Top-P: {topP.toFixed(2)}
+              </label>
+              <input
+                type="range"
+                min="0.1"
+                max="0.99"
+                step="0.01"
+                value={topP}
+                onChange={(e) => onTopPChange(Number(e.target.value))}
+                style={{ width: '100%' }}
+              />
+            </div>
+          )}
+
+          {/* Typical Tau (shown when typical mode) */}
+          {samplingMode === 'typical' && onTypicalTauChange && (
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 11,
+                  color: '#94a3b8',
+                  marginBottom: 4,
+                  fontWeight: 600
+                }}
+                title="Threshold for typicality - keeps tokens with information content close to entropy"
+              >
+                Typical Tau: {typicalTau.toFixed(2)} ℹ️
+              </label>
+              <input
+                type="range"
+                min="0.1"
+                max="1"
+                step="0.05"
+                value={typicalTau}
+                onChange={(e) => onTypicalTauChange(Number(e.target.value))}
+                style={{ width: '100%' }}
+              />
+            </div>
+          )}
+
+          {/* Frequency Penalty */}
+          {onFrequencyPenaltyChange && (
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 11,
+                  color: '#94a3b8',
+                  marginBottom: 4,
+                  fontWeight: 600
+                }}
+                title="Penalize tokens based on how often they appear (reduces repetition)"
+              >
+                Frequency Penalty: {frequencyPenalty.toFixed(2)} ℹ️
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                value={frequencyPenalty}
+                onChange={(e) => onFrequencyPenaltyChange(Number(e.target.value))}
+                style={{ width: '100%' }}
+              />
+            </div>
+          )}
+
+          {/* Presence Penalty */}
+          {onPresencePenaltyChange && (
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 11,
+                  color: '#94a3b8',
+                  marginBottom: 4,
+                  fontWeight: 600
+                }}
+                title="Penalize tokens that have appeared at all (encourages diversity)"
+              >
+                Presence Penalty: {presencePenalty.toFixed(2)} ℹ️
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                value={presencePenalty}
+                onChange={(e) => onPresencePenaltyChange(Number(e.target.value))}
+                style={{ width: '100%' }}
+              />
+            </div>
+          )}
+
+          {/* Beam Search Toggle */}
+          {onUseBeamSearchChange && (
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  color: '#cbd5e1'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={useBeamSearch}
+                  onChange={(e) => onUseBeamSearchChange(e.target.checked)}
+                  style={{ width: 14, height: 14, cursor: 'pointer' }}
+                />
+                <span>Use Beam Search (AdvancedNeuralLM only)</span>
+              </label>
+            </div>
+          )}
+        </div>
+      </details>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
         <textarea

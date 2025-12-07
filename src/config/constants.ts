@@ -55,10 +55,13 @@ export const DEFAULT_GENERATION = {
   temperature: 0.8,
   topK: 20,
   topP: 0.9,
-  samplingMode: 'topp' as 'off' | 'topk' | 'topp',
+  typicalTau: 0.9,
+  samplingMode: 'topp' as 'off' | 'topk' | 'topp' | 'typical',
   maxTokens: 25,
   useBeamSearch: false,
-  beamWidth: 4
+  beamWidth: 4,
+  frequencyPenalty: 0,
+  presencePenalty: 0
 };
 
 /**
@@ -111,7 +114,11 @@ export const HYPERPARAMETER_CONSTRAINTS = {
   temperature: { min: 0.05, max: 5 },
   topK: { min: 0, max: 1000 },
   topP: { min: 0, max: 0.99 },
+  typicalTau: { min: 0.1, max: 1 },
   beamWidth: { min: 1, max: 10 },
+  frequencyPenalty: { min: 0, max: 2 },
+  presencePenalty: { min: 0, max: 2 },
+  maxTokens: { min: 1, max: 200 },
   leakyReluAlpha: { min: 0.01, max: 0.3 },
   eluAlpha: { min: 0.1, max: 2.0 },
   lrMin: { min: 1e-8, max: 0.01 },

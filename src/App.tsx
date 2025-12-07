@@ -93,7 +93,7 @@ type UiSettings = {
   temperature: number;
   topK: number;
   topP: number;
-  samplingMode: 'off' | 'topk' | 'topp';
+  samplingMode: 'off' | 'topk' | 'topp' | 'typical';
   seed: number;
   resume: boolean;
   tokenizerConfig: TokenizerConfig;
@@ -384,9 +384,13 @@ export default function NeuroLinguaDomesticaV324() {
   const [temperature, setTemperature] = useState(DEFAULT_GENERATION.temperature);
   const [topK, setTopK] = useState(DEFAULT_GENERATION.topK);
   const [topP, setTopP] = useState(DEFAULT_GENERATION.topP);
-  const [samplingMode, setSamplingMode] = useState<'off' | 'topk' | 'topp'>(
+  const [typicalTau, setTypicalTau] = useState(DEFAULT_GENERATION.typicalTau);
+  const [samplingMode, setSamplingMode] = useState<'off' | 'topk' | 'topp' | 'typical'>(
     DEFAULT_GENERATION.samplingMode
   );
+  const [maxTokens, setMaxTokens] = useState(DEFAULT_GENERATION.maxTokens);
+  const [frequencyPenalty, setFrequencyPenalty] = useState(DEFAULT_GENERATION.frequencyPenalty);
+  const [presencePenalty, setPresencePenalty] = useState(DEFAULT_GENERATION.presencePenalty);
   const [seed, setSeed] = useState(DEFAULT_HYPERPARAMETERS.seed);
   const [resume, setResume] = useState(DEFAULT_HYPERPARAMETERS.resume);
 
@@ -1609,12 +1613,16 @@ export default function NeuroLinguaDomesticaV324() {
         } else {
           const k = samplingMode === 'topk' ? topK : 0;
           const p = samplingMode === 'topp' ? topP : 0;
+          const tau = samplingMode === 'typical' ? typicalTau : 0;
           sample = await modelRef.current.generate(
             input,
-            DEFAULT_GENERATION.maxTokens,
+            maxTokens,
             temperature,
             k,
-            p
+            p,
+            frequencyPenalty,
+            presencePenalty,
+            tau
           );
         }
         samples.push(sample);
@@ -1639,7 +1647,7 @@ export default function NeuroLinguaDomesticaV324() {
         // Use beam search generation
         const result = await modelRef.current.generateBeamSearch(
           input,
-          DEFAULT_GENERATION.maxTokens,
+          maxTokens,
           beamWidth,
           temperature
         );
@@ -1648,12 +1656,16 @@ export default function NeuroLinguaDomesticaV324() {
         // Use standard generation
         const k = samplingMode === 'topk' ? topK : 0;
         const p = samplingMode === 'topp' ? topP : 0;
+        const tau = samplingMode === 'typical' ? typicalTau : 0;
         txt = await modelRef.current.generate(
           input,
-          DEFAULT_GENERATION.maxTokens,
+          maxTokens,
           temperature,
           k,
-          p
+          p,
+          frequencyPenalty,
+          presencePenalty,
+          tau
         );
       }
 
@@ -2070,6 +2082,24 @@ export default function NeuroLinguaDomesticaV324() {
               locale={locale}
               useBayesian={useBayesian}
               onUseBayesianChange={setUseBayesian}
+              temperature={temperature}
+              onTemperatureChange={setTemperature}
+              maxTokens={maxTokens}
+              onMaxTokensChange={setMaxTokens}
+              samplingMode={samplingMode}
+              onSamplingModeChange={setSamplingMode}
+              topK={topK}
+              onTopKChange={setTopK}
+              topP={topP}
+              onTopPChange={setTopP}
+              typicalTau={typicalTau}
+              onTypicalTauChange={setTypicalTau}
+              frequencyPenalty={frequencyPenalty}
+              onFrequencyPenaltyChange={setFrequencyPenalty}
+              presencePenalty={presencePenalty}
+              onPresencePenaltyChange={setPresencePenalty}
+              useBeamSearch={useBeamSearch}
+              onUseBeamSearchChange={setUseBeamSearch}
               confidence={confidence}
             />
           </div>

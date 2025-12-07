@@ -22,7 +22,7 @@ interface TrainingPanelProps {
   temperature: number;
   topK: number;
   topP: number;
-  samplingMode: 'off' | 'topk' | 'topp';
+  samplingMode: 'off' | 'topk' | 'topp' | 'typical';
   seed: number;
   resume: boolean;
 

@@ -93,7 +93,10 @@ type UiSettings = {
   temperature: number;
   topK: number;
   topP: number;
-  samplingMode: 'off' | 'topk' | 'topp' | 'typical';
+  typicalTau: number;
+  mirostatTau: number;
+  mirostatEta: number;
+  samplingMode: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat';
   seed: number;
   resume: boolean;
   tokenizerConfig: TokenizerConfig;
@@ -915,6 +918,9 @@ export default function NeuroLinguaDomesticaV324() {
       temperature,
       topK,
       topP,
+      typicalTau,
+      mirostatTau,
+      mirostatEta,
       samplingMode,
       seed,
       resume,
@@ -959,6 +965,9 @@ export default function NeuroLinguaDomesticaV324() {
     temperature,
     topK,
     topP,
+    typicalTau,
+    mirostatTau,
+    mirostatEta,
     samplingMode,
     seed,
     resume,

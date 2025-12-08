@@ -13,9 +13,9 @@
 
 import { ProNeuralLM, type Optimizer, type TokenizerConfig } from './ProNeuralLM';
 import { MiniTransformerBlock, type MiniTransformerConfig } from '../models/mini_transformer';
-import type { BatchRenormState } from '../models/regularizers';
 import type { AttentionWeights, Matrix } from '../models/attention';
 import { stableSoftmax } from './MathUtils';
+import { type RMSNormState } from './RMSNorm';
 
 export type TransformerConfig = {
   numLayers?: number;
@@ -41,7 +41,7 @@ type TransformerSerializedModel = BaseModelJson & {
     attentionWeights: AttentionWeights[];
     ffWeights1: Matrix[];
     ffWeights2: Matrix[];
-    renormStates: BatchRenormState[];
+    renormStates: RMSNormState[];
   };
 };
 
@@ -77,8 +77,8 @@ export class TransformerLM extends ProNeuralLM {
   private ffWeights1: Matrix[] = [];
   private ffWeights2: Matrix[] = [];
 
-  // Batch renorm state for each layer
-  private renormStates: BatchRenormState[] = [];
+  // RMSNorm state (gamma/epsilon) for each layer
+  private renormStates: RMSNormState[] = [];
 
   constructor(
     vocab: string[],
@@ -107,7 +107,7 @@ export class TransformerLM extends ProNeuralLM {
     attention?: AttentionWeights[];
     ff1?: Matrix[];
     ff2?: Matrix[];
-    renormStates?: BatchRenormState[];
+    renormStates?: RMSNormState[];
   }): void {
     const { numLayers, numHeads, ffHiddenDim, attentionDropout, dropConnectRate } =
       this.transformerConfig;
@@ -124,25 +124,21 @@ export class TransformerLM extends ProNeuralLM {
     this.renormStates = [];
 
     for (let i = 0; i < numLayers; i++) {
-      const renormState: BatchRenormState = existing?.renormStates?.[i] ?? {
-        runningMean: new Array(modelDim).fill(0),
-        runningVar: new Array(modelDim).fill(1),
-        momentum: 0.99,
-        epsilon: 1e-5,
-        rMax: 3.0,
-        dMax: 5.0
-      };
+      const renormState: RMSNormState =
+        existing?.renormStates?.[i] ??
+        ({ gamma: new Array(modelDim).fill(1), epsilon: 1e-6 } satisfies RMSNormState);
 
       const config: MiniTransformerConfig = {
         modelDim,
         heads: this.transformerConfig.numHeads,
         ff: {
           hiddenDim: ffHiddenDim,
-          activation: (x: number) => Math.max(0, x) // ReLU
+          activation: (x: number) => Math.max(0, x) // Unused in SwiGLU but kept for compatibility
         },
         attentionDropout,
         dropConnectRate,
-        renormState
+        rmsState: renormState,
+        ropeBase: 500000
       };
 
       this.transformerLayers.push(new MiniTransformerBlock(config));
@@ -156,7 +152,9 @@ export class TransformerLM extends ProNeuralLM {
         }
       );
 
-      this.ffWeights1.push(existing?.ff1?.[i] ?? this.initWeightMatrix([modelDim, ffHiddenDim]));
+      this.ffWeights1.push(
+        existing?.ff1?.[i] ?? this.initWeightMatrix([modelDim, ffHiddenDim * 2])
+      );
       this.ffWeights2.push(existing?.ff2?.[i] ?? this.initWeightMatrix([ffHiddenDim, modelDim]));
     }
   }
@@ -220,8 +218,8 @@ export class TransformerLM extends ProNeuralLM {
     output: number[][];
     intermediates: Array<{ attentionOut: number[][]; residual1: number[][]; ffOut: number[][] }>;
   } {
-    // Add position embeddings
-    let hidden = this.addPositionEmbeddings(inputEmbeddings);
+    let hidden = inputEmbeddings;
+    const positions = hidden.map((_, idx) => idx);
 
     const intermediates: Array<{
       attentionOut: number[][];
@@ -238,7 +236,8 @@ export class TransformerLM extends ProNeuralLM {
         hidden,
         this.attentionWeights[layerIdx],
         this.ffWeights1[layerIdx],
-        this.ffWeights2[layerIdx]
+        this.ffWeights2[layerIdx],
+        { positions }
       );
 
       // Store intermediates for backprop
@@ -648,10 +647,10 @@ export class TransformerLM extends ProNeuralLM {
         }
       }
 
-      // Expand ffWeights1: [modelDim x ffHiddenDim] -> add k rows
+      // Expand ffWeights1: [modelDim x (ffHiddenDim*2)] -> add k rows
       for (let i = 0; i < k; i++) {
         const newRow: number[] = [];
-        for (let j = 0; j < ffHiddenDim; j++) {
+        for (let j = 0; j < ffHiddenDim * 2; j++) {
           newRow.push((Math.random() - 0.5) * 2 * scale);
         }
         ff1.push(newRow);
@@ -664,10 +663,9 @@ export class TransformerLM extends ProNeuralLM {
         }
       }
 
-      // Expand renorm state: runningMean and runningVar need k more elements
+      // Expand renorm state gamma vector
       for (let i = 0; i < k; i++) {
-        renormState.runningMean.push(0);
-        renormState.runningVar.push(1);
+        renormState.gamma.push(1);
       }
     }
 
@@ -699,7 +697,8 @@ export class TransformerLM extends ProNeuralLM {
         },
         attentionDropout,
         dropConnectRate,
-        renormState: this.renormStates[i]
+        rmsState: this.renormStates[i],
+        ropeBase: 500000
       };
       this.transformerLayers.push(new MiniTransformerBlock(config));
     }
@@ -713,7 +712,7 @@ export class TransformerLM extends ProNeuralLM {
     ffWeights1: Matrix[];
     ffWeights2: Matrix[];
     positionEmbeddings: number[][];
-    renormStates: BatchRenormState[];
+    renormStates: RMSNormState[];
   } {
     return {
       attentionWeights: this.attentionWeights,
@@ -732,7 +731,7 @@ export class TransformerLM extends ProNeuralLM {
     ffWeights1: Matrix[];
     ffWeights2: Matrix[];
     positionEmbeddings: number[][];
-    renormStates: BatchRenormState[];
+    renormStates: RMSNormState[];
   }): void {
     this.attentionWeights = weights.attentionWeights;
     this.ffWeights1 = weights.ffWeights1;

@@ -385,9 +385,11 @@ export default function NeuroLinguaDomesticaV324() {
   const [topK, setTopK] = useState(DEFAULT_GENERATION.topK);
   const [topP, setTopP] = useState(DEFAULT_GENERATION.topP);
   const [typicalTau, setTypicalTau] = useState(DEFAULT_GENERATION.typicalTau);
-  const [samplingMode, setSamplingMode] = useState<'off' | 'topk' | 'topp' | 'typical'>(
-    DEFAULT_GENERATION.samplingMode
-  );
+  const [mirostatTau, setMirostatTau] = useState(DEFAULT_GENERATION.mirostatTau);
+  const [mirostatEta, setMirostatEta] = useState(DEFAULT_GENERATION.mirostatEta);
+  const [samplingMode, setSamplingMode] = useState<
+    'off' | 'topk' | 'topp' | 'typical' | 'mirostat'
+  >(DEFAULT_GENERATION.samplingMode);
   const [maxTokens, setMaxTokens] = useState(DEFAULT_GENERATION.maxTokens);
   const [frequencyPenalty, setFrequencyPenalty] = useState(DEFAULT_GENERATION.frequencyPenalty);
   const [presencePenalty, setPresencePenalty] = useState(DEFAULT_GENERATION.presencePenalty);
@@ -696,10 +698,15 @@ export default function NeuroLinguaDomesticaV324() {
     if (typeof saved.temperature === 'number') setTemperature(saved.temperature);
     if (typeof saved.topK === 'number') setTopK(saved.topK);
     if (typeof saved.topP === 'number') setTopP(saved.topP);
+    if (typeof saved.typicalTau === 'number') setTypicalTau(saved.typicalTau);
+    if (typeof saved.mirostatTau === 'number') setMirostatTau(saved.mirostatTau);
+    if (typeof saved.mirostatEta === 'number') setMirostatEta(saved.mirostatEta);
     if (
       saved.samplingMode === 'off' ||
       saved.samplingMode === 'topk' ||
-      saved.samplingMode === 'topp'
+      saved.samplingMode === 'topp' ||
+      saved.samplingMode === 'typical' ||
+      saved.samplingMode === 'mirostat'
     ) {
       setSamplingMode(saved.samplingMode);
     }
@@ -1614,6 +1621,8 @@ export default function NeuroLinguaDomesticaV324() {
           const k = samplingMode === 'topk' ? topK : 0;
           const p = samplingMode === 'topp' ? topP : 0;
           const tau = samplingMode === 'typical' ? typicalTau : 0;
+          const miroTau = samplingMode === 'mirostat' ? mirostatTau : 0;
+          const miroEta = samplingMode === 'mirostat' ? mirostatEta : 0.1;
           sample = await modelRef.current.generate(
             input,
             maxTokens,
@@ -1622,7 +1631,9 @@ export default function NeuroLinguaDomesticaV324() {
             p,
             frequencyPenalty,
             presencePenalty,
-            tau
+            tau,
+            miroTau,
+            miroEta
           );
         }
         samples.push(sample);
@@ -1657,6 +1668,8 @@ export default function NeuroLinguaDomesticaV324() {
         const k = samplingMode === 'topk' ? topK : 0;
         const p = samplingMode === 'topp' ? topP : 0;
         const tau = samplingMode === 'typical' ? typicalTau : 0;
+        const miroTau = samplingMode === 'mirostat' ? mirostatTau : 0;
+        const miroEta = samplingMode === 'mirostat' ? mirostatEta : 0.1;
         txt = await modelRef.current.generate(
           input,
           maxTokens,
@@ -1665,7 +1678,9 @@ export default function NeuroLinguaDomesticaV324() {
           p,
           frequencyPenalty,
           presencePenalty,
-          tau
+          tau,
+          miroTau,
+          miroEta
         );
       }
 
@@ -2094,6 +2109,10 @@ export default function NeuroLinguaDomesticaV324() {
               onTopPChange={setTopP}
               typicalTau={typicalTau}
               onTypicalTauChange={setTypicalTau}
+              mirostatTau={mirostatTau}
+              onMirostatTauChange={setMirostatTau}
+              mirostatEta={mirostatEta}
+              onMirostatEtaChange={setMirostatEta}
               frequencyPenalty={frequencyPenalty}
               onFrequencyPenaltyChange={setFrequencyPenalty}
               presencePenalty={presencePenalty}

@@ -107,9 +107,9 @@ describe('TransformerLMAdapter', () => {
 
       // Check that FF weights have correct dimensions
       for (let i = 0; i < info.numLayers; i++) {
-        // ff1: [modelDim x ffHiddenDim]
+        // ff1: [modelDim x (ffHiddenDim * 2)] for SwiGLU
         expect(transformerWeights.ffWeights1[i].length).toBe(newSize);
-        expect(transformerWeights.ffWeights1[i][0].length).toBe(ffHiddenDim);
+        expect(transformerWeights.ffWeights1[i][0].length).toBe(ffHiddenDim * 2);
 
         // ff2: [ffHiddenDim x modelDim]
         expect(transformerWeights.ffWeights2[i].length).toBe(ffHiddenDim);
@@ -138,8 +138,8 @@ describe('TransformerLMAdapter', () => {
       const newSize = initialSize + 4;
 
       for (const renorm of transformerWeights.renormStates) {
-        expect(renorm.runningMean.length).toBe(newSize);
-        expect(renorm.runningVar.length).toBe(newSize);
+        expect(renorm.gamma.length).toBe(newSize);
+        expect(typeof renorm.epsilon).toBe('number');
       }
     });
 

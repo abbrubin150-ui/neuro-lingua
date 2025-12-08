@@ -22,6 +22,17 @@ export interface ScaledDotProductAttentionOptions {
   causal?: boolean;
 }
 
+export interface MultiHeadForwardOptions extends ScaledDotProductAttentionOptions {
+  /**
+   * Absolute positions for each token in the sequence. When provided, rotary
+   * positional embeddings (RoPE) are applied to queries/keys for long-context
+   * extrapolation (v4 default).
+   */
+  positions?: number[];
+  /** RoPE base. Defaults to 500000 per v4 spec. */
+  ropeBase?: number;
+}
+
 function matmul(a: Matrix, b: Matrix): Matrix {
   if (a[0].length !== b.length) throw new Error('Matrix dimensions do not align.');
   const result: Matrix = Array.from({ length: a.length }, () => new Array(b[0].length).fill(0));
@@ -45,6 +56,35 @@ function applyMask(matrix: Matrix, mask: Matrix): Matrix {
   return matrix.map((row, i) =>
     row.map((value, j) => (mask[i]?.[j] ? value : Number.NEGATIVE_INFINITY))
   );
+}
+
+function applyRoPE(matrix: Matrix, positions: number[], base: number): Matrix {
+  // Rotary embeddings expect even dimensions so we rotate pairs (even, odd)
+  const dim = matrix[0]?.length ?? 0;
+  if (dim === 0 || dim % 2 !== 0 || positions.length === 0) {
+    return matrix;
+  }
+
+  const halfDim = dim / 2;
+  const theta = new Float64Array(halfDim);
+  for (let i = 0; i < halfDim; i++) {
+    theta[i] = Math.pow(base, (-2 * i) / dim);
+  }
+
+  return matrix.map((row, rowIdx) => {
+    const pos = positions[rowIdx] ?? rowIdx;
+    const rotated = [...row];
+    for (let i = 0; i < halfDim; i++) {
+      const angle = pos * theta[i];
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const even = row[2 * i];
+      const odd = row[2 * i + 1];
+      rotated[2 * i] = even * cos - odd * sin;
+      rotated[2 * i + 1] = even * sin + odd * cos;
+    }
+    return rotated;
+  });
 }
 
 export function scaledDotProductAttention(
@@ -121,20 +161,22 @@ export class MultiHeadAttention {
     );
   }
 
-  forward(
-    inputs: Matrix,
-    weights: AttentionWeights,
-    options: ScaledDotProductAttentionOptions = {}
-  ) {
+  forward(inputs: Matrix, weights: AttentionWeights, options: MultiHeadForwardOptions = {}) {
+    const { positions, ropeBase = 500000, ...attentionOpts } = options;
     const projections = this.project(inputs, weights);
-    const queries = this.splitHeads(projections.query);
-    const keys = this.splitHeads(projections.key);
+
+    const queries = this.splitHeads(
+      positions ? applyRoPE(projections.query, positions, ropeBase) : projections.query
+    );
+    const keys = this.splitHeads(
+      positions ? applyRoPE(projections.key, positions, ropeBase) : projections.key
+    );
     const values = this.splitHeads(projections.value);
 
     const headOutputs: Matrix[] = [];
     for (let h = 0; h < this.config.heads; h++) {
       const { output } = scaledDotProductAttention(queries[h], keys[h], values[h], {
-        ...options,
+        ...attentionOpts,
         temperature: this.config.keyDim
       });
       headOutputs.push(this.applyDropout(output));

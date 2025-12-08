@@ -13,6 +13,16 @@ export interface SamplingOptions {
   rng?: SamplingRng;
 }
 
+export interface MirostatV2State {
+  mu: number;
+}
+
+export interface MirostatV2Options extends SamplingOptions {
+  targetEntropy?: number; // tau in the paper (desired surprise)
+  learningRate?: number; // eta update factor
+  state?: MirostatV2State;
+}
+
 export interface BeamSearchOptions {
   beamWidth: number;
   maxLength: number;
@@ -176,6 +186,34 @@ export function sampleCategorical(probs: number[], rng: SamplingRng = defaultRng
     if (r <= 0) return i;
   }
   return probs.length - 1;
+}
+
+export function mirostatV2Sample(
+  logits: number[],
+  options: MirostatV2Options = {}
+): { index: number; state: MirostatV2State; surprise: number } {
+  if (logits.length === 0) {
+    throw new Error('Cannot run Mirostat on empty logits.');
+  }
+
+  const {
+    targetEntropy = 5,
+    learningRate = 0.1,
+    temperature = 1,
+    rng = defaultRng,
+    state
+  } = options;
+
+  const mu = state?.mu ?? targetEntropy * 2;
+  // Adjust temperature to steer toward desired surprise
+  const adaptiveTemp = clip(Math.exp(mu - targetEntropy), 0.05, 5);
+  const scaled = logits.map((value) => value / clip(temperature * adaptiveTemp, 0.05, 5));
+  const probs = stableSoftmax(scaled);
+  const index = sampleCategorical(probs, rng);
+  const prob = clip(probs[index], 1e-9, 1);
+  const surprise = -Math.log(prob);
+  const newMu = mu + learningRate * (surprise - targetEntropy);
+  return { index, state: { mu: newMu }, surprise };
 }
 
 export function temperatureSample(

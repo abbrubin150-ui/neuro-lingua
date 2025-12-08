@@ -10,7 +10,12 @@ import {
   type SecondOrderState
 } from '../training/optimizer';
 import { stableSoftmax } from './MathUtils';
-import { sampleFromLogits as drawToken, typicalSample } from '../generation/sampling';
+import {
+  mirostatV2Sample,
+  type MirostatV2State,
+  sampleFromLogits as drawToken,
+  typicalSample
+} from '../generation/sampling';
 import { GPUNeuralOps } from '../backend/gpu_neural_ops';
 
 export type Optimizer = 'momentum' | 'adam' | 'newton' | 'bfgs';
@@ -683,26 +688,43 @@ export class ProNeuralLM {
     generatedTokens: number[] = [],
     frequencyPenalty = 0,
     presencePenalty = 0,
-    typicalTau = 0
-  ): number {
+    typicalTau = 0,
+    mirostatTau = 0,
+    mirostatEta = 0.1,
+    mirostatState?: MirostatV2State
+  ): { index: number; state?: MirostatV2State } {
+    if (mirostatTau > 0) {
+      const { index, state } = mirostatV2Sample(logits, {
+        targetEntropy: mirostatTau,
+        learningRate: mirostatEta,
+        temperature,
+        rng: () => this.nextRandom(),
+        state: mirostatState
+      });
+      return { index, state };
+    }
+
     // If typical sampling is enabled (tau > 0), use it instead
     if (typicalTau > 0 && typicalTau < 1) {
-      return typicalSample(logits, typicalTau, {
+      const typicalIndex = typicalSample(logits, typicalTau, {
         temperature,
         rng: () => this.nextRandom()
       });
+      return { index: typicalIndex };
     }
 
     // Otherwise use standard sampling with penalties
-    return drawToken(logits, {
-      temperature,
-      topK,
-      topP,
-      frequencyPenalty,
-      presencePenalty,
-      generatedTokens,
-      rng: () => this.nextRandom()
-    });
+    return {
+      index: drawToken(logits, {
+        temperature,
+        topK,
+        topP,
+        frequencyPenalty,
+        presencePenalty,
+        generatedTokens,
+        rng: () => this.nextRandom()
+      })
+    };
   }
 
   async generate(
@@ -713,7 +735,9 @@ export class ProNeuralLM {
     topP = 0,
     frequencyPenalty = 0,
     presencePenalty = 0,
-    typicalTau = 0
+    typicalTau = 0,
+    mirostatTau = 0,
+    mirostatEta = 0.1
   ): Promise<string> {
     const seedToks = this.tokenize(seedText).map((t) => this.toIndex(t));
     const ctx: number[] = new Array(this.contextSize).fill(this.toIndex(this.bos));
@@ -722,10 +746,11 @@ export class ProNeuralLM {
     const out: string[] = [];
     const generatedTokenIds: number[] = [];
 
+    let mirostatState: MirostatV2State | undefined;
     while (out.length < maxLen) {
       const window = ctx.slice(-this.contextSize);
       const { logits } = await this.forward(window, false);
-      const idx = this.sampleFromLogits(
+      const { index: idx, state } = this.sampleFromLogits(
         logits,
         temperature,
         topK,
@@ -733,8 +758,12 @@ export class ProNeuralLM {
         generatedTokenIds,
         frequencyPenalty,
         presencePenalty,
-        typicalTau
+        typicalTau,
+        mirostatTau,
+        mirostatEta,
+        mirostatState
       );
+      mirostatState = state;
       const tok = this.idxToWord.get(idx)!;
       if (tok === this.eos) break;
       out.push(tok);

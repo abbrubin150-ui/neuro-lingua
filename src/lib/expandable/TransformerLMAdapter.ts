@@ -1,6 +1,7 @@
 import type { InjectableLayer } from './InjectableLayer';
 import type { InjectionTarget } from '../../types/injection';
 import type { TransformerLM } from '../TransformerLM';
+import type { RMSNormState } from '../RMSNorm';
 
 /**
  * Adapter that wraps TransformerLM to implement InjectableLayer interface.
@@ -107,8 +108,8 @@ export class TransformerLMAdapter implements InjectableLayer {
       baseArrays.push(new Float32Array(ff2.flat()));
 
       // Renorm state
-      baseArrays.push(new Float32Array(renorm.runningMean));
-      baseArrays.push(new Float32Array(renorm.runningVar));
+      baseArrays.push(new Float32Array(renorm.gamma));
+      baseArrays.push(new Float32Array([renorm.epsilon]));
     }
 
     return baseArrays;
@@ -175,16 +176,9 @@ export class TransformerLMAdapter implements InjectableLayer {
     const attentionWeights: Array<{ query: number[][]; key: number[][]; value: number[][] }> = [];
     const ffWeights1: number[][][] = [];
     const ffWeights2: number[][][] = [];
-    const renormStates: Array<{
-      runningMean: number[];
-      runningVar: number[];
-      momentum: number;
-      epsilon: number;
-      rMax: number;
-      dMax: number;
-    }> = [];
+    const renormStates: RMSNormState[] = [];
 
-    // 7 arrays per layer: query, key, value, ff1, ff2, runningMean, runningVar
+    // 7 arrays per layer: query, key, value, ff1, ff2, gamma, epsilon
     const arraysPerLayer = 7;
     const baseIndex = 6;
 
@@ -224,15 +218,11 @@ export class TransformerLMAdapter implements InjectableLayer {
       ffWeights2.push(ff2Layer);
 
       // Renorm state
-      const runningMean = Array.from(weights[offset + 5]);
-      const runningVar = Array.from(weights[offset + 6]);
+      const gamma = Array.from(weights[offset + 5]);
+      const epsilonArr = Array.from(weights[offset + 6]);
       renormStates.push({
-        runningMean,
-        runningVar,
-        momentum: 0.99,
-        epsilon: 1e-5,
-        rMax: 3.0,
-        dMax: 5.0
+        gamma,
+        epsilon: epsilonArr[0] ?? 1e-6
       });
     }
 

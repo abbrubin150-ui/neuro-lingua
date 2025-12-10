@@ -88,6 +88,7 @@ describe('TransformerLM', () => {
     const generated = await model.generate('a', 5, 0.8);
     expect(generated).toBeDefined();
     expect(typeof generated).toBe('string');
+    expect(generated.length).toBeGreaterThan(0);
   });
 
   it('should improve with more epochs', async () => {

@@ -402,7 +402,7 @@ export class TransformerLM extends ProNeuralLM {
     while (out.length < maxLen) {
       const window = ctx.slice(-contextSize);
       const { logits } = await this.transformerForwardPass(window, false);
-      const idx = sampleFromLogits(logits, temperature, topK, topP);
+      const { index: idx } = sampleFromLogits(logits, temperature, topK, topP);
       const token = idxToWord.get(idx) ?? eosToken;
       if (token === eosToken) break;
       out.push(token);

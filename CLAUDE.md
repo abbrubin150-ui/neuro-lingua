@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Neuro-Lingua
 
 > **Last Updated**: 2025-12-10
-> **Version**: 4.1.0
+> **Version**: 4.2.0
 > **Purpose**: Comprehensive guide for AI assistants working on the Neuro-Lingua codebase
 
 ---
@@ -206,9 +206,22 @@
 │   │   ├── diffUtils.ts              # Diff computation utilities
 │   │   ├── exportUtils.ts            # Model export utilities
 │   │   ├── experimentComparison.ts   # Run comparison utilities
-│   │   └── traceExport.ts            # Σ-SIG compliant experiment tracing
+│   │   ├── traceExport.ts            # Σ-SIG compliant experiment tracing
+│   │   └── expandable/               # Cerebro injection system
+│   │       ├── InjectionEngine.ts    # Core injection logic (169 lines)
+│   │       ├── InjectableLayer.ts    # Layer interface (19 lines)
+│   │       ├── injection_math.ts     # Linear algebra operations (205 lines)
+│   │       ├── bubbleExtractor.ts    # Semantic bubble extraction (181 lines)
+│   │       ├── injection_hooks.ts    # Training integration (86 lines)
+│   │       ├── ProNeuralLMAdapter.ts # Feedforward adapter
+│   │       ├── AdvancedNeuralLMAdapter.ts # Enhanced adapter
+│   │       └── TransformerLMAdapter.ts # Transformer adapter
 │   ├── losses/                       # Advanced loss functions
+│   │   ├── advanced.ts               # Focal, label smoothing, SCE (76 lines)
+│   │   └── information_bottleneck.ts # IB loss implementation (316 lines)
 │   ├── math/                         # Mathematical utilities
+│   │   ├── analysis.ts               # Spectral/Lyapunov analysis (234 lines)
+│   │   └── statistics.ts             # Fisher information stats (197 lines)
 │   ├── models/                       # Architecture-specific implementations
 │   │   ├── mini_transformer.ts       # Compact transformer
 │   │   └── attention.ts              # Multi-head attention
@@ -220,14 +233,32 @@
 │
 ├── tests/                            # Test suites
 │   ├── ProNeuralLM.test.ts           # Base model tests
+│   ├── ProNeuralLM.device.test.ts    # Device-specific model tests
 │   ├── AdvancedNeuralLM.test.ts      # Advanced features tests
 │   ├── TransformerLM.test.ts         # Transformer tests
+│   ├── GovernanceEngine.test.ts      # Autonomous governance tests
 │   ├── MathUtils.test.ts             # Math utilities tests
 │   ├── tokenizer.test.ts             # Tokenizer tests
 │   ├── sampler.test.ts               # Generation tests
+│   ├── gqa.test.ts                   # Grouped-Query Attention tests
+│   ├── embedding_extraction.test.ts  # Embedding extraction tests
 │   ├── App.test.tsx                  # Main app component tests
-│   ├── numerics/                     # Numerical correctness tests
+│   ├── backend/                      # Backend tests (WebGPU, edge learning)
+│   ├── components/                   # Component tests (UI panels)
+│   ├── compression/                  # Compression system tests
+│   ├── contexts/                     # Context provider tests
+│   ├── lib/                          # Library module tests
+│   │   ├── bubbleExtractor.test.ts   # Bubble extraction tests
+│   │   └── *Adapter.test.ts          # Injection adapter tests
+│   ├── losses/                       # Loss function tests
+│   │   └── information_bottleneck.test.ts
 │   ├── math/                         # Mathematical analysis tests
+│   │   └── analysis.test.ts          # Spectral/Lyapunov tests
+│   ├── numerics/                     # Numerical correctness tests
+│   │   ├── sampling.test.ts
+│   │   └── bayesian.test.ts
+│   ├── training/                     # Training module tests
+│   │   └── LionOptimizer.test.ts
 │   └── setup.ts                      # Test environment setup
 │
 ├── index.html                        # HTML entry point
@@ -1522,6 +1553,706 @@ optimizer.updateVector(biases, biasGradients, 'bias1');
 - Existing Adam pipelines work well
 - Second-order methods (Newton, L-BFGS) provide better results
 
+### 13. Cerebro Injection System (`src/lib/expandable/`)
+
+The Cerebro system enables dynamic concept injection into neural network layers using mathematical projections and residual analysis.
+
+#### **Architecture Overview**
+
+```
+CerebroPanel (UI)
+    ↓
+InjectionEngine (Core Logic)
+    ↓
+InjectableLayer (Interface)
+    ↓
+Model Adapters (ProNeuralLM, AdvancedNeuralLM, TransformerLM)
+    ↓
+injection_math.ts (Mathematical Operations)
+```
+
+#### **InjectionEngine.ts** - Core Injection Engine
+
+**Location**: `/home/user/neuro-lingua/src/lib/expandable/InjectionEngine.ts` (169 lines)
+
+**Purpose**: Orchestrates the diagnosis, proposal, and execution of concept injections
+
+**Key Methods**:
+
+```typescript
+class InjectionEngine {
+  // Analyze layer capacity for new concepts
+  diagnose(bubbles: CerebroBubble[], layer: InjectableLayer): InjectionDiagnostics;
+
+  // Create injection proposal based on diagnostics
+  propose(diag: InjectionDiagnostics, target: InjectionTarget): InjectionProposal;
+
+  // Execute injection with rollback support
+  execute(proposal: InjectionProposal, layer: InjectableLayer, bubbles?: CerebroBubble[]): InjectionEvent;
+
+  // Extract top eigenvectors for concept representation
+  materialiseVectors(bubbles: CerebroBubble[], layer: InjectableLayer, components: number): number[][];
+}
+```
+
+**Diagnostics Interface**:
+
+```typescript
+interface InjectionDiagnostics {
+  meanResidual: number;    // Average energy in residual space
+  tracePerp: number;       // Trace of orthogonal projection
+  estimatedGain: number;   // Expected improvement from injection
+  suggestedK: number;      // Recommended neurons to add
+}
+```
+
+**Injection Methods**:
+
+- `residual_eig`: Use top eigenvectors of residual covariance (default when meanResidual > epsilon)
+- `random_he`: He initialization for random expansion
+- `svd_local`: Local SVD-based initialization
+
+#### **injection_math.ts** - Mathematical Operations
+
+**Location**: `/home/user/neuro-lingua/src/lib/expandable/injection_math.ts` (205 lines)
+
+**Purpose**: Linear algebra operations for concept injection
+
+**Key Functions**:
+
+```typescript
+// Gram-Schmidt orthogonalization
+gramSchmidt(vectors: number[][]): number[][];
+
+// Analyze residuals outside current basis
+analyseResiduals(bubbles: CerebroBubble[], basis: number[][]): ResidualAnalysis;
+
+// Activation-weighted covariance matrix
+weightedCovariance(bubbles: CerebroBubble[], dimension: number): number[][];
+
+// Orthogonal projector construction (I - BB^T)
+orthogonalProjector(basis: number[][], dimension: number): number[][];
+
+// Top eigenvectors via power iteration with deflation
+topEigenvectors(matrix: number[][], k: number): number[][];
+
+// Suggest optimal expansion size
+suggestKFromEnergy(meanResidual: number, residualTrace: number, hiddenSize: number): number;
+```
+
+**Mathematical Concepts**:
+
+1. **Residual Analysis**: Project concept embeddings onto existing weight basis, measure orthogonal energy
+2. **Weighted Covariance**: Σ = Σ_i a_i (x_i - μ)(x_i - μ)^T where a_i is activation
+3. **Orthogonal Projector**: P^⊥ = I - BB^T projects onto complement of basis B
+4. **Energy Gain**: Estimated improvement from capturing residual variance
+
+#### **InjectableLayer Interface**
+
+**Location**: `/home/user/neuro-lingua/src/lib/expandable/InjectableLayer.ts` (19 lines)
+
+```typescript
+interface InjectableLayer {
+  getTarget(): InjectionTarget;
+  canInject(k: number): boolean;
+  inject(k: number, method: string): void;
+  exportWeights(): [Float32Array | null, Float32Array | null];
+  importWeights(snapshot: [Float32Array | null, Float32Array | null]): void;
+}
+```
+
+#### **CerebroBubble Types**
+
+**Location**: `/home/user/neuro-lingua/src/types/injection.ts`
+
+```typescript
+type CerebroBubbleTag = 'body' | 'desire' | 'risk' | 'value' | 'action' | 'other';
+
+interface CerebroBubble {
+  id: string;
+  label: string;
+  embedding: number[];      // Concept vector
+  activation: number;       // 0..1 importance weight
+  tag?: CerebroBubbleTag;   // Semantic category
+  ts: number;               // Timestamp
+  members?: string[];       // Associated tokens/samples
+}
+```
+
+#### **Model Adapters**
+
+Each neural architecture has an adapter implementing `InjectableLayer`:
+
+- `ProNeuralLMAdapter.ts`: Adapts feedforward hidden layer
+- `AdvancedNeuralLMAdapter.ts`: Adapts enhanced feedforward layer
+- `TransformerLMAdapter.ts`: Adapts transformer MLP layers
+
+**Usage Example**:
+
+```typescript
+import { InjectionEngine } from '../lib/expandable/InjectionEngine';
+import { ProNeuralLMAdapter } from '../lib/expandable/ProNeuralLMAdapter';
+
+// Create adapter for model
+const adapter = new ProNeuralLMAdapter(model, 'hidden-0');
+
+// Initialize engine
+const engine = new InjectionEngine({ epsilon: 0.05, minGain: 0.01 });
+
+// Diagnose current state
+const diagnostics = engine.diagnose(bubbles, adapter);
+console.log(`Residual energy: ${diagnostics.meanResidual}`);
+console.log(`Suggested expansion: ${diagnostics.suggestedK} neurons`);
+
+// Create and execute proposal
+const proposal = engine.propose(diagnostics, adapter.getTarget());
+const event = engine.execute(proposal, adapter, bubbles);
+
+if (event.accepted) {
+  console.log(`Injection accepted. Gain: ${event.delta.estimatedGain}`);
+} else {
+  console.log('Injection rejected (gain below threshold)');
+}
+```
+
+**When to Use**:
+
+- Dynamically expanding model capacity
+- Injecting domain concepts
+- Research on neural network plasticity
+- Controllable generation via concept steering
+
+### 14. Advanced Loss Functions (`src/losses/`)
+
+#### **advanced.ts** - Specialized Loss Functions
+
+**Location**: `/home/user/neuro-lingua/src/losses/advanced.ts` (76 lines)
+
+##### **Focal Loss**
+
+**Purpose**: Handle class imbalance by down-weighting easy examples
+
+**Formula**: FL(p_t) = -α(1 - p_t)^γ log(p_t)
+
+```typescript
+function focalLoss(
+  logits: number[],
+  targets: number[],
+  options?: { gamma?: number; alpha?: number }
+): number;
+
+// Default: gamma=2, alpha=0.25
+// Higher gamma = more focus on hard examples
+```
+
+**When to Use**:
+- Imbalanced datasets
+- Hard example mining
+- Object detection tasks
+
+**Reference**: Lin et al. (2017) "Focal Loss for Dense Object Detection"
+
+##### **Label Smoothing Cross-Entropy**
+
+**Purpose**: Regularization by softening one-hot targets
+
+**Formula**: y'_i = (1 - ε)·y_i + ε/K
+
+```typescript
+function labelSmoothingCrossEntropy(
+  logits: number[],
+  targetIndex: number,
+  classes: number,
+  smoothing?: number  // default: 0.1
+): number;
+```
+
+**When to Use**:
+- Preventing overconfident predictions
+- Improving generalization
+- Calibrating probability estimates
+
+##### **Symmetric Cross-Entropy**
+
+**Purpose**: Noise-robust loss combining forward and reverse KL
+
+**Formula**: L_SCE = α·CE(p,q) + β·CE(q,p)
+
+```typescript
+function symmetricCrossEntropy(
+  logits: number[],
+  targets: number[],
+  alpha?: number,  // forward weight (default: 1)
+  beta?: number    // reverse weight (default: 1)
+): number;
+```
+
+**When to Use**:
+- Noisy labels
+- Self-training
+- Semi-supervised learning
+
+##### **Cosine Embedding Loss**
+
+**Purpose**: Similarity learning in embedding space
+
+```typescript
+function cosineEmbeddingLoss(
+  x: number[],
+  y: number[],
+  label: 1 | -1,  // 1=similar, -1=dissimilar
+  margin?: number // default: 0.0
+): number;
+```
+
+**When to Use**:
+- Siamese networks
+- Contrastive learning
+- Embedding alignment
+
+#### **information_bottleneck.ts** - Information Bottleneck Loss
+
+**Location**: `/home/user/neuro-lingua/src/losses/information_bottleneck.ts` (316 lines)
+
+**Purpose**: Implement the Information Bottleneck principle for representation learning
+
+**Core Concept**:
+
+Find representation Z that:
+- Compresses input X: minimize I(X;Z)
+- Preserves relevant information: maximize I(Z;Y)
+
+**Loss**: L_IB = -I(Z;Y) + β·I(X;Z)
+
+where β controls compression-prediction trade-off
+
+**Key Functions**:
+
+```typescript
+// Estimate mutual information using histograms
+function estimateMutualInformation(
+  x: number[],
+  y: number[],
+  numBins?: number,    // default: 50
+  epsilon?: number     // default: 1e-10
+): number;
+
+// Compute representation entropy H(Z)
+function computeRepresentationEntropy(
+  activations: number[][],
+  numBins?: number,
+  epsilon?: number
+): number;
+
+// Full IB loss computation
+function informationBottleneckLoss(
+  inputs: number[][],
+  hiddenActivations: number[][],
+  targetLogits: number[][],
+  targetIndices: number[],
+  config: InformationBottleneckConfig
+): InformationMetrics;
+
+// Beta annealing schedules
+function getBetaSchedule(
+  schedule: 'constant' | 'linear' | 'exponential' | 'cosine',
+  epoch: number,
+  totalEpochs: number,
+  betaStart: number,
+  betaEnd: number
+): number;
+
+// Hybrid CE + IB loss
+function hybridIBLoss(ceLoss: number, ibLoss: number, alpha: number): number;
+```
+
+**Information Metrics Interface**:
+
+```typescript
+interface InformationMetrics {
+  compressionMI: number;        // I(X;Z)
+  predictionMI: number;         // I(Z;Y)
+  ibLoss: number;               // Combined loss
+  beta: number;                 // Current beta
+  representationEntropy: number; // H(Z)
+  conditionalEntropy: number;   // H(Z|X)
+}
+```
+
+**Beta Annealing Strategies**:
+
+| Schedule | Formula | Use Case |
+|----------|---------|----------|
+| constant | β = β_start | Stable training |
+| linear | β = β_start + (β_end - β_start)·t | Gradual increase |
+| exponential | β = β_start·(β_end/β_start)^t | Aggressive compression |
+| cosine | β = β_end + (β_start - β_end)·(1 + cos(πt))/2 | Smooth annealing |
+
+**Usage Example**:
+
+```typescript
+import { informationBottleneckLoss, getBetaSchedule } from '../losses/information_bottleneck';
+
+// Get current beta based on epoch
+const beta = getBetaSchedule('cosine', epoch, totalEpochs, 0.01, 1.0);
+
+// Compute IB loss
+const metrics = informationBottleneckLoss(
+  inputs,
+  hiddenActivations,
+  outputLogits,
+  targetIndices,
+  { beta, numBins: 50 }
+);
+
+console.log(`I(X;Z) = ${metrics.compressionMI.toFixed(4)}`);
+console.log(`I(Z;Y) = ${metrics.predictionMI.toFixed(4)}`);
+console.log(`IB Loss = ${metrics.ibLoss.toFixed(4)}`);
+```
+
+**Reference**: Tishby et al. (1999) "The Information Bottleneck Method"
+
+### 15. Mathematical Analysis (`src/math/`)
+
+#### **analysis.ts** - Spectral and Lyapunov Analysis
+
+**Location**: `/home/user/neuro-lingua/src/math/analysis.ts` (234 lines)
+
+**Purpose**: Stability analysis for linearized training dynamics
+
+##### **Spectral Radius**
+
+Compute dominant eigenvalue magnitude via power iteration:
+
+```typescript
+function spectralRadius(
+  matrix: Matrix,
+  options?: {
+    maxIterations?: number;  // default: 1024
+    tolerance?: number;      // default: 1e-9
+    initialVector?: number[];
+  }
+): SpectralRadiusResult;
+
+interface SpectralRadiusResult {
+  spectralRadius: number;
+  iterations: number;
+  converged: boolean;
+  tolerance: number;
+}
+```
+
+**Interpretation**:
+- ρ < 1: Stable (discrete-time)
+- ρ = 1: Marginally stable
+- ρ > 1: Unstable (divergent)
+
+##### **Lyapunov Stability Analysis**
+
+Analyze system stability around equilibrium:
+
+```typescript
+function analyzeLyapunov(
+  matrix: Matrix,
+  options?: {
+    steps?: number;          // trajectory steps
+    perturbation?: number;   // default: 1e-8
+    discreteTime?: boolean;  // default: true
+  }
+): LyapunovAnalysisResult;
+
+interface LyapunovAnalysisResult extends SpectralRadiusResult {
+  lyapunovExponent: number;  // Growth rate (base-e)
+  stable: boolean;           // Satisfies stability criterion
+  stabilityMargin: number;   // Distance to instability
+  assumptions: string[];     // Modeling assumptions
+}
+```
+
+**Stability Criteria**:
+- Discrete-time: |λ|_max < 1
+- Continuous-time: Re(λ) < 0
+
+**When to Use**:
+- Analyzing training convergence
+- Detecting unstable learning rates
+- Understanding gradient flow dynamics
+
+#### **statistics.ts** - Fisher Information Statistics
+
+**Location**: `/home/user/neuro-lingua/src/math/statistics.ts` (197 lines)
+
+**Purpose**: Information-geometric curvature diagnostics
+
+##### **Empirical Fisher Information**
+
+```typescript
+function empiricalFisherFromGradients(
+  gradients: Vector[],
+  options?: { epsilon?: number }
+): Matrix;
+
+function fisherHessianStatistics(
+  gradients: Vector[],
+  options?: { epsilon?: number }
+): FisherStatistics;
+
+interface FisherStatistics {
+  fisher: Matrix;           // Empirical Fisher matrix
+  frobeniusNorm: number;    // ||F||_F (Hessian proxy)
+  trace: number;            // tr(F) = avg squared gradient norm
+  spectralNormBound: number; // Gershgorin disc bound
+  notes: string[];          // Interpretation notes
+}
+```
+
+**Mathematical Background**:
+
+The empirical Fisher information approximates the Hessian:
+
+F ≈ E[∇L ∇L^T]
+
+Properties:
+- Trace = average squared gradient norm
+- Frobenius norm upper-bounds Gauss-Newton Hessian
+- Gershgorin discs bound spectral norm
+
+##### **Fisher Quadratic Form**
+
+```typescript
+function fisherQuadraticForm(fisher: Matrix, vector: Vector): number;
+```
+
+Evaluates v^T F v for trust region analysis.
+
+### 16. Regularizers (`src/models/regularizers.ts`)
+
+**Location**: `/home/user/neuro-lingua/src/models/regularizers.ts` (97 lines)
+
+**Purpose**: Advanced regularization techniques beyond standard dropout
+
+#### **DropConnect**
+
+Randomly masks weight connections (not activations like Dropout):
+
+```typescript
+function applyDropConnect(
+  matrix: Matrix,
+  config: DropConnectConfig
+): Matrix;
+
+interface DropConnectConfig {
+  rate: number;    // probability of dropping (0-1)
+  seed?: number;   // for reproducibility
+}
+```
+
+**Difference from Dropout**:
+- Dropout: Zeros activations at rate p
+- DropConnect: Zeros individual weights at rate p
+
+**Benefits**:
+- More fine-grained regularization
+- Better gradient flow
+- Effective for recurrent networks
+
+**Reference**: Wan et al. (2013) "Regularization of Neural Networks using DropConnect"
+
+#### **Batch Renormalization**
+
+Enhanced batch normalization with correction factors:
+
+```typescript
+function batchRenormalize(
+  inputs: Matrix,
+  state: BatchRenormState
+): BatchRenormResult;
+
+interface BatchRenormState {
+  runningMean: number[];
+  runningVar: number[];
+  momentum: number;
+  epsilon: number;
+  rMax: number;  // Clipping for r
+  dMax: number;  // Clipping for d
+}
+
+interface BatchRenormResult {
+  normalized: Matrix;
+  r: number[];  // Scale correction
+  d: number[];  // Shift correction
+}
+```
+
+**Correction Factors**:
+- r = σ_batch / σ_running (clipped to [1/rMax, rMax])
+- d = (μ_batch - μ_running) / σ_running (clipped to [-dMax, dMax])
+
+**Benefits**:
+- Works with small batch sizes
+- Stable training with non-i.i.d. mini-batches
+- Smooth transition from training to inference
+
+**Reference**: Ioffe (2017) "Batch Renormalization"
+
+### 17. Autodiff System (`src/autodiff/graph.ts`)
+
+**Location**: `/home/user/neuro-lingua/src/autodiff/graph.ts` (188 lines)
+
+**Purpose**: Dynamic computation graph with reverse-mode automatic differentiation
+
+**Status**: Experimental - for replacing hand-derived gradients
+
+#### **Variable Class**
+
+```typescript
+class Variable {
+  value: number;
+  grad: number;
+  name?: string;
+
+  // Arithmetic operations
+  add(other: Variable | number): Variable;
+  sub(other: Variable | number): Variable;
+  mul(other: Variable | number): Variable;
+  div(other: Variable | number): Variable;
+
+  // Unary operations
+  neg(): Variable;
+  pow(exponent: number): Variable;
+
+  // Activation functions
+  tanh(): Variable;
+  exp(): Variable;
+  log(): Variable;
+
+  // Gradient operations
+  backward(gradient?: number): void;
+  zeroGrad(): void;
+}
+```
+
+#### **Usage Example**
+
+```typescript
+import { Variable } from '../autodiff/graph';
+
+// Create variables
+const x = new Variable(2.0, 'x');
+const y = new Variable(3.0, 'y');
+
+// Build computation graph
+const z = x.mul(y).add(x.pow(2));  // z = x*y + x^2
+
+// Forward: z.value = 2*3 + 2^2 = 10
+
+// Backward pass
+z.backward();
+
+// Gradients: ∂z/∂x = y + 2x = 7, ∂z/∂y = x = 2
+console.log(`dz/dx = ${x.grad}`);  // 7
+console.log(`dz/dy = ${y.grad}`);  // 2
+```
+
+#### **Mean Squared Error Helper**
+
+```typescript
+function meanSquaredError(predictions: number[], targets: number[]): Variable;
+```
+
+#### **Graph Internals**
+
+- **Topological Sort**: Ensures correct gradient flow order
+- **Gradient Accumulation**: Handles shared variables
+- **Lazy Evaluation**: Gradients computed only when `backward()` called
+
+**When to Use**:
+
+- Prototyping new loss functions
+- Verifying hand-derived gradients
+- Educational demonstrations
+- Experimental layer implementations
+
+### 18. Edge Learning Diagnostics (`src/backend/edgeLearning.ts`)
+
+**Location**: `/home/user/neuro-lingua/src/backend/edgeLearning.ts` (146 lines)
+
+**Purpose**: Information-theoretic analysis of model learning efficiency
+
+#### **Diagnostics Interface**
+
+```typescript
+interface EdgeLearningDiagnostics {
+  fisherInformation: number;    // Loss surface curvature
+  entropy: number;              // Parameter uncertainty
+  estimatorCovariance: number;  // Variance of parameter estimates
+  cramerRaoBound: number;       // Theoretical minimum variance
+  efficiency: number;           // Achieved vs theoretical (0-1)
+  variance: number;             // Actual variance from loss
+  timestamp: number;
+  status: 'success' | 'error';
+  error?: string;
+}
+```
+
+#### **Main Function**
+
+```typescript
+function computeSimulatedEdgeLearningDiagnostics(
+  modelSize: number,
+  trainingLosses: number[]
+): EdgeLearningDiagnostics;
+```
+
+#### **Metric Interpretation**
+
+| Metric | Meaning | Ideal Value |
+|--------|---------|-------------|
+| **Fisher Information** | Sharpness of loss minimum | Higher = distinctive solution |
+| **Entropy** | Parameter uncertainty | Moderate (scales with model) |
+| **Estimator Covariance** | Variance of estimates (1/Fisher) | Lower = precise estimates |
+| **Cramér-Rao Bound** | Theoretical minimum variance | Lower = better possible |
+| **Efficiency** | CRB / Achieved variance | Closer to 1 = optimal |
+| **Variance** | Actual variance from loss | Lower = better fit |
+
+#### **Usage Example**
+
+```typescript
+import { computeSimulatedEdgeLearningDiagnostics } from '../backend/edgeLearning';
+
+const diagnostics = computeSimulatedEdgeLearningDiagnostics(
+  model.getParameterCount(),
+  trainingHistory.losses
+);
+
+if (diagnostics.status === 'success') {
+  console.log(`Fisher Information: ${diagnostics.fisherInformation}`);
+  console.log(`Learning Efficiency: ${(diagnostics.efficiency * 100).toFixed(1)}%`);
+
+  if (diagnostics.efficiency < 0.5) {
+    console.log('Model could potentially learn more from data');
+  }
+}
+```
+
+#### **Theoretical Background**
+
+**Cramér-Rao Bound**: For any unbiased estimator θ̂:
+
+Var(θ̂) ≥ 1 / I(θ)
+
+where I(θ) is the Fisher information.
+
+**Efficiency**: η = CRB / Var(θ̂)
+
+- η = 1: Estimator achieves theoretical limit (optimal)
+- η < 1: Room for improvement
+- η > 1: Biased estimator (shouldn't happen for unbiased)
+
+**Reference**:
+- [Fisher Information](https://en.wikipedia.org/wiki/Fisher_information)
+- [Cramér-Rao Bound](https://en.wikipedia.org/wiki/Cram%C3%A9r%E2%80%93Rao_bound)
+
 ---
 
 ## Development Workflows
@@ -1670,7 +2401,7 @@ tests/
 └── test_recursive_optimizer.py  # Python recursive optimizer tests
 ```
 
-**Total Test Files**: ~30 test files covering frontend, backend, and Python modules
+**Total Test Files**: ~38 test files covering frontend, backend, and Python modules
 
 ### Writing Tests
 

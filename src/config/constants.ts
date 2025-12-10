@@ -85,6 +85,24 @@ export const DEFAULT_ADVANCED_CONFIG = {
 };
 
 /**
+ * Lion optimizer configuration defaults (v4.0)
+ *
+ * Lion (EvoLved Sign Momentum) is a simple and efficient optimizer that:
+ * - Uses 50% less memory than Adam (only one momentum buffer)
+ * - Converges 1.5-2× faster
+ * - Uses sign of momentum for updates (hence lower learning rate)
+ *
+ * Reference: Chen et al. (2023) "Symbolic Discovery of Optimization Algorithms"
+ */
+export const DEFAULT_LION_CONFIG = {
+  lionBeta1: 0.9,
+  lionBeta2: 0.99,
+  lionWeightDecay: 0.01,
+  /** Recommended LR for Lion (lower than Adam due to sign() behavior) */
+  recommendedLR: 3e-4
+};
+
+/**
  * Default Information Bottleneck configuration
  */
 export const DEFAULT_IB_CONFIG = {
@@ -150,6 +168,14 @@ export const HYPERPARAMETER_CONSTRAINTS = {
     betaEnd: { min: 0.0001, max: 10 },
     ibAlpha: { min: 0, max: 1 },
     numBins: { min: 10, max: 200 }
+  },
+  /**
+   * Lion optimizer constraints (v4.0)
+   */
+  lion: {
+    beta1: { min: 0.8, max: 0.99 },
+    beta2: { min: 0.9, max: 0.999 },
+    weightDecay: { min: 0, max: 0.1 }
   }
 } as const;
 

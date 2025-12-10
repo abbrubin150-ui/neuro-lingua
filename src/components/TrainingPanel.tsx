@@ -674,6 +674,22 @@ export function TrainingPanel(props: TrainingPanelProps) {
               />{' '}
               top‑p
             </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+              <input
+                type="radio"
+                checked={props.samplingMode === 'typical'}
+                onChange={() => props.onSamplingModeChange('typical')}
+              />{' '}
+              typical
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+              <input
+                type="radio"
+                checked={props.samplingMode === 'mirostat'}
+                onChange={() => props.onSamplingModeChange('mirostat')}
+              />{' '}
+              mirostat
+            </label>
           </div>
         </div>
         <div>

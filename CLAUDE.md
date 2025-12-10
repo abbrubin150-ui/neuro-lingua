@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Neuro-Lingua
 
-> **Last Updated**: 2025-12-06
-> **Version**: 3.2.4
+> **Last Updated**: 2025-12-10
+> **Version**: 4.1.0
 > **Purpose**: Comprehensive guide for AI assistants working on the Neuro-Lingua codebase
 
 ---
@@ -47,9 +47,11 @@
 - **Architecture Presets**: Automatic configuration when switching between architectures
 - **WebGPU Acceleration**: Automatic GPU detection with graceful CPU fallback
 - **4 Optimizers**: SGD with momentum, Adam, Damped Newton, L-BFGS
-- **5+ Generation Methods**: Greedy, Top-k, Top-p (nucleus), Beam Search, Contrastive Search
+- **7+ Generation Methods**: Greedy, Top-k, Top-p (nucleus), Typical, Mirostat v2, Beam Search, Contrastive Search
+- **Grouped-Query Attention (GQA)**: Efficient attention mechanism with configurable KV heads
 - **Model Compression**: Int8 quantization, knowledge distillation, low-rank approximation (SVD)
 - **Advanced Features**: Dropout, layer normalization, RMSNorm, learning rate scheduling, weight decay
+- **Cerebro System**: Concept injection with bubble visualization and governance
 - **Σ-SIG Compliance**: Experiment tracking with Decision Ledger governance
 - **Autonomous Governance**: GovernanceEngine for automatic parameter calibration
 - **Brain Vitals System**: BrainEngine tracks model "mood" and provides behavioral insights
@@ -148,11 +150,12 @@
 │   │   ├── gpu_neural_ops.ts        # High-level neural operations on GPU
 │   │   └── edgeLearning.ts          # Edge learning integration
 │   ├── components/                   # React UI components
-│   │   ├── TrainingPanel.tsx         # Main training configuration panel (1619 lines)
+│   │   ├── TrainingPanel.tsx         # Main training configuration panel (1671 lines)
 │   │   ├── DecisionEntry2Panel.tsx   # Enhanced decision entry UI (841 lines)
 │   │   ├── BrainPanel.tsx            # Brain vitals and mood system (731 lines)
+│   │   ├── ModelMetrics.tsx          # Performance metrics dashboard (712 lines)
 │   │   ├── EmbeddingVisualizationPanel.tsx # t-SNE/UMAP visualization (660 lines)
-│   │   ├── ModelMetrics.tsx          # Performance metrics dashboard (593 lines)
+│   │   ├── ChatInterface.tsx         # Chat-style generation UI (644 lines)
 │   │   ├── GovernanceBoard.tsx       # Governance monitoring dashboard (590 lines)
 │   │   ├── RunComparisonPanel.tsx    # Compare training runs (558 lines)
 │   │   ├── CompressionPanel.tsx      # Model compression UI (513 lines)
@@ -162,12 +165,14 @@
 │   │   ├── BrainTelemetryPanel.tsx   # Brain telemetry display (373 lines)
 │   │   ├── InformationTheoryPanel.tsx # Information plane analysis (365 lines)
 │   │   ├── ScenarioManager.tsx       # Test scenario editor (285 lines)
-│   │   ├── ChatInterface.tsx         # Chat-style generation UI (272 lines)
 │   │   ├── DecisionLedgerEditor.tsx  # Governance/decision tracking (254 lines)
 │   │   ├── TokenizerConfig.tsx       # Tokenizer settings (196 lines)
+│   │   ├── CerebroPanel.tsx          # Cerebro concept injection UI (194 lines)
 │   │   ├── ErrorBoundary.tsx         # React error boundary (107 lines)
 │   │   ├── OnboardingCard.tsx        # First-time user guide (106 lines)
-│   │   └── OnboardingTooltip.tsx     # Interactive onboarding tips (78 lines)
+│   │   ├── CerebroBubbleGraph.tsx    # Cerebro bubble visualization (86 lines)
+│   │   ├── OnboardingTooltip.tsx     # Interactive onboarding tips (78 lines)
+│   │   └── ModelSnapshot.tsx         # Model metadata snapshot display (77 lines)
 │   ├── compression/                  # Model compression system
 │   │   ├── compress.ts               # Unified compression interface
 │   │   ├── quantization.ts           # Int8/16 quantization
@@ -670,6 +675,100 @@ model.setGPUOps(gpuOps);
 - UI element explanations
 - Reducing learning curve
 
+#### **CerebroPanel.tsx** - Cerebro Concept Injection System
+
+**Location**: `/home/user/neuro-lingua/src/components/CerebroPanel.tsx` (194 lines)
+
+**Purpose**: Interactive UI for concept injection into neural model layers
+
+**Features**:
+
+- Concept bubble management with activation levels
+- Injection proposal and execution workflow
+- Undo/redo support for injections
+- Tagged bubbles: body, desire, risk, value, action
+- Integration with InjectionEngine and InjectableLayer
+- Ledger tracking for all injection events
+- Advanced mode toggle for detailed controls
+
+**Key Concepts**:
+
+- **Bubbles**: Concept representations with embeddings and activation levels
+- **Injection**: Adding concept bubbles to model layer
+- **Proposal**: Suggested injection with rationale
+- **Tags**: Categorization system for concept types
+
+**When to Use**:
+
+- Experimenting with concept injection
+- Steering model behavior via external concepts
+- Research on controllable generation
+- Governance-aware model modification
+
+**Example Usage**:
+
+```typescript
+import { CerebroPanel } from './components/CerebroPanel';
+import { InjectionEngine } from './lib/expandable/InjectionEngine';
+
+// In your component
+<CerebroPanel
+  layer={injectableLayer}
+  bubbles={conceptBubbles}
+  engine={new InjectionEngine()}
+/>
+```
+
+#### **CerebroBubbleGraph.tsx** - Bubble Visualization
+
+**Location**: `/home/user/neuro-lingua/src/components/CerebroBubbleGraph.tsx` (86 lines)
+
+**Purpose**: SVG-based visualization of concept bubbles in circular layout
+
+**Features**:
+
+- Circular bubble arrangement
+- Size scaled by activation level
+- Color-coded by tag type
+- Interactive selection
+- Responsive SVG rendering
+
+**Tag Colors**:
+
+- Risk: Red (#ef4444)
+- Value: Green (#10b981)
+- Action: Blue (#3b82f6)
+- Desire: Purple (#a855f7)
+- Body: Gray (#6b7280)
+
+**When to Use**:
+
+- Visualizing concept space
+- Understanding bubble relationships
+- Interactive bubble selection
+- Educational demonstrations
+
+#### **ModelSnapshot.tsx** - Model Metadata Display
+
+**Location**: `/home/user/neuro-lingua/src/components/ModelSnapshot.tsx` (77 lines)
+
+**Purpose**: Display model metadata snapshot with architecture badge
+
+**Features**:
+
+- Architecture-specific badges (ProNeural, Advanced, Transformer)
+- Timestamp formatting
+- Vocabulary size display
+- Empty state handling
+- Consistent styling across architectures
+
+**When to Use**:
+
+- Displaying saved model information
+- Comparing model versions
+- Model loading UI
+- Checkpoint visualization
+
 ### 4. Model Compression System (`src/compression/`)
 
 #### **compress.ts** - Unified Compression Interface
@@ -763,7 +862,130 @@ W ≈ U Σ V^T  (SVD decomposition)
 W_compressed = U_k Σ_k V_k^T  (keep top k singular values)
 ```
 
-### 5. Context Providers (`src/contexts/`)
+### 5. Generation Methods (`src/generation/`)
+
+#### **sampling.ts** - Advanced Sampling Algorithms
+
+**Location**: `/home/user/neuro-lingua/src/generation/sampling.ts`
+
+**Purpose**: Advanced text generation sampling methods beyond basic greedy/temperature
+
+**Key Functions**:
+
+##### **Typical Sampling** (`typicalSample`)
+
+**Purpose**: Entropy-based token selection that balances probability and surprise
+
+**Parameters**:
+- `logits`: Raw model outputs
+- `tau`: Typicality threshold (0-1, default 0.9)
+- `options`: SamplingOptions (temperature, etc.)
+
+**How It Works**:
+1. Compute probabilities and entropy
+2. Calculate surprise for each token: `-log(p(token))`
+3. Select tokens with surprise close to expected entropy
+4. Sample from filtered distribution
+
+**When to Use**:
+- More coherent than pure temperature sampling
+- Less repetitive than top-k/top-p
+- Better for creative generation
+
+**Example**:
+```typescript
+import { typicalSample } from '../generation/sampling';
+
+const nextToken = typicalSample(logits, 0.9, { temperature: 0.8 });
+```
+
+##### **Mirostat v2 Sampling** (`mirostatV2Sample`)
+
+**Purpose**: Adaptive sampling with dynamic temperature control based on target entropy
+
+**Parameters**:
+- `logits`: Raw model outputs
+- `options.targetEntropy`: Desired surprise level (default 5)
+- `options.learningRate`: Adaptation rate (default 0.1)
+- `options.state`: Stateful mu parameter for continuity
+
+**How It Works**:
+1. Maintain running estimate of optimal threshold (mu)
+2. Filter tokens above threshold
+3. Calculate actual surprise
+4. Adapt mu based on error: `mu += learningRate * (surprise - targetEntropy)`
+
+**Key Features**:
+- Stateful: maintains `mu` across generations
+- Self-adjusting: adapts to model behavior
+- Controlled surprise: maintains consistent entropy
+
+**Reference**: Basu et al. (2021) "Mirostat: A Neural Text Decoding Algorithm that Directly Controls Perplexity"
+
+**When to Use**:
+- Long-form generation requiring consistency
+- When you want controlled perplexity
+- Multi-turn conversations
+
+**Example**:
+```typescript
+import { mirostatV2Sample } from '../generation/sampling';
+
+let state = { mu: 5.0 };
+for (let i = 0; i < 100; i++) {
+  const result = mirostatV2Sample(logits, {
+    targetEntropy: 5.0,
+    learningRate: 0.1,
+    state
+  });
+  const nextToken = result.index;
+  state = result.state;  // Maintain state across steps
+  console.log(`Surprise: ${result.surprise}`);
+}
+```
+
+##### **Beam Search** (`beamSearch`)
+
+**Purpose**: Find high-probability sequences through parallel search
+
+**Key Features**:
+- Maintains top-k beams (partial sequences)
+- Scores sequences by log probability
+- Length normalization
+- EOS token handling
+
+**When to Use**:
+- Translation tasks
+- Summarization
+- When quality > diversity
+
+##### **Contrastive Search** (`contrastiveSearch`)
+
+**Purpose**: Balance likelihood and diversity through contrastive scoring
+
+**Key Features**:
+- Penalizes similarity to previous tokens
+- Alpha parameter controls likelihood vs diversity trade-off
+- Uses embedding similarity
+
+**When to Use**:
+- Open-ended generation
+- Avoiding repetition
+- Creative writing
+
+**Comparison of Sampling Methods**:
+
+| Method | Strengths | Weaknesses | Best For |
+|--------|-----------|------------|----------|
+| **Greedy** | Fast, deterministic | Repetitive, no diversity | Debugging |
+| **Top-k** | Simple, controllable | Arbitrary cutoff | General use |
+| **Top-p (Nucleus)** | Dynamic cutoff | Complex tuning | Balanced generation |
+| **Typical** | Natural coherence | Requires tuning tau | Creative writing |
+| **Mirostat v2** | Adaptive, consistent | Stateful complexity | Long-form text |
+| **Beam Search** | High quality | Slow, less diverse | Translation |
+| **Contrastive** | Avoids repetition | Requires embeddings | Open-ended |
+
+### 6. Context Providers (`src/contexts/`)
 
 #### **ProjectContext.tsx** - State Management
 
@@ -790,7 +1012,7 @@ function MyComponent() {
 }
 ```
 
-### 6. Configuration (`src/config/`)
+### 7. Configuration (`src/config/`)
 
 #### **constants.ts** - Application Defaults
 
@@ -811,7 +1033,7 @@ function MyComponent() {
 - Adding new configuration options
 - Adjusting validation constraints
 
-### 7. Autonomous Governance System (`src/lib/GovernanceEngine.ts`)
+### 8. Autonomous Governance System (`src/lib/GovernanceEngine.ts`)
 
 #### **GovernanceEngine** - Automatic Parameter Calibration
 
@@ -904,7 +1126,7 @@ if (governor.shouldActivate()) {
 - Maintaining audit trail for experiments
 - Governance compliance (Σ-SIG)
 
-### 8. Brain Vitals System (`src/lib/BrainEngine.ts`)
+### 9. Brain Vitals System (`src/lib/BrainEngine.ts`)
 
 #### **BrainEngine** - Model Mood and Behavioral Tracking
 
@@ -1021,7 +1243,7 @@ brain.save();
 
 **Important Note**: BrainEngine NEVER performs heavy operations autonomously. It only suggests actions via UI.
 
-### 9. RMSNorm Layer (`src/lib/RMSNorm.ts`)
+### 10. RMSNorm Layer (`src/lib/RMSNorm.ts`)
 
 #### **RMSNorm** - Root Mean Square Normalization
 
@@ -1086,6 +1308,136 @@ rmsNorm.updateWeights(learningRate);
 - In transformer architectures (v4.0 upgrade path)
 - When memory efficiency is critical
 - For faster training/inference
+
+### 11. Grouped-Query Attention (GQA) - v4.1 Feature
+
+#### **Overview**
+
+**Purpose**: Efficient attention mechanism that reduces KV cache size while maintaining quality
+
+**Key Concept**: Share key-value heads across multiple query heads
+
+**Benefits**:
+- **2-4x faster inference**: Smaller KV cache = faster memory access
+- **50% memory savings**: Fewer KV parameters to store
+- **Minimal quality loss**: <1% performance drop vs full MHA
+- **Scalable**: Works well at larger model sizes
+
+#### **Architecture Comparison**
+
+**Multi-Head Attention (MHA)**: Standard attention
+```
+numHeads = 8
+numKVHeads = 8
+Each head has its own Q, K, V
+Total KV heads: 8
+```
+
+**Grouped-Query Attention (GQA)**: Efficient variant
+```
+numHeads = 8
+numKVHeads = 2  (or 4)
+8 query heads share 2 KV heads
+Query heads grouped: [Q0,Q1,Q2,Q3] → KV0, [Q4,Q5,Q6,Q7] → KV1
+Total KV heads: 2 (4x reduction)
+```
+
+**Multi-Query Attention (MQA)**: Extreme case
+```
+numHeads = 8
+numKVHeads = 1
+All query heads share 1 KV head
+Maximum efficiency, slight quality loss
+```
+
+#### **Configuration**
+
+**In TransformerLM**:
+
+```typescript
+// Standard MHA (baseline)
+const model = new TransformerLM({
+  numHeads: 8,
+  numKVHeads: 8  // Same as numHeads
+});
+
+// GQA (recommended)
+const model = new TransformerLM({
+  numHeads: 8,
+  numKVHeads: 2  // 4x fewer KV heads
+});
+
+// MQA (maximum efficiency)
+const model = new TransformerLM({
+  numHeads: 8,
+  numKVHeads: 1  // Single shared KV head
+});
+```
+
+**In UI (App.tsx)**:
+
+The training panel exposes `numHeads` and `numKVHeads` sliders for transformer architecture. Constraints:
+- `numKVHeads` must divide `numHeads` evenly
+- `1 ≤ numKVHeads ≤ numHeads`
+- Common ratios: 1:1 (MHA), 2:1, 4:1, 8:1 (MQA)
+
+#### **Mathematical Details**
+
+**Standard MHA**:
+```
+For each head i:
+  Q_i = X W_q^i
+  K_i = X W_k^i
+  V_i = X W_v^i
+  Attention_i = softmax(Q_i K_i^T / √d) V_i
+```
+
+**GQA**:
+```
+For each KV group g with heads [i_start, ..., i_end]:
+  K_g = X W_k^g  (shared across group)
+  V_g = X W_v^g  (shared across group)
+
+For each query head i in group g:
+  Q_i = X W_q^i  (unique)
+  Attention_i = softmax(Q_i K_g^T / √d) V_g  (uses shared KV)
+```
+
+#### **Performance Characteristics**
+
+| Configuration | KV Cache Size | Speed | Quality | Use Case |
+|---------------|---------------|-------|---------|----------|
+| **MHA** (8:8) | 100% | 1.0x | Best | Small models, quality critical |
+| **GQA** (8:4) | 50% | 1.5x | 99% | Balanced efficiency |
+| **GQA** (8:2) | 25% | 2.0x | 98% | Production deployment |
+| **MQA** (8:1) | 12.5% | 4.0x | 95% | Resource constrained |
+
+#### **Implementation Details**
+
+**Location**: `/home/user/neuro-lingua/src/App.tsx` (configuration)
+
+The transformer model internally handles GQA by:
+1. Creating `numKVHeads` key/value projections
+2. Creating `numHeads` query projections
+3. Grouping `numHeads / numKVHeads` queries per KV head
+4. Computing attention within each group
+5. Concatenating results across all heads
+
+**Reference**: Ainslie et al. (2023) "GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints"
+
+**When to Use GQA**:
+
+- **Production deployment**: Reduce serving costs
+- **Long context**: KV cache grows with sequence length
+- **Large models**: Memory savings more significant
+- **Inference-heavy**: Benefits compound over many generations
+
+**When to Use MHA**:
+
+- **Research**: Baseline comparisons
+- **Small models**: Overhead not significant
+- **Quality critical**: Every % matters
+- **Training**: GQA benefits mainly at inference
 
 ---
 
@@ -2194,11 +2546,12 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
 | File                                       | Lines | Purpose                        | Modify For                   |
 | ------------------------------------------ | ----- | ------------------------------ | ---------------------------- |
 | `src/App.tsx`                              | ~500  | Main application               | App structure, i18n          |
-| `src/components/TrainingPanel.tsx`         | 1619  | Training UI                    | Training controls            |
+| `src/components/TrainingPanel.tsx`         | 1671  | Training UI                    | Training controls            |
 | `src/components/DecisionEntry2Panel.tsx`   | 841   | Enhanced decision entry        | Governance decisions         |
 | `src/components/BrainPanel.tsx`            | 731   | Brain vitals and mood          | Brain system UI              |
+| `src/components/ModelMetrics.tsx`          | 712   | Metrics display                | Visualization                |
 | `src/components/EmbeddingVisualizationPanel.tsx` | 660   | t-SNE/UMAP visualization      | Embedding plots              |
-| `src/components/ModelMetrics.tsx`          | 593   | Metrics display                | Visualization                |
+| `src/components/ChatInterface.tsx`         | 644   | Generation UI                  | Chat features                |
 | `src/components/GovernanceBoard.tsx`       | 590   | Governance monitoring          | Governance UI                |
 | `src/components/RunComparisonPanel.tsx`    | 558   | Compare training runs          | Experiment comparison        |
 | `src/components/CompressionPanel.tsx`      | 513   | Compression UI                 | Model compression            |
@@ -2208,12 +2561,14 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
 | `src/components/BrainTelemetryPanel.tsx`   | 373   | Brain telemetry                | Brain stats display          |
 | `src/components/InformationTheoryPanel.tsx`| 365   | Information plane analysis     | Info theory visualization    |
 | `src/components/ScenarioManager.tsx`       | 285   | Test scenario editor           | Scenario testing             |
-| `src/components/ChatInterface.tsx`         | 272   | Generation UI                  | Chat features                |
 | `src/components/DecisionLedgerEditor.tsx`  | 254   | Governance/decision tracking   | Decision ledger              |
 | `src/components/TokenizerConfig.tsx`       | 196   | Tokenizer settings             | Tokenization config          |
+| `src/components/CerebroPanel.tsx`          | 194   | Cerebro concept injection      | Concept injection system     |
 | `src/components/ErrorBoundary.tsx`         | 107   | React error boundary           | Error handling               |
 | `src/components/OnboardingCard.tsx`        | 106   | First-time user guide          | Onboarding UX                |
+| `src/components/CerebroBubbleGraph.tsx`    | 86    | Cerebro bubble visualization   | Bubble graph rendering       |
 | `src/components/OnboardingTooltip.tsx`     | 78    | Interactive onboarding tips    | Tooltips and hints           |
+| `src/components/ModelSnapshot.tsx`         | 77    | Model metadata snapshot        | Snapshot display             |
 
 ### Compression Module Files
 

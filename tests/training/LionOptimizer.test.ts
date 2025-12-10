@@ -197,14 +197,14 @@ describe('Lion optimizer in ProNeuralLM', () => {
 
     const model = new ProNeuralLM(vocab, 32, 0.001, 2, 'lion', 0.9, 0, 42);
 
-    const initialLoss = (model as any).trainingHistory[0]?.loss ?? Infinity;
     await model.train(corpus, 10);
     const history = model.getTrainingHistory();
 
     expect(history.length).toBeGreaterThan(0);
-    // Loss should generally decrease or stay reasonable
+    // Loss should be finite and reasonable after training
     const finalLoss = history[history.length - 1].loss;
     expect(finalLoss).toBeLessThan(Infinity);
+    expect(finalLoss).toBeGreaterThan(0);
   });
 
   it('generates text after Lion training', async () => {

@@ -28,6 +28,7 @@ PROCESSED_DIR = ROOT / "data" / "processed"
 SAMPLE_FILES = {
     "wikitext": RAW_DIR / "wikitext" / "sample.txt",
     "hebrew_news": RAW_DIR / "hebrew_news" / "sample.jsonl",
+    "hebrew_opinion": RAW_DIR / "hebrew_opinion" / "sample.jsonl",
 }
 
 
@@ -215,9 +216,80 @@ def build_hebrew_news(mode: str, output_dir: Path, seed: int, source_url: str | 
     return meta_payload
 
 
+def build_hebrew_opinion(mode: str, output_dir: Path, seed: int, source_url: str | None) -> dict:
+    import json as _json
+
+    if mode == "sample":
+        raw_path = _ensure_exists(SAMPLE_FILES["hebrew_opinion"])
+        records = [_json.loads(line) for line in raw_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    elif mode == "full":
+        if source_url:
+            raw_path = _download_to(RAW_DIR / "hebrew_opinion" / "full.jsonl", source_url)
+            records = [_json.loads(line) for line in raw_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        elif load_dataset:
+            dataset = load_dataset("json", data_files={"train": source_url}) if source_url else None  # type: ignore[arg-type]
+            if dataset is None:
+                raise RuntimeError("Full Hebrew opinion preparation requires --source-url when using the Hugging Face JSON loader.")
+            records = [dict(item) for item in dataset["train"]]
+        else:
+            raise RuntimeError("Full Hebrew opinion preparation requires either --source-url or the `datasets` package")
+    else:
+        raise ValueError(f"Unsupported mode: {mode}")
+
+    for idx, record in enumerate(records, start=1):
+        record.setdefault("id", idx)
+
+    shuffled = _shuffle(records, seed)
+    ratios = [0.8, 0.1, 0.1]
+    indices = _split_indices(len(shuffled), ratios)
+    splits: List[SplitResult] = []
+    for split_range, name in zip(indices, ["train", "validation", "test"]):
+        slice_records = [shuffled[i] for i in split_range]
+        text_lines = [
+            "\n".join(
+                filter(
+                    None,
+                    [
+                        entry.get("title", "").strip(),
+                        entry.get("thesis", "").strip(),
+                        entry.get("argument", "").strip(),
+                        entry.get("counterpoint", "").strip(),
+                        entry.get("call_to_action", "").strip(),
+                    ],
+                )
+            )
+            for entry in slice_records
+            if entry.get("argument")
+        ]
+        splits.append(
+            SplitResult(
+                name=name,
+                records=slice_records,
+                text_lines=text_lines,
+            )
+        )
+
+    metadata: dict[str, dict[str, int]] = {}
+    for split in splits:
+        stats = _write_split_files(output_dir, split)
+        metadata[split.name] = {"documents": stats.documents, "tokens": stats.tokens}
+
+    meta_path = output_dir / "metadata.json"
+    meta_payload = {
+        "dataset": "hebrew_opinion",
+        "mode": mode,
+        "seed": seed,
+        "source": str(source_url or SAMPLE_FILES["hebrew_opinion"]),
+        "splits": metadata,
+    }
+    meta_path.write_text(json.dumps(meta_payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    return meta_payload
+
+
 BUILDERS = {
     "wikitext": build_wikitext,
     "hebrew_news": build_hebrew_news,
+    "hebrew_opinion": build_hebrew_opinion,
 }
 
 

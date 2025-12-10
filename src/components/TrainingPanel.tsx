@@ -50,6 +50,7 @@ interface TrainingPanelProps {
   ffHiddenDim: number;
   attentionDropout: number;
   dropConnectRate: number;
+  numKVHeads: number; // GQA: number of key-value heads
 
   // Information Bottleneck
   useIB: boolean;
@@ -108,6 +109,7 @@ interface TrainingPanelProps {
   onFfHiddenDimChange: (value: number) => void;
   onAttentionDropoutChange: (value: number) => void;
   onDropConnectRateChange: (value: number) => void;
+  onNumKVHeadsChange: (value: number) => void; // GQA callback
 
   // Information Bottleneck callbacks
   onUseIBChange: (value: boolean) => void;
@@ -278,6 +280,40 @@ export function TrainingPanel(props: TrainingPanelProps) {
                 }}
               />
               <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>1-16 (default: 4)</div>
+            </div>
+            <div>
+              <div
+                style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4, cursor: 'help' }}
+                title="Number of Key-Value heads for Grouped-Query Attention (GQA). Multiple query heads share KV heads to reduce memory. Must divide numHeads evenly. Lower = less memory but may affect quality. numKVHeads=numHeads is standard MHA."
+              >
+                KV Heads (GQA) ℹ️
+              </div>
+              <input
+                aria-label="Number of key-value heads for GQA"
+                type="number"
+                min={HYPERPARAMETER_CONSTRAINTS.transformer.numKVHeads.min}
+                max={props.numHeads}
+                value={props.numKVHeads}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value || `${props.numHeads}`, 10);
+                  // Must be between 1 and numHeads, and must divide numHeads evenly
+                  const clamped = Math.max(1, Math.min(props.numHeads, val));
+                  props.onNumKVHeadsChange(clamped);
+                }}
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white',
+                  fontSize: 12
+                }}
+              />
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>
+                1-{props.numHeads} (ratio: {props.numHeads / props.numKVHeads}:1,{' '}
+                {props.numKVHeads === props.numHeads ? 'MHA' : 'GQA'})
+              </div>
             </div>
             <div>
               <div

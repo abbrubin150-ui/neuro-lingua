@@ -135,7 +135,15 @@ export const HYPERPARAMETER_CONSTRAINTS = {
     numLayers: { min: 1, max: 8 },
     ffHiddenDim: { min: 32, max: 2048 },
     attentionDropout: { min: 0, max: 0.5 },
-    dropConnectRate: { min: 0, max: 0.5 }
+    dropConnectRate: { min: 0, max: 0.5 },
+    /**
+     * Number of KV heads for Grouped-Query Attention (GQA).
+     * Must be a divisor of numHeads. Lower values = more memory savings.
+     * - numKVHeads = numHeads: Standard MHA
+     * - numKVHeads = 1: Multi-Query Attention (MQA)
+     * - numKVHeads = numHeads/4: GQA 4:1 (Llama-3.2 style)
+     */
+    numKVHeads: { min: 1, max: 16 }
   },
   ib: {
     betaStart: { min: 0.0001, max: 10 },

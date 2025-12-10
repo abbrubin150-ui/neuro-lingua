@@ -122,6 +122,7 @@ type UiSettings = {
   ffHiddenDim: number;
   attentionDropout: number;
   dropConnectRate: number;
+  numKVHeads: number; // GQA: number of key-value heads
   // Information Bottleneck
   useIB: boolean;
   betaStart: number;
@@ -430,6 +431,7 @@ export default function NeuroLinguaDomesticaV324() {
   const [ffHiddenDim, setFfHiddenDim] = useState(DEFAULT_HYPERPARAMETERS.hiddenSize * 2);
   const [attentionDropout, setAttentionDropout] = useState(0.1);
   const [dropConnectRate, setDropConnectRate] = useState(0.1);
+  const [numKVHeads, setNumKVHeads] = useState(4); // GQA: default = numHeads (standard MHA)
 
   // Information Bottleneck parameters
   const [useIB, setUseIB] = useState(DEFAULT_IB_CONFIG.useIB);
@@ -742,6 +744,7 @@ export default function NeuroLinguaDomesticaV324() {
     if (typeof saved.ffHiddenDim === 'number') setFfHiddenDim(saved.ffHiddenDim);
     if (typeof saved.attentionDropout === 'number') setAttentionDropout(saved.attentionDropout);
     if (typeof saved.dropConnectRate === 'number') setDropConnectRate(saved.dropConnectRate);
+    if (typeof saved.numKVHeads === 'number') setNumKVHeads(saved.numKVHeads);
     if (typeof saved.useIB === 'boolean') setUseIB(saved.useIB);
     if (typeof saved.betaStart === 'number') setBetaStart(saved.betaStart);
     if (typeof saved.betaEnd === 'number') setBetaEnd(saved.betaEnd);
@@ -945,6 +948,7 @@ export default function NeuroLinguaDomesticaV324() {
       ffHiddenDim,
       attentionDropout,
       dropConnectRate,
+      numKVHeads,
       useIB,
       betaStart,
       betaEnd,
@@ -992,6 +996,7 @@ export default function NeuroLinguaDomesticaV324() {
     ffHiddenDim,
     attentionDropout,
     dropConnectRate,
+    numKVHeads,
     useIB,
     betaStart,
     betaEnd,
@@ -1138,6 +1143,12 @@ export default function NeuroLinguaDomesticaV324() {
           HYPERPARAMETER_CONSTRAINTS.transformer.dropConnectRate.min,
           HYPERPARAMETER_CONSTRAINTS.transformer.dropConnectRate.max
         );
+        // GQA: numKVHeads must be a valid divisor of numHeads
+        const normalizedNumKVHeads = clamp(
+          numKVHeads,
+          HYPERPARAMETER_CONSTRAINTS.transformer.numKVHeads.min,
+          normalizedHeads // Cannot exceed numHeads
+        );
         modelRef.current = new TransformerLM(
           vocab,
           hiddenSize,
@@ -1153,11 +1164,16 @@ export default function NeuroLinguaDomesticaV324() {
             numHeads: normalizedHeads,
             ffHiddenDim: normalizedFfHidden,
             attentionDropout: normalizedAttentionDropout,
-            dropConnectRate: normalizedDropConnect
+            dropConnectRate: normalizedDropConnect,
+            numKVHeads: normalizedNumKVHeads
           }
         );
+        const gqaInfo =
+          normalizedNumKVHeads < normalizedHeads
+            ? `, GQA ${normalizedHeads}:${normalizedNumKVHeads}`
+            : '';
         addSystemMessage(
-          `🔮 Starting fresh training with TransformerLM (${vocab.length} vocabulary tokens, ${normalizedLayers} layers, ${normalizedHeads} heads)…`
+          `🔮 Starting fresh training with TransformerLM (${vocab.length} vocabulary tokens, ${normalizedLayers} layers, ${normalizedHeads} heads${gqaInfo})…`
         );
       } else if (architecture === 'advanced' || useAdvanced) {
         // Use AdvancedNeuralLM with advanced configuration
@@ -1910,6 +1926,7 @@ export default function NeuroLinguaDomesticaV324() {
               ffHiddenDim={ffHiddenDim}
               attentionDropout={attentionDropout}
               dropConnectRate={dropConnectRate}
+              numKVHeads={numKVHeads}
               // Callbacks
               onArchitectureChange={handleArchitectureChange}
               onHiddenSizeChange={setHiddenSize}
@@ -1946,6 +1963,7 @@ export default function NeuroLinguaDomesticaV324() {
               onFfHiddenDimChange={setFfHiddenDim}
               onAttentionDropoutChange={setAttentionDropout}
               onDropConnectRateChange={setDropConnectRate}
+              onNumKVHeadsChange={setNumKVHeads}
               // Information Bottleneck
               useIB={useIB}
               betaStart={betaStart}

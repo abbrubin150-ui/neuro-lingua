@@ -68,8 +68,6 @@ function createTransformerRng(seed: number, state?: number): TransformerRng {
 export class TransformerLM extends ProNeuralLM {
   private transformerConfig: Required<TransformerConfig>;
   private transformerLayers: MiniTransformerBlock[] = [];
-  private positionEmbeddings: number[][] = [];
-  private maxSeqLength = 128;
 
   // Transformer-specific weights (stored in addition to base embeddings)
   private attentionWeights: AttentionWeights[] = [];
@@ -97,7 +95,6 @@ export class TransformerLM extends ProNeuralLM {
 
     this.transformerConfig = { ...DEFAULT_TRANSFORMER_CONFIG, ...transformerConfig };
     this.initializeTransformerLayers();
-    this.initializePositionEmbeddings();
   }
 
   /**
@@ -160,23 +157,6 @@ export class TransformerLM extends ProNeuralLM {
   }
 
   /**
-   * Initialize position embeddings
-   */
-  private initializePositionEmbeddings(): void {
-    const modelDim = this.getHiddenSize();
-    this.positionEmbeddings = [];
-
-    for (let pos = 0; pos < this.maxSeqLength; pos++) {
-      const embedding = new Array(modelDim);
-      for (let i = 0; i < modelDim; i++) {
-        const angle = pos / Math.pow(10000, (2 * Math.floor(i / 2)) / modelDim);
-        embedding[i] = i % 2 === 0 ? Math.sin(angle) : Math.cos(angle);
-      }
-      this.positionEmbeddings.push(embedding);
-    }
-  }
-
-  /**
    * Initialize weight matrix with He initialization
    */
   private initWeightMatrix(shape: number[]): any {
@@ -197,17 +177,6 @@ export class TransformerLM extends ProNeuralLM {
         .map(() => this.initWeightMatrix([rows, cols]));
     }
     return [];
-  }
-
-  /**
-   * Add position embeddings to input embeddings
-   */
-  private addPositionEmbeddings(embeddings: number[][]): number[][] {
-    return embeddings.map((emb, pos) => {
-      if (pos >= this.maxSeqLength) return emb;
-      const posEmb = this.positionEmbeddings[pos];
-      return emb.map((val, i) => val + posEmb[i]);
-    });
   }
 
   /**
@@ -597,17 +566,6 @@ export class TransformerLM extends ProNeuralLM {
       }
     }
 
-    // Expand position embeddings: add k dimensions to each position
-    for (let pos = 0; pos < this.positionEmbeddings.length; pos++) {
-      const posEmb = this.positionEmbeddings[pos];
-      for (let i = 0; i < k; i++) {
-        // Use sinusoidal encoding for new dimensions
-        const dimIdx = oldModelDim + i;
-        const angle = pos / Math.pow(10000, (2 * Math.floor(dimIdx / 2)) / newModelDim);
-        posEmb.push(dimIdx % 2 === 0 ? Math.sin(angle) : Math.cos(angle));
-      }
-    }
-
     // Expand each transformer layer's weights
     for (let layerIdx = 0; layerIdx < this.transformerConfig.numLayers; layerIdx++) {
       const attention = this.attentionWeights[layerIdx];
@@ -711,14 +669,12 @@ export class TransformerLM extends ProNeuralLM {
     attentionWeights: AttentionWeights[];
     ffWeights1: Matrix[];
     ffWeights2: Matrix[];
-    positionEmbeddings: number[][];
     renormStates: RMSNormState[];
   } {
     return {
       attentionWeights: this.attentionWeights,
       ffWeights1: this.ffWeights1,
       ffWeights2: this.ffWeights2,
-      positionEmbeddings: this.positionEmbeddings,
       renormStates: this.renormStates
     };
   }
@@ -730,13 +686,11 @@ export class TransformerLM extends ProNeuralLM {
     attentionWeights: AttentionWeights[];
     ffWeights1: Matrix[];
     ffWeights2: Matrix[];
-    positionEmbeddings: number[][];
     renormStates: RMSNormState[];
   }): void {
     this.attentionWeights = weights.attentionWeights;
     this.ffWeights1 = weights.ffWeights1;
     this.ffWeights2 = weights.ffWeights2;
-    this.positionEmbeddings = weights.positionEmbeddings;
     this.renormStates = weights.renormStates;
     this.reinitializeTransformerLayers();
   }

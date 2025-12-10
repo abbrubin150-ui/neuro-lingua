@@ -3,16 +3,16 @@ import type { InjectionTarget } from '../../types/injection';
 import type { TransformerLM } from '../TransformerLM';
 import type { RMSNormState } from '../RMSNorm';
 
-/**
- * Adapter that wraps TransformerLM to implement InjectableLayer interface.
- * Handles transformer-specific state including attention weights, feed-forward
- * layers, position embeddings, and batch renormalization states.
- *
- * Key differences from feedforward adapters:
- * - Manages multiple transformer layers (attention + FF)
- * - Handles position embeddings expansion
- * - Preserves batch renorm state during rollback
- */
+ /**
+  * Adapter that wraps TransformerLM to implement InjectableLayer interface.
+  * Handles transformer-specific state including attention weights, feed-forward
+  * layers, and batch renormalization states.
+  *
+  * Key differences from feedforward adapters:
+  * - Manages multiple transformer layers (attention + FF)
+   * - Preserves batch renorm state during rollback
+   * - Accepts legacy serialized layouts that included position embeddings
+  */
 export class TransformerLMAdapter implements InjectableLayer {
   private model: TransformerLM;
   private modelId: string;
@@ -88,9 +88,6 @@ export class TransformerLMAdapter implements InjectableLayer {
       new Float32Array(weights.embedding.flat())
     ];
 
-    // Position embeddings (index 5)
-    baseArrays.push(new Float32Array(transformerWeights.positionEmbeddings.flat()));
-
     // For each layer, add attention weights and FF weights
     for (let i = 0; i < transformerWeights.attentionWeights.length; i++) {
       const attn = transformerWeights.attentionWeights[i];
@@ -116,8 +113,9 @@ export class TransformerLMAdapter implements InjectableLayer {
   }
 
   importWeights(weights: Float32Array[]): void {
-    if (weights.length < 6) {
-      throw new Error('Invalid weights array: expected at least 6 arrays');
+    const baseCount = 5;
+    if (weights.length < baseCount) {
+      throw new Error('Invalid weights array: expected at least 5 arrays');
     }
 
     const vocabSize = this.model.getVocabSize();
@@ -164,12 +162,13 @@ export class TransformerLMAdapter implements InjectableLayer {
       embedding
     });
 
-    // Reshape position embeddings (index 5)
-    const posEmbFlat = Array.from(weights[5]);
-    const maxSeqLength = Math.floor(posEmbFlat.length / hiddenSize);
-    const positionEmbeddings: number[][] = [];
-    for (let i = 0; i < maxSeqLength; i++) {
-      positionEmbeddings.push(posEmbFlat.slice(i * hiddenSize, (i + 1) * hiddenSize));
+    const arraysPerLayer = 7;
+    const baseIndex =
+      weights.length === baseCount + 1 + arraysPerLayer * numLayers
+        ? baseCount + 1 // Legacy layout with position embeddings
+        : baseCount;
+    if (weights.length < baseIndex + arraysPerLayer * numLayers) {
+      throw new Error('Invalid weights array: missing transformer layer weights');
     }
 
     // Rebuild transformer weights
@@ -177,10 +176,6 @@ export class TransformerLMAdapter implements InjectableLayer {
     const ffWeights1: number[][][] = [];
     const ffWeights2: number[][][] = [];
     const renormStates: RMSNormState[] = [];
-
-    // 7 arrays per layer: query, key, value, ff1, ff2, gamma, epsilon
-    const arraysPerLayer = 7;
-    const baseIndex = 6;
 
     for (let layer = 0; layer < numLayers; layer++) {
       const offset = baseIndex + layer * arraysPerLayer;
@@ -201,11 +196,14 @@ export class TransformerLMAdapter implements InjectableLayer {
       attentionWeights.push({ query, key, value });
 
       // Reshape FF weights
-      // ff1: [hiddenSize x ffHiddenDim]
+      // ff1: [hiddenSize x (ffHiddenDim * 2)] for SwiGLU gating
       const ff1Flat = Array.from(weights[offset + 3]);
       const ff1Layer: number[][] = [];
+      const ff1Width = ffHiddenDim * 2;
       for (let i = 0; i < hiddenSize; i++) {
-        ff1Layer.push(ff1Flat.slice(i * ffHiddenDim, (i + 1) * ffHiddenDim));
+        const start = i * ff1Width;
+        const end = start + ff1Width;
+        ff1Layer.push(ff1Flat.slice(start, end));
       }
       ffWeights1.push(ff1Layer);
 
@@ -231,7 +229,6 @@ export class TransformerLMAdapter implements InjectableLayer {
       attentionWeights,
       ffWeights1,
       ffWeights2,
-      positionEmbeddings,
       renormStates
     });
   }

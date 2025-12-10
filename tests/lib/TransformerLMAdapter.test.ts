@@ -117,19 +117,6 @@ describe('TransformerLMAdapter', () => {
       }
     });
 
-    it('should expand position embeddings correctly', () => {
-      const initialSize = model.getHiddenSize();
-      adapter.inject(4, 'random_he');
-
-      const transformerWeights = model.getTransformerWeights();
-      const newSize = initialSize + 4;
-
-      // All position embeddings should have new dimension
-      for (const posEmb of transformerWeights.positionEmbeddings) {
-        expect(posEmb.length).toBe(newSize);
-      }
-    });
-
     it('should expand renorm states correctly', () => {
       const initialSize = model.getHiddenSize();
       adapter.inject(4, 'random_he');
@@ -153,8 +140,8 @@ describe('TransformerLMAdapter', () => {
     it('should export weights as Float32Arrays', () => {
       const weights = adapter.exportWeights();
 
-      // Base (5) + position embeddings (1) + per layer (7 * 2 layers) = 20
-      expect(weights.length).toBe(6 + 7 * 2);
+      // Base (5) + per layer (7 * 2 layers) = 19
+      expect(weights.length).toBe(5 + 7 * 2);
       weights.forEach((w) => {
         expect(w).toBeInstanceOf(Float32Array);
       });
@@ -192,20 +179,6 @@ describe('TransformerLMAdapter', () => {
       expect(restoredWeights.attentionWeights[0].query[0][0]).toBeCloseTo(origQuery00, 5);
     });
 
-    it('should restore position embeddings correctly after rollback', () => {
-      const originalWeights = adapter.exportWeights();
-      const originalTransformerWeights = model.getTransformerWeights();
-      const originalPosEmbLength = originalTransformerWeights.positionEmbeddings[0].length;
-
-      // Modify model
-      adapter.inject(4, 'random_he');
-
-      // Rollback
-      adapter.importWeights(originalWeights);
-
-      const restoredWeights = model.getTransformerWeights();
-      expect(restoredWeights.positionEmbeddings[0].length).toBe(originalPosEmbLength);
-    });
   });
 });
 
@@ -239,28 +212,6 @@ describe('TransformerLM expandHiddenLayer', () => {
     const newWeights = model.getTransformerWeights();
     // Original value should be preserved (within floating point tolerance)
     expect(newWeights.attentionWeights[0].query[0][0]).toBeCloseTo(origQuery00, 5);
-  });
-
-  it('should use sinusoidal encoding for new position embedding dimensions', () => {
-    const originalSize = model.getHiddenSize();
-    model.expandHiddenLayer(4);
-
-    const newWeights = model.getTransformerWeights();
-
-    // New dimensions should follow sinusoidal pattern
-    // At position 0, sin(0) = 0, cos(0) = 1
-    const posEmb0 = newWeights.positionEmbeddings[0];
-
-    // The new dimensions start at originalSize
-    // Check that they're not all zeros (would indicate improper initialization)
-    const newDims = posEmb0.slice(originalSize);
-    expect(newDims.length).toBe(4);
-
-    // Position 0 should have valid values
-    newDims.forEach((v) => {
-      expect(typeof v).toBe('number');
-      expect(Number.isFinite(v)).toBe(true);
-    });
   });
 });
 

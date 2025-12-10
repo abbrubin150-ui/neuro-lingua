@@ -15,6 +15,12 @@ export interface MiniTransformerConfig {
   dropConnectRate?: number;
   rmsState?: RMSNormState;
   ropeBase?: number;
+  /**
+   * Number of key-value heads for Grouped-Query Attention (GQA).
+   * Defaults to `heads` (standard MHA). Set lower for memory efficiency.
+   * Example: heads=8, numKVHeads=2 gives 4× KV cache reduction.
+   */
+  numKVHeads?: number;
 }
 
 export class MiniTransformerBlock {
@@ -30,7 +36,8 @@ export class MiniTransformerBlock {
       modelDim: config.modelDim,
       keyDim: config.modelDim / config.heads,
       valueDim: config.modelDim / config.heads,
-      dropout: config.attentionDropout
+      dropout: config.attentionDropout,
+      numKVHeads: config.numKVHeads // GQA support
     });
     this.activation = config.ff.activation ?? ((x) => Math.tanh(x));
     this.gamma = config.rmsState?.gamma ?? new Array(config.modelDim).fill(1);

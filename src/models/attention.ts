@@ -115,12 +115,28 @@ export interface MultiHeadAttentionConfig {
   keyDim: number;
   valueDim: number;
   dropout?: number;
+  /**
+   * Number of key-value heads for Grouped-Query Attention (GQA).
+   * When numKVHeads < heads, multiple query heads share the same K/V heads.
+   * This reduces KV cache memory by (heads / numKVHeads) factor.
+   *
+   * Examples:
+   * - numKVHeads = heads: Standard Multi-Head Attention (MHA)
+   * - numKVHeads = 1: Multi-Query Attention (MQA)
+   * - numKVHeads = heads/4: Grouped-Query Attention (GQA) with 4:1 ratio
+   *
+   * Reference: Ainslie et al. (2023) "GQA: Training Generalized Multi-Query
+   * Transformer Models from Multi-Head Checkpoints"
+   */
+  numKVHeads?: number;
 }
 
 export class MultiHeadAttention {
   private readonly headDim: number;
   private readonly projectionScale: number;
   private readonly dropout: number;
+  private readonly numKVHeads: number;
+  private readonly kvGroupSize: number;
 
   constructor(private readonly config: MultiHeadAttentionConfig) {
     if (config.modelDim % config.heads !== 0) {
@@ -129,6 +145,30 @@ export class MultiHeadAttention {
     this.headDim = config.modelDim / config.heads;
     this.projectionScale = 1 / Math.sqrt(this.headDim);
     this.dropout = config.dropout ?? 0;
+
+    // GQA configuration
+    this.numKVHeads = config.numKVHeads ?? config.heads;
+    if (config.heads % this.numKVHeads !== 0) {
+      throw new Error(
+        `Number of query heads (${config.heads}) must be divisible by ` +
+          `number of KV heads (${this.numKVHeads}).`
+      );
+    }
+    this.kvGroupSize = config.heads / this.numKVHeads;
+  }
+
+  /**
+   * Get the number of KV heads (for GQA weight initialization).
+   */
+  getNumKVHeads(): number {
+    return this.numKVHeads;
+  }
+
+  /**
+   * Get the KV dimension (numKVHeads * headDim).
+   */
+  getKVDim(): number {
+    return this.numKVHeads * this.headDim;
   }
 
   project(input: Matrix, weights: AttentionWeights): AttentionWeights {
@@ -140,12 +180,49 @@ export class MultiHeadAttention {
     };
   }
 
+  /**
+   * Split matrix into query heads (numHeads).
+   */
   splitHeads(matrix: Matrix): Matrix[] {
     const heads: Matrix[] = [];
     for (let h = 0; h < this.config.heads; h++) {
       heads.push(matrix.map((row) => row.slice(h * this.headDim, (h + 1) * this.headDim)));
     }
     return heads;
+  }
+
+  /**
+   * Split matrix into KV heads (numKVHeads, may be fewer than query heads).
+   */
+  splitKVHeads(matrix: Matrix): Matrix[] {
+    const heads: Matrix[] = [];
+    for (let h = 0; h < this.numKVHeads; h++) {
+      heads.push(matrix.map((row) => row.slice(h * this.headDim, (h + 1) * this.headDim)));
+    }
+    return heads;
+  }
+
+  /**
+   * Repeat KV heads to match the number of query heads.
+   * Each KV head is repeated kvGroupSize times.
+   * This is the key operation for GQA: multiple Q heads share the same K/V.
+   */
+  repeatKVHeads(kvHeads: Matrix[]): Matrix[] {
+    if (this.kvGroupSize === 1) {
+      // Standard MHA: no repetition needed
+      return kvHeads;
+    }
+
+    const repeatedHeads: Matrix[] = [];
+    for (let kvIdx = 0; kvIdx < this.numKVHeads; kvIdx++) {
+      const kvHead = kvHeads[kvIdx];
+      // Repeat this KV head for each query head in its group
+      for (let g = 0; g < this.kvGroupSize; g++) {
+        // Deep copy to avoid reference issues
+        repeatedHeads.push(kvHead.map((row) => [...row]));
+      }
+    }
+    return repeatedHeads;
   }
 
   combineHeads(heads: Matrix[]): Matrix {
@@ -165,13 +242,20 @@ export class MultiHeadAttention {
     const { positions, ropeBase = 500000, ...attentionOpts } = options;
     const projections = this.project(inputs, weights);
 
+    // Split queries into numHeads heads
     const queries = this.splitHeads(
       positions ? applyRoPE(projections.query, positions, ropeBase) : projections.query
     );
-    const keys = this.splitHeads(
+
+    // Split keys and values into numKVHeads heads (GQA: may be fewer than query heads)
+    const kvKeys = this.splitKVHeads(
       positions ? applyRoPE(projections.key, positions, ropeBase) : projections.key
     );
-    const values = this.splitHeads(projections.value);
+    const kvValues = this.splitKVHeads(projections.value);
+
+    // Repeat KV heads to match query heads count (GQA core operation)
+    const keys = this.repeatKVHeads(kvKeys);
+    const values = this.repeatKVHeads(kvValues);
 
     const headOutputs: Matrix[] = [];
     for (let h = 0; h < this.config.heads; h++) {

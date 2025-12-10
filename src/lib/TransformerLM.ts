@@ -23,6 +23,19 @@ export type TransformerConfig = {
   ffHiddenDim?: number;
   attentionDropout?: number;
   dropConnectRate?: number;
+  /**
+   * Number of key-value heads for Grouped-Query Attention (GQA).
+   * When numKVHeads < numHeads, multiple query heads share the same K/V heads.
+   * This reduces KV cache memory by (numHeads / numKVHeads) factor.
+   *
+   * Examples:
+   * - numKVHeads = numHeads: Standard Multi-Head Attention (MHA)
+   * - numKVHeads = 1: Multi-Query Attention (MQA)
+   * - numKVHeads = numHeads/4: GQA with 4:1 ratio (used in Llama-3.2)
+   *
+   * Default: equals numHeads (standard MHA for backward compatibility)
+   */
+  numKVHeads?: number;
 };
 
 const DEFAULT_TRANSFORMER_CONFIG: Required<TransformerConfig> = {
@@ -30,7 +43,8 @@ const DEFAULT_TRANSFORMER_CONFIG: Required<TransformerConfig> = {
   numHeads: 4,
   ffHiddenDim: 128,
   attentionDropout: 0.1,
-  dropConnectRate: 0.1
+  dropConnectRate: 0.1,
+  numKVHeads: 4 // Default: same as numHeads (standard MHA)
 };
 
 type BaseModelJson = ReturnType<ProNeuralLM['toJSON']>;
@@ -109,13 +123,26 @@ export class TransformerLM extends ProNeuralLM {
     ff2?: Matrix[];
     renormStates?: RMSNormState[];
   }): void {
-    const { numLayers, numHeads, ffHiddenDim, attentionDropout, dropConnectRate } =
+    const { numLayers, numHeads, ffHiddenDim, attentionDropout, dropConnectRate, numKVHeads } =
       this.transformerConfig;
     const modelDim = this.getHiddenSize();
     const normalizedHeads = this.normalizeHeadCount(modelDim, numHeads);
     if (normalizedHeads !== this.transformerConfig.numHeads) {
       this.transformerConfig = { ...this.transformerConfig, numHeads: normalizedHeads };
     }
+
+    // Normalize numKVHeads to be valid
+    const normalizedKVHeads = this.normalizeKVHeadCount(
+      normalizedHeads,
+      numKVHeads ?? normalizedHeads
+    );
+    if (normalizedKVHeads !== this.transformerConfig.numKVHeads) {
+      this.transformerConfig = { ...this.transformerConfig, numKVHeads: normalizedKVHeads };
+    }
+
+    // Calculate KV dimension for GQA
+    const headDim = modelDim / normalizedHeads;
+    const kvDim = normalizedKVHeads * headDim;
 
     this.transformerLayers = [];
     this.attentionWeights = [];
@@ -138,17 +165,20 @@ export class TransformerLM extends ProNeuralLM {
         attentionDropout,
         dropConnectRate,
         rmsState: renormState,
-        ropeBase: 500000
+        ropeBase: 500000,
+        numKVHeads: normalizedKVHeads // GQA support
       };
 
       this.transformerLayers.push(new MiniTransformerBlock(config));
       this.renormStates.push(renormState);
 
+      // GQA: K/V weights are smaller when numKVHeads < numHeads
+      // Query: [modelDim x modelDim], Key/Value: [modelDim x kvDim]
       this.attentionWeights.push(
         existing?.attention?.[i] ?? {
           query: this.initWeightMatrix([modelDim, modelDim]),
-          key: this.initWeightMatrix([modelDim, modelDim]),
-          value: this.initWeightMatrix([modelDim, modelDim])
+          key: this.initWeightMatrix([modelDim, kvDim]),
+          value: this.initWeightMatrix([modelDim, kvDim])
         }
       );
 
@@ -157,6 +187,20 @@ export class TransformerLM extends ProNeuralLM {
       );
       this.ffWeights2.push(existing?.ff2?.[i] ?? this.initWeightMatrix([ffHiddenDim, modelDim]));
     }
+  }
+
+  /**
+   * Normalize numKVHeads to be a valid divisor of numHeads.
+   */
+  private normalizeKVHeadCount(numHeads: number, requestedKVHeads: number): number {
+    if (requestedKVHeads <= 0) return 1;
+    if (requestedKVHeads >= numHeads) return numHeads;
+    if (numHeads % requestedKVHeads === 0) return requestedKVHeads;
+    // Find largest valid divisor <= requested
+    for (let candidate = requestedKVHeads; candidate >= 1; candidate--) {
+      if (numHeads % candidate === 0) return candidate;
+    }
+    return 1;
   }
 
   /**
@@ -267,11 +311,13 @@ export class TransformerLM extends ProNeuralLM {
     numLayers: number;
     numHeads: number;
     ffHiddenDim: number;
+    numKVHeads: number;
   } {
     return {
       numLayers: this.transformerConfig.numLayers,
       numHeads: this.transformerConfig.numHeads,
-      ffHiddenDim: this.transformerConfig.ffHiddenDim
+      ffHiddenDim: this.transformerConfig.ffHiddenDim,
+      numKVHeads: this.transformerConfig.numKVHeads
     };
   }
 
@@ -679,10 +725,17 @@ export class TransformerLM extends ProNeuralLM {
    */
   private reinitializeTransformerLayers(): void {
     const modelDim = this.getHiddenSize();
-    const { numLayers, ffHiddenDim, attentionDropout, dropConnectRate } = this.transformerConfig;
+    const { numLayers, ffHiddenDim, attentionDropout, dropConnectRate, numKVHeads } =
+      this.transformerConfig;
     const normalizedHeads = this.normalizeHeadCount(modelDim, this.transformerConfig.numHeads);
     if (normalizedHeads !== this.transformerConfig.numHeads) {
       this.transformerConfig = { ...this.transformerConfig, numHeads: normalizedHeads };
+    }
+
+    // Normalize numKVHeads
+    const normalizedKVHeads = this.normalizeKVHeadCount(normalizedHeads, numKVHeads);
+    if (normalizedKVHeads !== this.transformerConfig.numKVHeads) {
+      this.transformerConfig = { ...this.transformerConfig, numKVHeads: normalizedKVHeads };
     }
 
     // Recreate transformer blocks with new dimensions but existing weights
@@ -698,7 +751,8 @@ export class TransformerLM extends ProNeuralLM {
         attentionDropout,
         dropConnectRate,
         rmsState: this.renormStates[i],
-        ropeBase: 500000
+        ropeBase: 500000,
+        numKVHeads: normalizedKVHeads // GQA support
       };
       this.transformerLayers.push(new MiniTransformerBlock(config));
     }

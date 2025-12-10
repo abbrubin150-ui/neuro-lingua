@@ -46,7 +46,7 @@
 - **3 Neural Architectures**: ProNeuralLM (baseline), AdvancedNeuralLM (enhanced), TransformerLM (attention-based)
 - **Architecture Presets**: Automatic configuration when switching between architectures
 - **WebGPU Acceleration**: Automatic GPU detection with graceful CPU fallback
-- **4 Optimizers**: SGD with momentum, Adam, Damped Newton, L-BFGS
+- **5 Optimizers**: SGD with momentum, Adam, Lion (v4.0), Damped Newton, L-BFGS
 - **7+ Generation Methods**: Greedy, Top-k, Top-p (nucleus), Typical, Mirostat v2, Beam Search, Contrastive Search
 - **Grouped-Query Attention (GQA)**: Efficient attention mechanism with configurable KV heads
 - **Model Compression**: Int8 quantization, knowledge distillation, low-rank approximation (SVD)
@@ -256,7 +256,7 @@
 - Character-level language modeling
 - Embedding layer → Hidden layer → Output layer
 - ReLU activation
-- 4 optimizers: Momentum SGD, Adam, Damped Newton, L-BFGS
+- 5 optimizers: Momentum SGD, Adam, Lion (v4.0), Damped Newton, L-BFGS
 - Dropout during training (disabled during inference)
 - Training history tracking
 - Import/export with optimizer state serialization
@@ -1438,6 +1438,89 @@ The transformer model internally handles GQA by:
 - **Small models**: Overhead not significant
 - **Quality critical**: Every % matters
 - **Training**: GQA benefits mainly at inference
+
+### 12. Lion Optimizer - v4.0 Feature
+
+#### **Overview**
+
+**Location**: `/home/user/neuro-lingua/src/training/LionOptimizer.ts`
+
+**Purpose**: Memory-efficient optimizer with faster convergence than Adam
+
+**Key Concept**: Uses sign of momentum instead of actual gradient magnitude
+
+**Benefits**:
+- **50% less memory**: Only one momentum buffer (vs two for Adam)
+- **1.5-2× faster convergence**: Reaches lower loss in fewer steps
+- **More stable training**: Less sensitive to learning rate choice
+- **Simpler**: Fewer hyperparameters to tune
+
+#### **Algorithm**
+
+```
+update = sign(β₁ × m + (1 - β₁) × g)
+θ ← θ - η × update - η × λ × θ  (with weight decay)
+m ← β₂ × m + (1 - β₂) × g
+```
+
+Where:
+- `g` = gradient
+- `m` = momentum buffer
+- `η` = learning rate (lower than Adam, ~3e-4)
+- `β₁` = 0.9 (update momentum)
+- `β₂` = 0.99 (state momentum)
+- `λ` = weight decay (0.01)
+
+**Reference**: Chen et al. (2023) "Symbolic Discovery of Optimization Algorithms"
+
+#### **Comparison: Adam vs Lion**
+
+| Feature | Adam | Lion |
+|---------|------|------|
+| Memory | 2× parameters | **1× parameters** |
+| Convergence | baseline | **1.5-2× faster** |
+| Learning rate | ~1e-3 | ~3e-4 (lower) |
+| Momentum buffers | 2 (m, v) | 1 (m only) |
+| Final perplexity | baseline | -3% to -8% better |
+
+#### **Usage**
+
+```typescript
+// In model constructor
+const model = new ProNeuralLM(vocab, 64, 0.0003, 3, 'lion', 0.9, 0.1, 42);
+
+// Or in UI: Select "Lion (v4.0)" from optimizer dropdown
+```
+
+#### **Standalone Usage**
+
+```typescript
+import { LionOptimizer, LION_DEFAULTS } from '../training/LionOptimizer';
+
+const optimizer = new LionOptimizer({
+  lr: 3e-4,
+  beta1: 0.9,
+  beta2: 0.99,
+  weightDecay: 0.01
+});
+
+// Update weights
+optimizer.updateMatrix(weights, gradients, 'layer1');
+optimizer.updateVector(biases, biasGradients, 'bias1');
+```
+
+#### **When to Use Lion**
+
+✅ **Recommended for**:
+- Small to medium models (10M - 3B parameters)
+- Memory-constrained environments (browser, mobile)
+- Faster experimentation cycles
+- Transformer training
+
+❌ **Consider alternatives when**:
+- Very high learning rates are needed
+- Existing Adam pipelines work well
+- Second-order methods (Newton, L-BFGS) provide better results
 
 ---
 

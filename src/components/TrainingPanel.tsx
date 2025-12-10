@@ -589,6 +589,7 @@ export function TrainingPanel(props: TrainingPanelProps) {
           >
             <option value="momentum">Momentum</option>
             <option value="adam">Adam</option>
+            <option value="lion">Lion (v4.0)</option>
             <option value="newton">Damped Newton</option>
             <option value="bfgs">Quasi-Newton (L-BFGS)</option>
           </select>

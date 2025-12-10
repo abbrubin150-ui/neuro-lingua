@@ -18,7 +18,7 @@ import {
 } from '../generation/sampling';
 import { GPUNeuralOps } from '../backend/gpu_neural_ops';
 
-export type Optimizer = 'momentum' | 'adam' | 'newton' | 'bfgs';
+export type Optimizer = 'momentum' | 'adam' | 'newton' | 'bfgs' | 'lion';
 export type TokenizerMode = 'unicode' | 'ascii' | 'custom';
 
 export type TokenizerConfig = {
@@ -109,6 +109,11 @@ export class ProNeuralLM {
   private adamBeta2 = 0.999;
   private adamEps = 1e-8;
   private adamT = 0;
+
+  // Lion optimizer hyperparameters (v4.0)
+  private lionBeta1 = 0.9;
+  private lionBeta2 = 0.99;
+  private lionWeightDecay = 0.01;
   private aEmbedding: { m: number[][]; v: number[][] } = {
     m: [] as number[][],
     v: [] as number[][]
@@ -479,6 +484,74 @@ export class ProNeuralLM {
     }
   }
 
+  /**
+   * Lion optimizer update for matrix parameters
+   * Lion uses sign(β₁m + (1-β₁)g) for updates, then updates momentum with β₂
+   */
+  private applyLionMatrix(W: number[][], G: number[][], M: number[][]) {
+    const lr = this.learningRate;
+    const b1 = this.lionBeta1;
+    const b2 = this.lionBeta2;
+    const wd = this.lionWeightDecay;
+
+    for (let i = 0; i < W.length; i++) {
+      for (let j = 0; j < W[i].length; j++) {
+        const g = G[i][j];
+        // Compute update direction: sign(β₁m + (1-β₁)g)
+        const interpolated = b1 * M[i][j] + (1 - b1) * g;
+        const update = Math.sign(interpolated);
+        // Apply update with weight decay: θ -= η × sign + η × λ × θ
+        W[i][j] -= lr * update + lr * wd * W[i][j];
+        // Update momentum: m = β₂m + (1-β₂)g
+        M[i][j] = b2 * M[i][j] + (1 - b2) * g;
+      }
+    }
+  }
+
+  /**
+   * Lion optimizer update for vector parameters (biases)
+   */
+  private applyLionVector(b: number[], g: number[], m: number[]) {
+    const lr = this.learningRate;
+    const b1 = this.lionBeta1;
+    const b2 = this.lionBeta2;
+    const wd = this.lionWeightDecay;
+
+    for (let i = 0; i < b.length; i++) {
+      const gi = g[i];
+      // Compute update direction: sign(β₁m + (1-β₁)g)
+      const interpolated = b1 * m[i] + (1 - b1) * gi;
+      const update = Math.sign(interpolated);
+      // Apply update with weight decay
+      b[i] -= lr * update + lr * wd * b[i];
+      // Update momentum
+      m[i] = b2 * m[i] + (1 - b2) * gi;
+    }
+  }
+
+  /**
+   * Lion optimizer update for a single row (for embedding updates)
+   */
+  private applyLionRow(W: number[][], rowIdx: number, gRow: number[], M: number[][]) {
+    const lr = this.learningRate;
+    const b1 = this.lionBeta1;
+    const b2 = this.lionBeta2;
+    const wd = this.lionWeightDecay;
+
+    const row = W[rowIdx];
+    const mRow = M[rowIdx];
+    for (let i = 0; i < row.length; i++) {
+      const g = gRow[i];
+      // Compute update direction: sign(β₁m + (1-β₁)g)
+      const interpolated = b1 * mRow[i] + (1 - b1) * g;
+      const update = Math.sign(interpolated);
+      // Apply update with weight decay
+      row[i] -= lr * update + lr * wd * row[i];
+      // Update momentum
+      mRow[i] = b2 * mRow[i] + (1 - b2) * g;
+    }
+  }
+
   private async backward(
     inputs: number[],
     target: number,
@@ -578,6 +651,12 @@ export class ProNeuralLM {
       this.applyAdamVector(this.bOutput, dBout, this.aBOutput.m, this.aBOutput.v, adamB1t, adamB2t);
       this.applyAdamMatrix(this.wHidden, dWh, this.aWHidden.m, this.aWHidden.v, adamB1t, adamB2t);
       this.applyAdamVector(this.bHidden, dBh, this.aBHidden.m, this.aBHidden.v, adamB1t, adamB2t);
+    } else if (this.optimizer === 'lion') {
+      // Lion optimizer (v4.0): uses sign of momentum for updates
+      this.applyLionMatrix(this.wOutput, dWout, this.mWOutput);
+      this.applyLionVector(this.bOutput, dBout, this.mBOutput);
+      this.applyLionMatrix(this.wHidden, dWh, this.mWHidden);
+      this.applyLionVector(this.bHidden, dBh, this.mBHidden);
     } else {
       this.applyMomentumMatrix(this.wOutput, dWout, this.mWOutput);
       this.applyMomentumVector(this.bOutput, dBout, this.mBOutput);
@@ -604,6 +683,11 @@ export class ProNeuralLM {
             this.momentum * this.mEmbedding[idx][i] + this.learningRate * dEmb[i];
           this.embedding[idx][i] -= this.mEmbedding[idx][i];
         }
+      }
+    } else if (this.optimizer === 'lion') {
+      // Lion embedding update
+      for (const idx of inputs) {
+        this.applyLionRow(this.embedding, idx, dEmb, this.mEmbedding);
       }
     } else if (this.optimizer === 'newton' || this.optimizer === 'bfgs') {
       for (const idx of inputs) {

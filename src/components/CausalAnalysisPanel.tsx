@@ -13,10 +13,7 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import {
-  CausalInferenceEngine,
-  createCausalEngine
-} from '../lib/CausalInferenceEngine';
+import { CausalInferenceEngine, createCausalEngine } from '../lib/CausalInferenceEngine';
 import type {
   CausalModelConfig,
   HypothesisTestResult,
@@ -100,31 +97,34 @@ export function CausalAnalysisPanel({
   const [expandedSection, setExpandedSection] = useState<string | null>('dag');
 
   // Translations
-  const t = useMemo(() => ({
-    title: language === 'he' ? 'ניתוח סיבתי' : 'Causal Analysis',
-    dagConfig: language === 'he' ? 'הגדרת DAG' : 'DAG Configuration',
-    modelConfig: language === 'he' ? 'הגדרות מודל' : 'Model Configuration',
-    runOffline: language === 'he' ? 'הפעל למידה לא מקוונת' : 'Run Offline Learning',
-    runOnline: language === 'he' ? 'הפעל בחירה מקוונת' : 'Run Online Selection',
-    runTest: language === 'he' ? 'הפעל בדיקה סטטיסטית' : 'Run Statistical Test',
-    verifyBias: language === 'he' ? 'אמת חוסר הטיה' : 'Verify Unbiasedness',
-    results: language === 'he' ? 'תוצאות' : 'Results',
-    ate: language === 'he' ? 'אפקט ממוצע של טיפול' : 'Average Treatment Effect',
-    pValue: language === 'he' ? 'ערך P' : 'P-Value',
-    significant: language === 'he' ? 'מובהק' : 'Significant',
-    notSignificant: language === 'he' ? 'לא מובהק' : 'Not Significant',
-    sensitivity: language === 'he' ? 'ניתוח רגישות' : 'Sensitivity Analysis',
-    ledger: language === 'he' ? 'יומן ביקורת' : 'Audit Ledger',
-    biasCheck: language === 'he' ? 'בדיקת הטיה' : 'Bias Verification',
-    identifiability: language === 'he' ? 'זיהוי' : 'Identifiability',
-    power: language === 'he' ? 'עוצמה' : 'Power Analysis',
-    numStudents: language === 'he' ? 'מספר סטודנטים' : 'Number of Students',
-    numTimeSteps: language === 'he' ? 'מספר צעדי זמן' : 'Time Steps',
-    featureDim: language === 'he' ? 'מימד תכונות' : 'Feature Dimension',
-    seed: language === 'he' ? 'זרע אקראי' : 'Random Seed',
-    reset: language === 'he' ? 'אפס' : 'Reset',
-    export: language === 'he' ? 'ייצא' : 'Export'
-  }), [language]);
+  const t = useMemo(
+    () => ({
+      title: language === 'he' ? 'ניתוח סיבתי' : 'Causal Analysis',
+      dagConfig: language === 'he' ? 'הגדרת DAG' : 'DAG Configuration',
+      modelConfig: language === 'he' ? 'הגדרות מודל' : 'Model Configuration',
+      runOffline: language === 'he' ? 'הפעל למידה לא מקוונת' : 'Run Offline Learning',
+      runOnline: language === 'he' ? 'הפעל בחירה מקוונת' : 'Run Online Selection',
+      runTest: language === 'he' ? 'הפעל בדיקה סטטיסטית' : 'Run Statistical Test',
+      verifyBias: language === 'he' ? 'אמת חוסר הטיה' : 'Verify Unbiasedness',
+      results: language === 'he' ? 'תוצאות' : 'Results',
+      ate: language === 'he' ? 'אפקט ממוצע של טיפול' : 'Average Treatment Effect',
+      pValue: language === 'he' ? 'ערך P' : 'P-Value',
+      significant: language === 'he' ? 'מובהק' : 'Significant',
+      notSignificant: language === 'he' ? 'לא מובהק' : 'Not Significant',
+      sensitivity: language === 'he' ? 'ניתוח רגישות' : 'Sensitivity Analysis',
+      ledger: language === 'he' ? 'יומן ביקורת' : 'Audit Ledger',
+      biasCheck: language === 'he' ? 'בדיקת הטיה' : 'Bias Verification',
+      identifiability: language === 'he' ? 'זיהוי' : 'Identifiability',
+      power: language === 'he' ? 'עוצמה' : 'Power Analysis',
+      numStudents: language === 'he' ? 'מספר סטודנטים' : 'Number of Students',
+      numTimeSteps: language === 'he' ? 'מספר צעדי זמן' : 'Time Steps',
+      featureDim: language === 'he' ? 'מימד תכונות' : 'Feature Dimension',
+      seed: language === 'he' ? 'זרע אקראי' : 'Random Seed',
+      reset: language === 'he' ? 'אפס' : 'Reset',
+      export: language === 'he' ? 'ייצא' : 'Export'
+    }),
+    [language]
+  );
 
   // Initialize DAG
   const initializeDAG = useCallback(() => {
@@ -135,7 +135,7 @@ export function CausalAnalysisPanel({
     });
     const validation = validateDAG(newDag);
     if (!validation.valid) {
-      setError(validation.issues.map(i => i.message).join('; '));
+      setError(validation.issues.map((i) => i.message).join('; '));
     }
     setDag(newDag);
     return newDag;
@@ -195,9 +195,7 @@ export function CausalAnalysisPanel({
       for (let t = 0; t < numOnlineSteps; t++) {
         // Generate student features
         const features = Array.from({ length: config.numStudents ?? 100 }, () =>
-          Array.from({ length: config.featureDimension ?? 3 }, () =>
-            (Math.random() - 0.5) * 2
-          )
+          Array.from({ length: config.featureDimension ?? 3 }, () => (Math.random() - 0.5) * 2)
         );
         const studentIds = Array.from(
           { length: config.numStudents ?? 100 },
@@ -345,11 +343,29 @@ export function CausalAnalysisPanel({
     a.download = `causal-analysis-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [config, testResult, biasResult, identResult, powerResult, rosenbaumBounds, eValue, ledger, engine]);
+  }, [
+    config,
+    testResult,
+    biasResult,
+    identResult,
+    powerResult,
+    rosenbaumBounds,
+    eValue,
+    ledger,
+    engine
+  ]);
 
   // Toggle section expansion
   const toggleSection = (section: string) => {
-    setExpandedSection(prev => prev === section ? null : section);
+    setExpandedSection((prev) => (prev === section ? null : section));
+  };
+
+  // Handle keyboard events for accessible toggles
+  const handleKeyDown = (section: string) => (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleSection(section);
+    }
   };
 
   // Render DAG visualization (simplified SVG)
@@ -362,10 +378,10 @@ export function CausalAnalysisPanel({
 
     // Simple layout
     const nodePositions: Record<string, { x: number; y: number }> = {
-      'Z': { x: width / 2, y: height - 40 },
-      'Y': { x: width - 60, y: height / 2 },
-      'U1': { x: width / 2, y: 40 },
-      'theta': { x: 60, y: height - 40 },
+      Z: { x: width / 2, y: height - 40 },
+      Y: { x: width - 60, y: height / 2 },
+      U1: { x: width / 2, y: 40 },
+      theta: { x: 60, y: height - 40 },
       'Y_t-1': { x: 60, y: height / 2 },
       'Y_t-2': { x: 60, y: 80 }
     };
@@ -374,7 +390,7 @@ export function CausalAnalysisPanel({
     const featureCount = config.featureDimension ?? 3;
     for (let i = 0; i < featureCount; i++) {
       nodePositions[`X${i + 1}`] = {
-        x: 120 + (i * (width - 180) / (featureCount + 1)),
+        x: 120 + (i * (width - 180)) / (featureCount + 1),
         y: height / 2 - 50
       };
     }
@@ -382,17 +398,20 @@ export function CausalAnalysisPanel({
     return (
       <svg width={width} height={height} style={{ border: '1px solid #ddd', borderRadius: 4 }}>
         {/* Edges */}
-        {dag.edges.slice(0, 15).map(edge => {
+        {dag.edges.slice(0, 15).map((edge) => {
           const from = nodePositions[edge.from.replace(/_t\d+$/, '')] ||
-                       nodePositions[edge.from] ||
-                       { x: width / 2, y: height / 2 };
+            nodePositions[edge.from] || { x: width / 2, y: height / 2 };
           const to = nodePositions[edge.to.replace(/_t\d+$/, '')] ||
-                     nodePositions[edge.to] ||
-                     { x: width / 2, y: height / 2 };
+            nodePositions[edge.to] || { x: width / 2, y: height / 2 };
 
-          const color = edge.type === 'confounding' ? '#ef4444' :
-                       edge.type === 'temporal' ? '#3b82f6' :
-                       edge.type === 'selection' ? '#a855f7' : '#6b7280';
+          const color =
+            edge.type === 'confounding'
+              ? '#ef4444'
+              : edge.type === 'temporal'
+                ? '#3b82f6'
+                : edge.type === 'selection'
+                  ? '#a855f7'
+                  : '#6b7280';
 
           const dashArray = edge.type === 'confounding' ? '5,5' : 'none';
 
@@ -427,16 +446,22 @@ export function CausalAnalysisPanel({
         </defs>
 
         {/* Nodes */}
-        {dag.nodes.slice(0, 10).map(node => {
+        {dag.nodes.slice(0, 10).map((node) => {
           const pos = nodePositions[node.id.replace(/_t\d+$/, '')] ||
-                     nodePositions[node.id] ||
-                     { x: width / 2, y: height / 2 };
+            nodePositions[node.id] || { x: width / 2, y: height / 2 };
 
-          const fill = node.type === 'treatment' ? '#10b981' :
-                      node.type === 'outcome' ? '#3b82f6' :
-                      node.type === 'confounder' ? '#ef4444' :
-                      node.type === 'temporal' ? '#f59e0b' :
-                      node.type === 'quantization' ? '#a855f7' : '#6b7280';
+          const fill =
+            node.type === 'treatment'
+              ? '#10b981'
+              : node.type === 'outcome'
+                ? '#3b82f6'
+                : node.type === 'confounder'
+                  ? '#ef4444'
+                  : node.type === 'temporal'
+                    ? '#f59e0b'
+                    : node.type === 'quantization'
+                      ? '#a855f7'
+                      : '#6b7280';
 
           const opacity = node.observed ? 1 : 0.6;
 
@@ -469,11 +494,25 @@ export function CausalAnalysisPanel({
         {/* Legend */}
         <g transform={`translate(${width - 100}, 10)`}>
           <circle cx={10} cy={0} r={6} fill="#10b981" />
-          <text x={20} y={4} fontSize={10}>Treatment</text>
+          <text x={20} y={4} fontSize={10}>
+            Treatment
+          </text>
           <circle cx={10} cy={15} r={6} fill="#3b82f6" />
-          <text x={20} y={19} fontSize={10}>Outcome</text>
-          <circle cx={10} cy={30} r={6} fill="#ef4444" opacity={0.6} stroke="#333" strokeDasharray="2,2" />
-          <text x={20} y={34} fontSize={10}>Confounder</text>
+          <text x={20} y={19} fontSize={10}>
+            Outcome
+          </text>
+          <circle
+            cx={10}
+            cy={30}
+            r={6}
+            fill="#ef4444"
+            opacity={0.6}
+            stroke="#333"
+            strokeDasharray="2,2"
+          />
+          <text x={20} y={34} fontSize={10}>
+            Confounder
+          </text>
         </g>
       </svg>
     );
@@ -489,7 +528,7 @@ export function CausalAnalysisPanel({
       { key: 'complete', label: '5. Complete' }
     ];
 
-    const currentIndex = phases.findIndex(p => p.key === phase);
+    const currentIndex = phases.findIndex((p) => p.key === phase);
 
     return (
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -521,14 +560,16 @@ export function CausalAnalysisPanel({
       {renderPhaseIndicator()}
 
       {error && (
-        <div style={{
-          padding: 12,
-          backgroundColor: '#fef2f2',
-          border: '1px solid #ef4444',
-          borderRadius: 4,
-          marginBottom: 16,
-          color: '#b91c1c'
-        }}>
+        <div
+          style={{
+            padding: 12,
+            backgroundColor: '#fef2f2',
+            border: '1px solid #ef4444',
+            borderRadius: 4,
+            marginBottom: 16,
+            color: '#b91c1c'
+          }}
+        >
           {error}
         </div>
       )}
@@ -536,7 +577,10 @@ export function CausalAnalysisPanel({
       {/* DAG Section */}
       <div style={{ marginBottom: 16, border: '1px solid #ddd', borderRadius: 4 }}>
         <div
+          role="button"
+          tabIndex={0}
           onClick={() => toggleSection('dag')}
+          onKeyDown={handleKeyDown('dag')}
           style={{
             padding: '12px 16px',
             backgroundColor: '#f9fafb',
@@ -551,7 +595,9 @@ export function CausalAnalysisPanel({
         </div>
         {expandedSection === 'dag' && (
           <div style={{ padding: 16 }}>
-            {dag ? renderDAG() : (
+            {dag ? (
+              renderDAG()
+            ) : (
               <button
                 onClick={initializeDAG}
                 style={{
@@ -573,7 +619,10 @@ export function CausalAnalysisPanel({
       {/* Model Configuration Section */}
       <div style={{ marginBottom: 16, border: '1px solid #ddd', borderRadius: 4 }}>
         <div
+          role="button"
+          tabIndex={0}
           onClick={() => toggleSection('config')}
+          onKeyDown={handleKeyDown('config')}
           style={{
             padding: '12px 16px',
             backgroundColor: '#f9fafb',
@@ -594,10 +643,12 @@ export function CausalAnalysisPanel({
                 <input
                   type="number"
                   value={config.numStudents ?? 100}
-                  onChange={e => setConfig(prev => ({
-                    ...prev,
-                    numStudents: parseInt(e.target.value) || 100
-                  }))}
+                  onChange={(e) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      numStudents: parseInt(e.target.value) || 100
+                    }))
+                  }
                   disabled={phase !== 'configure'}
                   style={{ marginLeft: 8, width: 80, padding: 4 }}
                 />
@@ -607,10 +658,12 @@ export function CausalAnalysisPanel({
                 <input
                   type="number"
                   value={config.numTimeSteps ?? 30}
-                  onChange={e => setConfig(prev => ({
-                    ...prev,
-                    numTimeSteps: parseInt(e.target.value) || 30
-                  }))}
+                  onChange={(e) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      numTimeSteps: parseInt(e.target.value) || 30
+                    }))
+                  }
                   disabled={phase !== 'configure'}
                   style={{ marginLeft: 8, width: 80, padding: 4 }}
                 />
@@ -620,10 +673,12 @@ export function CausalAnalysisPanel({
                 <input
                   type="number"
                   value={config.featureDimension ?? 3}
-                  onChange={e => setConfig(prev => ({
-                    ...prev,
-                    featureDimension: parseInt(e.target.value) || 3
-                  }))}
+                  onChange={(e) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      featureDimension: parseInt(e.target.value) || 3
+                    }))
+                  }
                   disabled={phase !== 'configure'}
                   style={{ marginLeft: 8, width: 80, padding: 4 }}
                 />
@@ -633,10 +688,12 @@ export function CausalAnalysisPanel({
                 <input
                   type="number"
                   value={config.seed ?? 42}
-                  onChange={e => setConfig(prev => ({
-                    ...prev,
-                    seed: parseInt(e.target.value) || 42
-                  }))}
+                  onChange={(e) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      seed: parseInt(e.target.value) || 42
+                    }))
+                  }
                   disabled={phase !== 'configure'}
                   style={{ marginLeft: 8, width: 80, padding: 4 }}
                 />
@@ -752,7 +809,10 @@ export function CausalAnalysisPanel({
       {testResult && (
         <div style={{ marginBottom: 16, border: '1px solid #ddd', borderRadius: 4 }}>
           <div
+            role="button"
+            tabIndex={0}
             onClick={() => toggleSection('results')}
+            onKeyDown={handleKeyDown('results')}
             style={{
               padding: '12px 16px',
               backgroundColor: '#f9fafb',
@@ -767,31 +827,38 @@ export function CausalAnalysisPanel({
           </div>
           {expandedSection === 'results' && (
             <div style={{ padding: 16 }}>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: 16
-              }}>
-                <div style={{
-                  padding: 12,
-                  backgroundColor: '#f0fdf4',
-                  borderRadius: 4,
-                  textAlign: 'center'
-                }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: 16
+                }}
+              >
+                <div
+                  style={{
+                    padding: 12,
+                    backgroundColor: '#f0fdf4',
+                    borderRadius: 4,
+                    textAlign: 'center'
+                  }}
+                >
                   <div style={{ fontSize: 12, color: '#6b7280' }}>{t.ate}</div>
                   <div style={{ fontSize: 24, fontWeight: 'bold', color: '#10b981' }}>
                     {engine?.getOnlineState()?.runningATE.estimate.toFixed(4) ?? '-'}
                   </div>
                   <div style={{ fontSize: 11, color: '#6b7280' }}>
-                    CI: [{testResult.confidenceInterval[0].toFixed(3)}, {testResult.confidenceInterval[1].toFixed(3)}]
+                    CI: [{testResult.confidenceInterval[0].toFixed(3)},{' '}
+                    {testResult.confidenceInterval[1].toFixed(3)}]
                   </div>
                 </div>
-                <div style={{
-                  padding: 12,
-                  backgroundColor: '#fef3c7',
-                  borderRadius: 4,
-                  textAlign: 'center'
-                }}>
+                <div
+                  style={{
+                    padding: 12,
+                    backgroundColor: '#fef3c7',
+                    borderRadius: 4,
+                    textAlign: 'center'
+                  }}
+                >
                   <div style={{ fontSize: 12, color: '#6b7280' }}>{t.pValue}</div>
                   <div style={{ fontSize: 24, fontWeight: 'bold', color: '#f59e0b' }}>
                     {testResult.pValue.toFixed(4)}
@@ -800,18 +867,22 @@ export function CausalAnalysisPanel({
                     Test statistic: {testResult.testStatistic.toFixed(3)}
                   </div>
                 </div>
-                <div style={{
-                  padding: 12,
-                  backgroundColor: testResult.reject ? '#dcfce7' : '#fef2f2',
-                  borderRadius: 4,
-                  textAlign: 'center'
-                }}>
+                <div
+                  style={{
+                    padding: 12,
+                    backgroundColor: testResult.reject ? '#dcfce7' : '#fef2f2',
+                    borderRadius: 4,
+                    textAlign: 'center'
+                  }}
+                >
                   <div style={{ fontSize: 12, color: '#6b7280' }}>Status</div>
-                  <div style={{
-                    fontSize: 18,
-                    fontWeight: 'bold',
-                    color: testResult.reject ? '#10b981' : '#ef4444'
-                  }}>
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 'bold',
+                      color: testResult.reject ? '#10b981' : '#ef4444'
+                    }}
+                  >
                     {testResult.reject ? t.significant : t.notSignificant}
                   </div>
                   <div style={{ fontSize: 11, color: '#6b7280' }}>
@@ -828,7 +899,10 @@ export function CausalAnalysisPanel({
       {rosenbaumBounds.length > 0 && (
         <div style={{ marginBottom: 16, border: '1px solid #ddd', borderRadius: 4 }}>
           <div
+            role="button"
+            tabIndex={0}
             onClick={() => toggleSection('sensitivity')}
+            onKeyDown={handleKeyDown('sensitivity')}
             style={{
               padding: '12px 16px',
               backgroundColor: '#f9fafb',
@@ -854,13 +928,14 @@ export function CausalAnalysisPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {rosenbaumBounds.map(bound => (
+                  {rosenbaumBounds.map((bound) => (
                     <tr key={bound.gamma} style={{ borderBottom: '1px solid #e5e7eb' }}>
                       <td style={{ padding: 8 }}>{bound.gamma.toFixed(1)}</td>
                       <td style={{ padding: 8 }}>{bound.pValueLower.toFixed(4)}</td>
                       <td style={{ padding: 8 }}>{bound.pValueUpper.toFixed(4)}</td>
                       <td style={{ padding: 8 }}>
-                        [{bound.confidenceInterval[0].toFixed(3)}, {bound.confidenceInterval[1].toFixed(3)}]
+                        [{bound.confidenceInterval[0].toFixed(3)},{' '}
+                        {bound.confidenceInterval[1].toFixed(3)}]
                       </td>
                     </tr>
                   ))}
@@ -890,7 +965,10 @@ export function CausalAnalysisPanel({
       {biasResult && (
         <div style={{ marginBottom: 16, border: '1px solid #ddd', borderRadius: 4 }}>
           <div
+            role="button"
+            tabIndex={0}
             onClick={() => toggleSection('bias')}
+            onKeyDown={handleKeyDown('bias')}
             style={{
               padding: '12px 16px',
               backgroundColor: biasResult.unbiased ? '#dcfce7' : '#fef2f2',
@@ -919,9 +997,11 @@ export function CausalAnalysisPanel({
                 </div>
                 <div>
                   <strong>Differential Neutrality:</strong>{' '}
-                  <span style={{
-                    color: biasResult.differentialNeutrality.satisfied ? '#10b981' : '#ef4444'
-                  }}>
+                  <span
+                    style={{
+                      color: biasResult.differentialNeutrality.satisfied ? '#10b981' : '#ef4444'
+                    }}
+                  >
                     {biasResult.differentialNeutrality.satisfied ? 'Pass' : 'Fail'}
                   </span>
                   <div style={{ fontSize: 11, color: '#6b7280' }}>
@@ -939,14 +1019,14 @@ export function CausalAnalysisPanel({
                 </div>
                 <div>
                   <strong>Type I Error Rate:</strong>{' '}
-                  <span style={{
-                    color: biasResult.typeIErrorRate <= 0.075 ? '#10b981' : '#ef4444'
-                  }}>
+                  <span
+                    style={{
+                      color: biasResult.typeIErrorRate <= 0.075 ? '#10b981' : '#ef4444'
+                    }}
+                  >
                     {(biasResult.typeIErrorRate * 100).toFixed(1)}%
                   </span>
-                  <div style={{ fontSize: 11, color: '#6b7280' }}>
-                    Target: 5%
-                  </div>
+                  <div style={{ fontSize: 11, color: '#6b7280' }}>Target: 5%</div>
                 </div>
               </div>
               {biasResult.recommendations.length > 0 && (
@@ -968,7 +1048,10 @@ export function CausalAnalysisPanel({
       {ledger && (
         <div style={{ marginBottom: 16, border: '1px solid #ddd', borderRadius: 4 }}>
           <div
+            role="button"
+            tabIndex={0}
             onClick={() => toggleSection('ledger')}
+            onKeyDown={handleKeyDown('ledger')}
             style={{
               padding: '12px 16px',
               backgroundColor: '#f9fafb',
@@ -978,41 +1061,83 @@ export function CausalAnalysisPanel({
               alignItems: 'center'
             }}
           >
-            <strong>{t.ledger} ({ledger.summary.totalDecisions} entries)</strong>
+            <strong>
+              {t.ledger} ({ledger.summary.totalDecisions} entries)
+            </strong>
             <span>{expandedSection === 'ledger' ? '-' : '+'}</span>
           </div>
           {expandedSection === 'ledger' && (
             <div style={{ padding: 16 }}>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: 8,
-                marginBottom: 12
-              }}>
-                <div style={{ textAlign: 'center', padding: 8, backgroundColor: '#f3f4f6', borderRadius: 4 }}>
-                  <div style={{ fontSize: 18, fontWeight: 'bold' }}>{ledger.summary.policySelections}</div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: 8,
+                  marginBottom: 12
+                }}
+              >
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: 8,
+                    backgroundColor: '#f3f4f6',
+                    borderRadius: 4
+                  }}
+                >
+                  <div style={{ fontSize: 18, fontWeight: 'bold' }}>
+                    {ledger.summary.policySelections}
+                  </div>
                   <div style={{ fontSize: 11 }}>Policy Selections</div>
                 </div>
-                <div style={{ textAlign: 'center', padding: 8, backgroundColor: '#f3f4f6', borderRadius: 4 }}>
-                  <div style={{ fontSize: 18, fontWeight: 'bold' }}>{ledger.summary.ateEstimates}</div>
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: 8,
+                    backgroundColor: '#f3f4f6',
+                    borderRadius: 4
+                  }}
+                >
+                  <div style={{ fontSize: 18, fontWeight: 'bold' }}>
+                    {ledger.summary.ateEstimates}
+                  </div>
                   <div style={{ fontSize: 11 }}>ATE Estimates</div>
                 </div>
-                <div style={{ textAlign: 'center', padding: 8, backgroundColor: '#f3f4f6', borderRadius: 4 }}>
-                  <div style={{ fontSize: 18, fontWeight: 'bold' }}>{ledger.summary.quantizationUpdates}</div>
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: 8,
+                    backgroundColor: '#f3f4f6',
+                    borderRadius: 4
+                  }}
+                >
+                  <div style={{ fontSize: 18, fontWeight: 'bold' }}>
+                    {ledger.summary.quantizationUpdates}
+                  </div>
                   <div style={{ fontSize: 11 }}>Quant. Updates</div>
                 </div>
-                <div style={{ textAlign: 'center', padding: 8, backgroundColor: '#f3f4f6', borderRadius: 4 }}>
-                  <div style={{ fontSize: 18, fontWeight: 'bold' }}>{ledger.summary.biasChecks}</div>
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: 8,
+                    backgroundColor: '#f3f4f6',
+                    borderRadius: 4
+                  }}
+                >
+                  <div style={{ fontSize: 18, fontWeight: 'bold' }}>
+                    {ledger.summary.biasChecks}
+                  </div>
                   <div style={{ fontSize: 11 }}>Bias Checks</div>
                 </div>
               </div>
-              <div style={{
-                maxHeight: 200,
-                overflow: 'auto',
-                border: '1px solid #e5e7eb',
-                borderRadius: 4
-              }}>
-                {ledger.entries.slice(-10).map(entry => (
+              <div
+                style={{
+                  maxHeight: 200,
+                  overflow: 'auto',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 4
+                }}
+              >
+                {ledger.entries.slice(-10).map((entry) => (
                   <div
                     key={entry.id}
                     style={{
@@ -1021,16 +1146,22 @@ export function CausalAnalysisPanel({
                       fontSize: 11
                     }}
                   >
-                    <span style={{
-                      display: 'inline-block',
-                      padding: '2px 6px',
-                      borderRadius: 4,
-                      backgroundColor:
-                        entry.type === 'ate_estimate' ? '#dbeafe' :
-                        entry.type === 'bias_check' ? '#fce7f3' :
-                        entry.type === 'policy_selection' ? '#dcfce7' : '#fef3c7',
-                      marginRight: 8
-                    }}>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        padding: '2px 6px',
+                        borderRadius: 4,
+                        backgroundColor:
+                          entry.type === 'ate_estimate'
+                            ? '#dbeafe'
+                            : entry.type === 'bias_check'
+                              ? '#fce7f3'
+                              : entry.type === 'policy_selection'
+                                ? '#dcfce7'
+                                : '#fef3c7',
+                        marginRight: 8
+                      }}
+                    >
                       {entry.type}
                     </span>
                     <span style={{ color: '#6b7280' }}>

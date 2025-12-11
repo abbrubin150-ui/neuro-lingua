@@ -26,16 +26,16 @@
  * Type of node in the causal DAG
  */
 export type CausalNodeType =
-  | 'observed'      // X: Measured features
-  | 'outcome'       // Y: Target outcome
-  | 'treatment'     // Z: Policy/intervention
-  | 'confounder'    // U: Unmeasured confounder
-  | 'instrument'    // IV: Instrumental variable
-  | 'mediator'      // M: Mediating variable
-  | 'collider'      // C: Collider node
-  | 'temporal'      // Y_{t-k}: Lagged outcome
-  | 'quantization'  // theta: Quantization parameters
-  | 'selection';    // S: Selection indicator
+  | 'observed' // X: Measured features
+  | 'outcome' // Y: Target outcome
+  | 'treatment' // Z: Policy/intervention
+  | 'confounder' // U: Unmeasured confounder
+  | 'instrument' // IV: Instrumental variable
+  | 'mediator' // M: Mediating variable
+  | 'collider' // C: Collider node
+  | 'temporal' // Y_{t-k}: Lagged outcome
+  | 'quantization' // theta: Quantization parameters
+  | 'selection'; // S: Selection indicator
 
 /**
  * Single node in the causal DAG
@@ -305,15 +305,15 @@ export interface IdentifiabilityAnalysis {
  * Type of causal effect to estimate
  */
 export type CausalEffectType =
-  | 'ATE'     // Average Treatment Effect: E[Y(1) - Y(0)]
-  | 'ATT'     // Average Treatment on Treated: E[Y(1) - Y(0) | Z=1]
-  | 'ATC'     // Average Treatment on Control: E[Y(1) - Y(0) | Z=0]
-  | 'CATE'    // Conditional ATE: E[Y(1) - Y(0) | X=x]
-  | 'LATE'    // Local ATE (compliers): E[Y(1) - Y(0) | complier]
-  | 'NDE'     // Natural Direct Effect
-  | 'NIE'     // Natural Indirect Effect
-  | 'TE'      // Total Effect
-  | 'CDE';    // Controlled Direct Effect
+  | 'ATE' // Average Treatment Effect: E[Y(1) - Y(0)]
+  | 'ATT' // Average Treatment on Treated: E[Y(1) - Y(0) | Z=1]
+  | 'ATC' // Average Treatment on Control: E[Y(1) - Y(0) | Z=0]
+  | 'CATE' // Conditional ATE: E[Y(1) - Y(0) | X=x]
+  | 'LATE' // Local ATE (compliers): E[Y(1) - Y(0) | complier]
+  | 'NDE' // Natural Direct Effect
+  | 'NIE' // Natural Indirect Effect
+  | 'TE' // Total Effect
+  | 'CDE'; // Controlled Direct Effect
 
 /**
  * Causal query specification
@@ -437,4 +437,3 @@ export interface ManskiBounds {
   /** Selection assumption used */
   selectionAssumption?: string;
 }
-

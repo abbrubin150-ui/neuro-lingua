@@ -19,10 +19,7 @@ import type {
   CausalEdge,
   CausalDAG,
   CausalNodeType,
-  TemporalLag,
   TemporalDependencies,
-  SelectionMechanism,
-  UnmeasuredConfounderSpec,
   DSeparationResult,
   BackdoorCriterionResult,
   FrontdoorCriterionResult,
@@ -36,7 +33,7 @@ import type {
   ManskiBounds
 } from '../types/dag';
 
-import { mean, variance, normalQuantile } from './causal_math';
+import { mean, normalQuantile } from './causal_math';
 
 // ============================================================================
 // DAG Construction
@@ -98,11 +95,7 @@ export function createStandardDAG(config: {
   numConfounders?: number;
   maxLag?: number;
 }): CausalDAG {
-  const {
-    featureNames = ['X1', 'X2', 'X3'],
-    numConfounders = 1,
-    maxLag = 1
-  } = config;
+  const { featureNames = ['X1', 'X2', 'X3'], numConfounders = 1, maxLag = 1 } = config;
 
   const nodes: CausalNode[] = [];
   const edges: CausalEdge[] = [];
@@ -140,10 +133,12 @@ export function createStandardDAG(config: {
   // Temporal nodes (lagged outcomes)
   for (let lag = 1; lag <= maxLag; lag++) {
     const lagId = `Y_t-${lag}`;
-    nodes.push(createNode(lagId, `Y(t-${lag})`, 'temporal', true, {
-      timeIndex: -lag,
-      lagIndex: lag
-    }));
+    nodes.push(
+      createNode(lagId, `Y(t-${lag})`, 'temporal', true, {
+        timeIndex: -lag,
+        lagIndex: lag
+      })
+    );
     // Y_{t-lag} -> Y_t
     edges.push(createEdge(lagId, 'Y', 'temporal', { lag }));
     // Y_{t-lag} -> Z_t
@@ -199,7 +194,7 @@ export function validateDAG(dag: CausalDAG): DAGValidationResult {
   }
 
   // Check treatment node exists
-  const treatmentNode = dag.nodes.find(n => n.id === dag.treatmentId);
+  const treatmentNode = dag.nodes.find((n) => n.id === dag.treatmentId);
   if (!treatmentNode) {
     issues.push({
       severity: 'error',
@@ -209,7 +204,7 @@ export function validateDAG(dag: CausalDAG): DAGValidationResult {
   }
 
   // Check outcome node exists
-  const outcomeNode = dag.nodes.find(n => n.id === dag.outcomeId);
+  const outcomeNode = dag.nodes.find((n) => n.id === dag.outcomeId);
   if (!outcomeNode) {
     issues.push({
       severity: 'error',
@@ -230,18 +225,18 @@ export function validateDAG(dag: CausalDAG): DAGValidationResult {
   }
 
   // Check for isolated nodes
-  const nodeIds = new Set(dag.nodes.map(n => n.id));
+  const nodeIds = new Set(dag.nodes.map((n) => n.id));
   const connectedNodes = new Set<string>();
   for (const edge of dag.edges) {
     connectedNodes.add(edge.from);
     connectedNodes.add(edge.to);
   }
-  const isolated = dag.nodes.filter(n => !connectedNodes.has(n.id));
+  const isolated = dag.nodes.filter((n) => !connectedNodes.has(n.id));
   if (isolated.length > 0) {
     issues.push({
       severity: 'warning',
       message: 'Isolated nodes detected',
-      nodeIds: isolated.map(n => n.id)
+      nodeIds: isolated.map((n) => n.id)
     });
   }
 
@@ -276,7 +271,7 @@ export function validateDAG(dag: CausalDAG): DAGValidationResult {
     }
   }
 
-  const hasErrors = issues.some(i => i.severity === 'error');
+  const hasErrors = issues.some((i) => i.severity === 'error');
   const complete = treatmentNode !== undefined && outcomeNode !== undefined;
 
   return {
@@ -447,7 +442,7 @@ function buildAdjacencyList(dag: CausalDAG): Map<string, string[]> {
 /**
  * Build undirected adjacency list (for ancestral graphs)
  */
-function buildUndirectedAdjacency(dag: CausalDAG): Map<string, string[]> {
+function _buildUndirectedAdjacency(dag: CausalDAG): Map<string, string[]> {
   const adj = new Map<string, string[]>();
   for (const node of dag.nodes) {
     adj.set(node.id, []);
@@ -486,7 +481,7 @@ export function checkDSeparation(
   conditioningSet: string[]
 ): DSeparationResult {
   const condSet = new Set(conditioningSet);
-  const xSet = new Set(setX);
+  const _xSet = new Set(setX);
   const ySet = new Set(setY);
 
   // Build parent/child maps
@@ -632,8 +627,8 @@ export function checkBackdoorCriterion(
   // Find all observed nodes that are not descendants of treatment
   const descendants = findDescendants(dag, treatment);
   const validAdjustment = dag.nodes
-    .filter(n => n.observed && !descendants.has(n.id) && n.id !== treatment && n.id !== outcome)
-    .map(n => n.id);
+    .filter((n) => n.observed && !descendants.has(n.id) && n.id !== treatment && n.id !== outcome)
+    .map((n) => n.id);
 
   // Find backdoor paths (paths from T to Y that go through parents of T)
   const backdoorPaths = findBackdoorPaths(dag, treatment, outcome);
@@ -660,21 +655,22 @@ export function checkBackdoorCriterion(
   }
 
   // Check if all backdoor paths are blocked
-  const dSepResult = minimalSet.length > 0
-    ? checkDSeparation(dag, [treatment], [outcome], minimalSet)
-    : { separated: false, openPaths: backdoorPaths, blockedPaths: [] as string[][] };
+  const dSepResult =
+    minimalSet.length > 0
+      ? checkDSeparation(dag, [treatment], [outcome], minimalSet)
+      : { separated: false, openPaths: backdoorPaths, blockedPaths: [] as string[][] };
 
   // Filter to only backdoor paths
-  const openBackdoorPaths = dSepResult.openPaths.filter(path =>
-    backdoorPaths.some(bp => JSON.stringify(bp) === JSON.stringify(path))
+  const openBackdoorPaths = dSepResult.openPaths.filter((path) =>
+    backdoorPaths.some((bp) => JSON.stringify(bp) === JSON.stringify(path))
   );
 
   return {
     satisfied: openBackdoorPaths.length === 0 || minimalSet.length > 0,
     adjustmentSets,
     minimalSet,
-    blockedPaths: backdoorPaths.filter(p =>
-      !openBackdoorPaths.some(op => JSON.stringify(op) === JSON.stringify(p))
+    blockedPaths: backdoorPaths.filter(
+      (p) => !openBackdoorPaths.some((op) => JSON.stringify(op) === JSON.stringify(p))
     ),
     openPaths: openBackdoorPaths
   };
@@ -705,7 +701,7 @@ function findBackdoorPaths(dag: CausalDAG, treatment: string, outcome: string): 
     current: string,
     path: string[],
     visited: Set<string>,
-    lastDirection: 'up' | 'down'
+    _lastDirection: 'up' | 'down'
   ): void {
     if (current === outcome) {
       backdoorPaths.push([treatment, ...path]);
@@ -787,7 +783,7 @@ export function checkFrontdoorCriterion(
 
   for (const path of paths) {
     for (const node of path.slice(1, -1)) {
-      const nodeObj = dag.nodes.find(n => n.id === node);
+      const nodeObj = dag.nodes.find((n) => n.id === node);
       if (nodeObj?.observed) {
         mediatorCandidates.add(node);
       }
@@ -830,9 +826,7 @@ export function checkInstrument(
   const relevance = pathExists(dag, instrumentId, treatment);
 
   // 2. Exclusion: no direct path from instrument to outcome
-  const directPathToOutcome = dag.edges.some(
-    e => e.from === instrumentId && e.to === outcome
-  );
+  const directPathToOutcome = dag.edges.some((e) => e.from === instrumentId && e.to === outcome);
   const exclusion = !directPathToOutcome;
 
   // 3. Independence: instrument d-separated from confounders
@@ -872,9 +866,7 @@ export function analyzeIdentifiability(
         'Positivity: P(Z|X) > 0 for all X',
         'Consistency: Y(z) = Y when Z = z'
       ],
-      testableImplications: [
-        `${treatment} ⫫ Z given no conditioning (check for association)`
-      ]
+      testableImplications: [`${treatment} ⫫ Z given no conditioning (check for association)`]
     };
   }
 
@@ -898,7 +890,7 @@ export function analyzeIdentifiability(
   }
 
   // Check for instrumental variables
-  const instruments = dag.nodes.filter(n => n.type === 'instrument');
+  const instruments = dag.nodes.filter((n) => n.type === 'instrument');
   for (const iv of instruments) {
     const ivCheck = checkInstrument(dag, iv.id, treatment, outcome);
     if (ivCheck.valid) {
@@ -911,9 +903,7 @@ export function analyzeIdentifiability(
           'Exclusion restriction (no direct effect on outcome)',
           'Independence (instrument uncorrelated with confounders)'
         ],
-        testableImplications: [
-          `${iv.id} is associated with ${treatment} (first stage)`
-        ]
+        testableImplications: [`${iv.id} is associated with ${treatment} (first stage)`]
       };
     }
   }
@@ -1032,16 +1022,14 @@ export function createTemporalDAG(
  * Extract time slice from temporal DAG
  */
 export function extractTimeSlice(dag: TemporalDAG, timeIndex: number): TimeSlice {
-  const nodes = dag.nodes.filter(n => n.timeIndex === timeIndex);
-  const nodeIds = new Set(nodes.map(n => n.id));
+  const nodes = dag.nodes.filter((n) => n.timeIndex === timeIndex);
+  const nodeIds = new Set(nodes.map((n) => n.id));
 
   const intraEdges = dag.edges.filter(
-    e => nodeIds.has(e.from) && nodeIds.has(e.to) && e.type !== 'temporal'
+    (e) => nodeIds.has(e.from) && nodeIds.has(e.to) && e.type !== 'temporal'
   );
 
-  const forwardEdges = dag.temporalEdges.filter(
-    e => nodeIds.has(e.from) && !nodeIds.has(e.to)
-  );
+  const forwardEdges = dag.temporalEdges.filter((e) => nodeIds.has(e.from) && !nodeIds.has(e.to));
 
   return {
     timeIndex,
@@ -1226,4 +1214,3 @@ function normalCDF(x: number): number {
 
   return 0.5 * (1.0 + sign * y);
 }
-

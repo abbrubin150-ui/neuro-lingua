@@ -1,1063 +1,1110 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Neuro-Lingua Lite</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neuro-Lingua Lite</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      min-height: 100vh;
-      color: #e4e4e7;
-      line-height: 1.6;
-    }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        min-height: 100vh;
+        color: #e4e4e7;
+        line-height: 1.6;
+      }
 
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
 
-    header {
-      text-align: center;
-      padding: 30px 0;
-      border-bottom: 1px solid #3f3f46;
-      margin-bottom: 30px;
-    }
+      header {
+        text-align: center;
+        padding: 30px 0;
+        border-bottom: 1px solid #3f3f46;
+        margin-bottom: 30px;
+      }
 
-    h1 {
-      font-size: 2.5rem;
-      background: linear-gradient(90deg, #60a5fa, #a78bfa);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 10px;
-    }
+      h1 {
+        font-size: 2.5rem;
+        background: linear-gradient(90deg, #60a5fa, #a78bfa);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 10px;
+      }
 
-    .subtitle {
-      color: #a1a1aa;
-      font-size: 1rem;
-    }
+      .subtitle {
+        color: #a1a1aa;
+        font-size: 1rem;
+      }
 
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-
-    @media (max-width: 768px) {
       .grid {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
       }
-    }
 
-    .card {
-      background: rgba(39, 39, 42, 0.8);
-      border-radius: 12px;
-      padding: 24px;
-      border: 1px solid #3f3f46;
-      backdrop-filter: blur(10px);
-    }
+      @media (max-width: 768px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
 
-    .card-title {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+      .card {
+        background: rgba(39, 39, 42, 0.8);
+        border-radius: 12px;
+        padding: 24px;
+        border: 1px solid #3f3f46;
+        backdrop-filter: blur(10px);
+      }
 
-    .card-title::before {
-      content: '';
-      width: 4px;
-      height: 20px;
-      background: linear-gradient(180deg, #60a5fa, #a78bfa);
-      border-radius: 2px;
-    }
+      .card-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
 
-    label {
-      display: block;
-      font-size: 0.875rem;
-      color: #a1a1aa;
-      margin-bottom: 6px;
-    }
+      .card-title::before {
+        content: '';
+        width: 4px;
+        height: 20px;
+        background: linear-gradient(180deg, #60a5fa, #a78bfa);
+        border-radius: 2px;
+      }
 
-    textarea, input[type="text"], input[type="number"] {
-      width: 100%;
-      padding: 12px;
-      background: #18181b;
-      border: 1px solid #3f3f46;
-      border-radius: 8px;
-      color: #e4e4e7;
-      font-family: inherit;
-      font-size: 0.95rem;
-      transition: border-color 0.2s;
-    }
+      label {
+        display: block;
+        font-size: 0.875rem;
+        color: #a1a1aa;
+        margin-bottom: 6px;
+      }
 
-    textarea:focus, input:focus {
-      outline: none;
-      border-color: #60a5fa;
-    }
+      textarea,
+      input[type='text'],
+      input[type='number'] {
+        width: 100%;
+        padding: 12px;
+        background: #18181b;
+        border: 1px solid #3f3f46;
+        border-radius: 8px;
+        color: #e4e4e7;
+        font-family: inherit;
+        font-size: 0.95rem;
+        transition: border-color 0.2s;
+      }
 
-    textarea {
-      min-height: 120px;
-      resize: vertical;
-    }
+      textarea:focus,
+      input:focus {
+        outline: none;
+        border-color: #60a5fa;
+      }
 
-    .input-group {
-      margin-bottom: 16px;
-    }
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
 
-    .input-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-    }
+      .input-group {
+        margin-bottom: 16px;
+      }
 
-    @media (max-width: 500px) {
       .input-row {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
       }
-    }
 
-    button {
-      padding: 12px 24px;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
+      @media (max-width: 500px) {
+        .input-row {
+          grid-template-columns: 1fr;
+        }
+      }
 
-    .btn-primary {
-      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-      color: white;
-    }
+      button {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
 
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-    }
+      .btn-primary {
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        color: white;
+      }
 
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
-    }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+      }
 
-    .btn-secondary {
-      background: #3f3f46;
-      color: #e4e4e7;
-    }
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
 
-    .btn-secondary:hover {
-      background: #52525b;
-    }
+      .btn-secondary {
+        background: #3f3f46;
+        color: #e4e4e7;
+      }
 
-    .progress-bar {
-      width: 100%;
-      height: 8px;
-      background: #18181b;
-      border-radius: 4px;
-      overflow: hidden;
-      margin: 16px 0;
-    }
+      .btn-secondary:hover {
+        background: #52525b;
+      }
 
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-      border-radius: 4px;
-      transition: width 0.3s ease;
-    }
+      .progress-bar {
+        width: 100%;
+        height: 8px;
+        background: #18181b;
+        border-radius: 4px;
+        overflow: hidden;
+        margin: 16px 0;
+      }
 
-    .stats {
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
-      margin-top: 16px;
-    }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+        border-radius: 4px;
+        transition: width 0.3s ease;
+      }
 
-    .stat {
-      background: #18181b;
-      padding: 12px 16px;
-      border-radius: 8px;
-      min-width: 100px;
-    }
+      .stats {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
 
-    .stat-label {
-      font-size: 0.75rem;
-      color: #71717a;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
+      .stat {
+        background: #18181b;
+        padding: 12px 16px;
+        border-radius: 8px;
+        min-width: 100px;
+      }
 
-    .stat-value {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: #60a5fa;
-    }
+      .stat-label {
+        font-size: 0.75rem;
+        color: #71717a;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
 
-    .output-box {
-      background: #18181b;
-      border-radius: 8px;
-      padding: 16px;
-      min-height: 100px;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-family: 'Fira Code', 'Consolas', monospace;
-      font-size: 0.95rem;
-      line-height: 1.8;
-      border: 1px solid #3f3f46;
-    }
+      .stat-value {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #60a5fa;
+      }
 
-    .output-box .prompt {
-      color: #60a5fa;
-    }
+      .output-box {
+        background: #18181b;
+        border-radius: 8px;
+        padding: 16px;
+        min-height: 100px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: 'Fira Code', 'Consolas', monospace;
+        font-size: 0.95rem;
+        line-height: 1.8;
+        border: 1px solid #3f3f46;
+      }
 
-    .output-box .generated {
-      color: #a78bfa;
-    }
+      .output-box .prompt {
+        color: #60a5fa;
+      }
 
-    .slider-group {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+      .output-box .generated {
+        color: #a78bfa;
+      }
 
-    input[type="range"] {
-      flex: 1;
-      height: 6px;
-      background: #3f3f46;
-      border-radius: 3px;
-      -webkit-appearance: none;
-    }
+      .slider-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
 
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 18px;
-      height: 18px;
-      background: #60a5fa;
-      border-radius: 50%;
-      cursor: pointer;
-    }
+      input[type='range'] {
+        flex: 1;
+        height: 6px;
+        background: #3f3f46;
+        border-radius: 3px;
+        -webkit-appearance: none;
+      }
 
-    .slider-value {
-      min-width: 40px;
-      text-align: right;
-      font-weight: 500;
-    }
+      input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        background: #60a5fa;
+        border-radius: 50%;
+        cursor: pointer;
+      }
 
-    .loss-chart {
-      height: 150px;
-      background: #18181b;
-      border-radius: 8px;
-      margin-top: 16px;
-      position: relative;
-      overflow: hidden;
-    }
+      .slider-value {
+        min-width: 40px;
+        text-align: right;
+        font-weight: 500;
+      }
 
-    .loss-chart canvas {
-      width: 100%;
-      height: 100%;
-    }
+      .loss-chart {
+        height: 150px;
+        background: #18181b;
+        border-radius: 8px;
+        margin-top: 16px;
+        position: relative;
+        overflow: hidden;
+      }
 
-    .status {
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 0.875rem;
-      margin-top: 12px;
-    }
+      .loss-chart canvas {
+        width: 100%;
+        height: 100%;
+      }
 
-    .status.info {
-      background: rgba(59, 130, 246, 0.2);
-      color: #93c5fd;
-    }
+      .status {
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        margin-top: 12px;
+      }
 
-    .status.success {
-      background: rgba(34, 197, 94, 0.2);
-      color: #86efac;
-    }
+      .status.info {
+        background: rgba(59, 130, 246, 0.2);
+        color: #93c5fd;
+      }
 
-    .status.error {
-      background: rgba(239, 68, 68, 0.2);
-      color: #fca5a5;
-    }
+      .status.success {
+        background: rgba(34, 197, 94, 0.2);
+        color: #86efac;
+      }
 
-    .buttons {
-      display: flex;
-      gap: 12px;
-      margin-top: 16px;
-    }
+      .status.error {
+        background: rgba(239, 68, 68, 0.2);
+        color: #fca5a5;
+      }
 
-    .vocab-info {
-      font-size: 0.875rem;
-      color: #71717a;
-      margin-top: 8px;
-    }
+      .buttons {
+        display: flex;
+        gap: 12px;
+        margin-top: 16px;
+      }
 
-    footer {
-      text-align: center;
-      padding: 30px;
-      color: #71717a;
-      font-size: 0.875rem;
-    }
+      .vocab-info {
+        font-size: 0.875rem;
+        color: #71717a;
+        margin-top: 8px;
+      }
 
-    footer a {
-      color: #60a5fa;
-      text-decoration: none;
-    }
+      footer {
+        text-align: center;
+        padding: 30px;
+        color: #71717a;
+        font-size: 0.875rem;
+      }
 
-    footer a:hover {
-      text-decoration: underline;
-    }
+      footer a {
+        color: #60a5fa;
+        text-decoration: none;
+      }
 
-    .architecture-badge {
-      display: inline-block;
-      padding: 4px 10px;
-      background: rgba(96, 165, 250, 0.2);
-      color: #60a5fa;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 500;
-      margin-left: auto;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <header>
-      <h1>Neuro-Lingua Lite</h1>
-      <p class="subtitle">Browser-native neural language model - Train and generate text in real-time</p>
-    </header>
+      footer a:hover {
+        text-decoration: underline;
+      }
 
-    <div class="grid">
-      <!-- Training Panel -->
-      <div class="card">
-        <h2 class="card-title">Training <span class="architecture-badge">Feedforward LM</span></h2>
+      .architecture-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        background: rgba(96, 165, 250, 0.2);
+        color: #60a5fa;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        margin-left: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Neuro-Lingua Lite</h1>
+        <p class="subtitle">
+          Browser-native neural language model - Train and generate text in real-time
+        </p>
+      </header>
 
-        <div class="input-group">
-          <label for="corpus">Training Corpus</label>
-          <textarea id="corpus" placeholder="Enter your training text here. The model will learn to predict the next character based on context.">The quick brown fox jumps over the lazy dog. A journey of a thousand miles begins with a single step. To be or not to be, that is the question. All that glitters is not gold. Knowledge is power.</textarea>
-          <div class="vocab-info" id="vocabInfo">Vocabulary: 0 unique characters</div>
+      <div class="grid">
+        <!-- Training Panel -->
+        <div class="card">
+          <h2 class="card-title">
+            Training <span class="architecture-badge">Feedforward LM</span>
+          </h2>
+
+          <div class="input-group">
+            <label for="corpus">Training Corpus</label>
+            <textarea
+              id="corpus"
+              placeholder="Enter your training text here. The model will learn to predict the next character based on context."
+            >
+The quick brown fox jumps over the lazy dog. A journey of a thousand miles begins with a single step. To be or not to be, that is the question. All that glitters is not gold. Knowledge is power.</textarea
+            >
+            <div class="vocab-info" id="vocabInfo">Vocabulary: 0 unique characters</div>
+          </div>
+
+          <div class="input-row">
+            <div class="input-group">
+              <label for="hiddenSize">Hidden Size</label>
+              <input type="number" id="hiddenSize" value="64" min="16" max="256" step="16" />
+            </div>
+            <div class="input-group">
+              <label for="epochs">Epochs</label>
+              <input type="number" id="epochs" value="20" min="1" max="200" />
+            </div>
+            <div class="input-group">
+              <label for="learningRate">Learning Rate</label>
+              <input type="number" id="learningRate" value="0.08" min="0.001" max="1" step="0.01" />
+            </div>
+          </div>
+
+          <div class="input-row">
+            <div class="input-group">
+              <label for="contextSize">Context Size</label>
+              <input type="number" id="contextSize" value="3" min="1" max="8" />
+            </div>
+            <div class="input-group">
+              <label for="momentum">Momentum</label>
+              <input type="number" id="momentum" value="0.9" min="0" max="0.99" step="0.05" />
+            </div>
+            <div class="input-group">
+              <label for="dropout">Dropout</label>
+              <input type="number" id="dropout" value="0.1" min="0" max="0.5" step="0.05" />
+            </div>
+          </div>
+
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressBar" style="width: 0%"></div>
+          </div>
+
+          <div class="buttons">
+            <button class="btn-primary" id="trainBtn" onclick="startTraining()">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              Train Model
+            </button>
+            <button class="btn-secondary" id="resetBtn" onclick="resetModel()">Reset</button>
+          </div>
+
+          <div id="trainingStatus" class="status info" style="display: none"></div>
+
+          <div class="stats" id="stats" style="display: none">
+            <div class="stat">
+              <div class="stat-label">Loss</div>
+              <div class="stat-value" id="lossValue">-</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Perplexity</div>
+              <div class="stat-value" id="perplexityValue">-</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Epoch</div>
+              <div class="stat-value" id="epochValue">-</div>
+            </div>
+          </div>
+
+          <div class="loss-chart">
+            <canvas id="lossChart"></canvas>
+          </div>
         </div>
 
-        <div class="input-row">
-          <div class="input-group">
-            <label for="hiddenSize">Hidden Size</label>
-            <input type="number" id="hiddenSize" value="64" min="16" max="256" step="16">
-          </div>
-          <div class="input-group">
-            <label for="epochs">Epochs</label>
-            <input type="number" id="epochs" value="20" min="1" max="200">
-          </div>
-          <div class="input-group">
-            <label for="learningRate">Learning Rate</label>
-            <input type="number" id="learningRate" value="0.08" min="0.001" max="1" step="0.01">
-          </div>
-        </div>
+        <!-- Generation Panel -->
+        <div class="card">
+          <h2 class="card-title">Text Generation</h2>
 
-        <div class="input-row">
           <div class="input-group">
-            <label for="contextSize">Context Size</label>
-            <input type="number" id="contextSize" value="3" min="1" max="8">
+            <label for="prompt">Prompt</label>
+            <input
+              type="text"
+              id="prompt"
+              placeholder="Enter a prompt to start generating..."
+              value="The"
+            />
           </div>
+
           <div class="input-group">
-            <label for="momentum">Momentum</label>
-            <input type="number" id="momentum" value="0.9" min="0" max="0.99" step="0.05">
+            <label>Temperature: <span id="tempValue">0.8</span></label>
+            <div class="slider-group">
+              <span>0.1</span>
+              <input
+                type="range"
+                id="temperature"
+                min="0.1"
+                max="2"
+                step="0.1"
+                value="0.8"
+                oninput="updateTempDisplay()"
+              />
+              <span>2.0</span>
+            </div>
           </div>
-          <div class="input-group">
-            <label for="dropout">Dropout</label>
-            <input type="number" id="dropout" value="0.1" min="0" max="0.5" step="0.05">
+
+          <div class="input-row">
+            <div class="input-group">
+              <label for="maxTokens">Max Tokens</label>
+              <input type="number" id="maxTokens" value="50" min="1" max="200" />
+            </div>
+            <div class="input-group">
+              <label for="topK">Top-K (0=off)</label>
+              <input type="number" id="topK" value="0" min="0" max="50" />
+            </div>
+            <div class="input-group">
+              <label for="topP">Top-P (0=off)</label>
+              <input type="number" id="topP" value="0" min="0" max="1" step="0.1" />
+            </div>
           </div>
-        </div>
 
-        <div class="progress-bar">
-          <div class="progress-fill" id="progressBar" style="width: 0%"></div>
-        </div>
-
-        <div class="buttons">
-          <button class="btn-primary" id="trainBtn" onclick="startTraining()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
-            Train Model
-          </button>
-          <button class="btn-secondary" id="resetBtn" onclick="resetModel()">Reset</button>
-        </div>
-
-        <div id="trainingStatus" class="status info" style="display: none;"></div>
-
-        <div class="stats" id="stats" style="display: none;">
-          <div class="stat">
-            <div class="stat-label">Loss</div>
-            <div class="stat-value" id="lossValue">-</div>
+          <div class="buttons">
+            <button class="btn-primary" id="generateBtn" onclick="generateText()" disabled>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                ></path>
+              </svg>
+              Generate
+            </button>
+            <button class="btn-secondary" onclick="clearOutput()">Clear</button>
           </div>
-          <div class="stat">
-            <div class="stat-label">Perplexity</div>
-            <div class="stat-value" id="perplexityValue">-</div>
-          </div>
-          <div class="stat">
-            <div class="stat-label">Epoch</div>
-            <div class="stat-value" id="epochValue">-</div>
-          </div>
-        </div>
 
-        <div class="loss-chart">
-          <canvas id="lossChart"></canvas>
+          <div id="generateStatus" class="status info" style="display: none"></div>
+
+          <div class="input-group" style="margin-top: 20px">
+            <label>Generated Output</label>
+            <div class="output-box" id="output">
+              <span class="prompt"></span><span class="generated"></span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Generation Panel -->
-      <div class="card">
-        <h2 class="card-title">Text Generation</h2>
-
-        <div class="input-group">
-          <label for="prompt">Prompt</label>
-          <input type="text" id="prompt" placeholder="Enter a prompt to start generating..." value="The">
-        </div>
-
-        <div class="input-group">
-          <label>Temperature: <span id="tempValue">0.8</span></label>
-          <div class="slider-group">
-            <span>0.1</span>
-            <input type="range" id="temperature" min="0.1" max="2" step="0.1" value="0.8" oninput="updateTempDisplay()">
-            <span>2.0</span>
-          </div>
-        </div>
-
-        <div class="input-row">
-          <div class="input-group">
-            <label for="maxTokens">Max Tokens</label>
-            <input type="number" id="maxTokens" value="50" min="1" max="200">
-          </div>
-          <div class="input-group">
-            <label for="topK">Top-K (0=off)</label>
-            <input type="number" id="topK" value="0" min="0" max="50">
-          </div>
-          <div class="input-group">
-            <label for="topP">Top-P (0=off)</label>
-            <input type="number" id="topP" value="0" min="0" max="1" step="0.1">
-          </div>
-        </div>
-
-        <div class="buttons">
-          <button class="btn-primary" id="generateBtn" onclick="generateText()" disabled>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
-            </svg>
-            Generate
-          </button>
-          <button class="btn-secondary" onclick="clearOutput()">Clear</button>
-        </div>
-
-        <div id="generateStatus" class="status info" style="display: none;"></div>
-
-        <div class="input-group" style="margin-top: 20px;">
-          <label>Generated Output</label>
-          <div class="output-box" id="output">
-            <span class="prompt"></span><span class="generated"></span>
-          </div>
-        </div>
-      </div>
+      <footer>
+        <p>Neuro-Lingua Lite - A lightweight browser-native neural language model</p>
+        <p>
+          Full version:
+          <a href="https://abbrubin150-ui.github.io/neuro-lingua/" target="_blank"
+            >abbrubin150-ui.github.io/neuro-lingua</a
+          >
+        </p>
+      </footer>
     </div>
 
-    <footer>
-      <p>Neuro-Lingua Lite - A lightweight browser-native neural language model</p>
-      <p>Full version: <a href="https://abbrubin150-ui.github.io/neuro-lingua/" target="_blank">abbrubin150-ui.github.io/neuro-lingua</a></p>
-    </footer>
-  </div>
+    <script>
+      // ============================================
+      // Neural Language Model Implementation
+      // ============================================
 
-  <script>
-    // ============================================
-    // Neural Language Model Implementation
-    // ============================================
+      class NeuralLM {
+        constructor(vocabSize, hiddenSize, contextSize) {
+          this.vocabSize = vocabSize;
+          this.hiddenSize = hiddenSize;
+          this.contextSize = contextSize;
+          this.embeddingDim = Math.min(32, vocabSize);
 
-    class NeuralLM {
-      constructor(vocabSize, hiddenSize, contextSize) {
-        this.vocabSize = vocabSize;
-        this.hiddenSize = hiddenSize;
-        this.contextSize = contextSize;
-        this.embeddingDim = Math.min(32, vocabSize);
+          // Initialize weights with Xavier/He initialization
+          this.embeddings = this.initMatrix(vocabSize, this.embeddingDim, 1 / Math.sqrt(this.embeddingDim));
+          this.W1 = this.initMatrix(this.embeddingDim * contextSize, hiddenSize, Math.sqrt(2 / (this.embeddingDim * contextSize)));
+          this.b1 = new Float32Array(hiddenSize);
+          this.W2 = this.initMatrix(hiddenSize, vocabSize, Math.sqrt(2 / hiddenSize));
+          this.b2 = new Float32Array(vocabSize);
 
-        // Initialize weights with Xavier/He initialization
-        this.embeddings = this.initMatrix(vocabSize, this.embeddingDim, 1 / Math.sqrt(this.embeddingDim));
-        this.W1 = this.initMatrix(this.embeddingDim * contextSize, hiddenSize, Math.sqrt(2 / (this.embeddingDim * contextSize)));
-        this.b1 = new Float32Array(hiddenSize);
-        this.W2 = this.initMatrix(hiddenSize, vocabSize, Math.sqrt(2 / hiddenSize));
-        this.b2 = new Float32Array(vocabSize);
+          // Momentum buffers
+          this.vEmb = this.zeroMatrix(vocabSize, this.embeddingDim);
+          this.vW1 = this.zeroMatrix(this.embeddingDim * contextSize, hiddenSize);
+          this.vb1 = new Float32Array(hiddenSize);
+          this.vW2 = this.zeroMatrix(hiddenSize, vocabSize);
+          this.vb2 = new Float32Array(vocabSize);
 
-        // Momentum buffers
-        this.vEmb = this.zeroMatrix(vocabSize, this.embeddingDim);
-        this.vW1 = this.zeroMatrix(this.embeddingDim * contextSize, hiddenSize);
-        this.vb1 = new Float32Array(hiddenSize);
-        this.vW2 = this.zeroMatrix(hiddenSize, vocabSize);
-        this.vb2 = new Float32Array(vocabSize);
-
-        // Training state
-        this.trained = false;
-        this.lossHistory = [];
-      }
-
-      initMatrix(rows, cols, scale) {
-        const mat = [];
-        for (let i = 0; i < rows; i++) {
-          mat[i] = new Float32Array(cols);
-          for (let j = 0; j < cols; j++) {
-            mat[i][j] = (Math.random() * 2 - 1) * scale;
-          }
-        }
-        return mat;
-      }
-
-      zeroMatrix(rows, cols) {
-        const mat = [];
-        for (let i = 0; i < rows; i++) {
-          mat[i] = new Float32Array(cols);
-        }
-        return mat;
-      }
-
-      relu(x) {
-        return Math.max(0, x);
-      }
-
-      reluDerivative(x) {
-        return x > 0 ? 1 : 0;
-      }
-
-      softmax(logits) {
-        const maxLogit = Math.max(...logits);
-        const exps = logits.map(x => Math.exp(x - maxLogit));
-        const sum = exps.reduce((a, b) => a + b, 0);
-        return exps.map(e => e / sum);
-      }
-
-      forward(contextIndices, dropout = 0, training = false) {
-        // Embedding lookup and concatenation
-        const embeddingConcat = new Float32Array(this.embeddingDim * this.contextSize);
-        for (let i = 0; i < this.contextSize; i++) {
-          const idx = contextIndices[i];
-          for (let j = 0; j < this.embeddingDim; j++) {
-            embeddingConcat[i * this.embeddingDim + j] = this.embeddings[idx][j];
-          }
+          // Training state
+          this.trained = false;
+          this.lossHistory = [];
         }
 
-        // Hidden layer: h = ReLU(W1 * x + b1)
-        const preActivation = new Float32Array(this.hiddenSize);
-        const hidden = new Float32Array(this.hiddenSize);
-        const dropoutMask = new Float32Array(this.hiddenSize);
-
-        for (let i = 0; i < this.hiddenSize; i++) {
-          let sum = this.b1[i];
-          for (let j = 0; j < embeddingConcat.length; j++) {
-            sum += this.W1[j][i] * embeddingConcat[j];
-          }
-          preActivation[i] = sum;
-          hidden[i] = this.relu(sum);
-
-          // Apply dropout during training
-          if (training && dropout > 0) {
-            dropoutMask[i] = Math.random() > dropout ? 1 / (1 - dropout) : 0;
-            hidden[i] *= dropoutMask[i];
-          } else {
-            dropoutMask[i] = 1;
-          }
-        }
-
-        // Output layer: logits = W2 * h + b2
-        const logits = new Float32Array(this.vocabSize);
-        for (let i = 0; i < this.vocabSize; i++) {
-          let sum = this.b2[i];
-          for (let j = 0; j < this.hiddenSize; j++) {
-            sum += this.W2[j][i] * hidden[j];
-          }
-          logits[i] = sum;
-        }
-
-        return { embeddingConcat, preActivation, hidden, logits, dropoutMask };
-      }
-
-      train(corpus, charToIdx, idxToChar, epochs, lr, momentum, dropout, onProgress) {
-        const tokens = corpus.split('').map(c => charToIdx[c] ?? 0);
-        if (tokens.length < this.contextSize + 1) {
-          throw new Error('Corpus too short for context size');
-        }
-
-        this.lossHistory = [];
-
-        for (let epoch = 0; epoch < epochs; epoch++) {
-          let totalLoss = 0;
-          let count = 0;
-
-          for (let i = 0; i < tokens.length - this.contextSize; i++) {
-            const context = tokens.slice(i, i + this.contextSize);
-            const target = tokens[i + this.contextSize];
-
-            // Forward pass
-            const { embeddingConcat, preActivation, hidden, logits, dropoutMask } =
-              this.forward(context, dropout, true);
-            const probs = this.softmax(logits);
-
-            // Cross-entropy loss
-            const loss = -Math.log(Math.max(probs[target], 1e-10));
-            totalLoss += loss;
-            count++;
-
-            // Backward pass
-            // Output gradient: dL/dlogits = probs - one_hot(target)
-            const dLogits = new Float32Array(probs);
-            dLogits[target] -= 1;
-
-            // Gradient for W2, b2
-            const dW2 = this.zeroMatrix(this.hiddenSize, this.vocabSize);
-            const db2 = new Float32Array(dLogits);
-            for (let j = 0; j < this.hiddenSize; j++) {
-              for (let k = 0; k < this.vocabSize; k++) {
-                dW2[j][k] = hidden[j] * dLogits[k];
-              }
+        initMatrix(rows, cols, scale) {
+          const mat = [];
+          for (let i = 0; i < rows; i++) {
+            mat[i] = new Float32Array(cols);
+            for (let j = 0; j < cols; j++) {
+              mat[i][j] = (Math.random() * 2 - 1) * scale;
             }
+          }
+          return mat;
+        }
 
-            // Hidden gradient: dL/dh = W2 * dLogits
-            const dHidden = new Float32Array(this.hiddenSize);
-            for (let j = 0; j < this.hiddenSize; j++) {
-              let sum = 0;
-              for (let k = 0; k < this.vocabSize; k++) {
-                sum += this.W2[j][k] * dLogits[k];
-              }
-              dHidden[j] = sum * dropoutMask[j] * this.reluDerivative(preActivation[j]);
+        zeroMatrix(rows, cols) {
+          const mat = [];
+          for (let i = 0; i < rows; i++) {
+            mat[i] = new Float32Array(cols);
+          }
+          return mat;
+        }
+
+        relu(x) {
+          return Math.max(0, x);
+        }
+
+        reluDerivative(x) {
+          return x > 0 ? 1 : 0;
+        }
+
+        softmax(logits) {
+          const maxLogit = Math.max(...logits);
+          const exps = logits.map(x => Math.exp(x - maxLogit));
+          const sum = exps.reduce((a, b) => a + b, 0);
+          return exps.map(e => e / sum);
+        }
+
+        forward(contextIndices, dropout = 0, training = false) {
+          // Embedding lookup and concatenation
+          const embeddingConcat = new Float32Array(this.embeddingDim * this.contextSize);
+          for (let i = 0; i < this.contextSize; i++) {
+            const idx = contextIndices[i];
+            for (let j = 0; j < this.embeddingDim; j++) {
+              embeddingConcat[i * this.embeddingDim + j] = this.embeddings[idx][j];
             }
+          }
 
-            // Gradient for W1, b1
-            const dW1 = this.zeroMatrix(embeddingConcat.length, this.hiddenSize);
-            const db1 = new Float32Array(dHidden);
+          // Hidden layer: h = ReLU(W1 * x + b1)
+          const preActivation = new Float32Array(this.hiddenSize);
+          const hidden = new Float32Array(this.hiddenSize);
+          const dropoutMask = new Float32Array(this.hiddenSize);
+
+          for (let i = 0; i < this.hiddenSize; i++) {
+            let sum = this.b1[i];
             for (let j = 0; j < embeddingConcat.length; j++) {
-              for (let k = 0; k < this.hiddenSize; k++) {
-                dW1[j][k] = embeddingConcat[j] * dHidden[k];
-              }
+              sum += this.W1[j][i] * embeddingConcat[j];
             }
+            preActivation[i] = sum;
+            hidden[i] = this.relu(sum);
 
-            // Gradient for embeddings
-            const dEmbConcat = new Float32Array(embeddingConcat.length);
-            for (let j = 0; j < embeddingConcat.length; j++) {
-              let sum = 0;
-              for (let k = 0; k < this.hiddenSize; k++) {
-                sum += this.W1[j][k] * dHidden[k];
-              }
-              dEmbConcat[j] = sum;
+            // Apply dropout during training
+            if (training && dropout > 0) {
+              dropoutMask[i] = Math.random() > dropout ? 1 / (1 - dropout) : 0;
+              hidden[i] *= dropoutMask[i];
+            } else {
+              dropoutMask[i] = 1;
             }
+          }
 
-            // Update weights with momentum SGD
-            // W2
+          // Output layer: logits = W2 * h + b2
+          const logits = new Float32Array(this.vocabSize);
+          for (let i = 0; i < this.vocabSize; i++) {
+            let sum = this.b2[i];
             for (let j = 0; j < this.hiddenSize; j++) {
+              sum += this.W2[j][i] * hidden[j];
+            }
+            logits[i] = sum;
+          }
+
+          return { embeddingConcat, preActivation, hidden, logits, dropoutMask };
+        }
+
+        train(corpus, charToIdx, idxToChar, epochs, lr, momentum, dropout, onProgress) {
+          const tokens = corpus.split('').map(c => charToIdx[c] ?? 0);
+          if (tokens.length < this.contextSize + 1) {
+            throw new Error('Corpus too short for context size');
+          }
+
+          this.lossHistory = [];
+
+          for (let epoch = 0; epoch < epochs; epoch++) {
+            let totalLoss = 0;
+            let count = 0;
+
+            for (let i = 0; i < tokens.length - this.contextSize; i++) {
+              const context = tokens.slice(i, i + this.contextSize);
+              const target = tokens[i + this.contextSize];
+
+              // Forward pass
+              const { embeddingConcat, preActivation, hidden, logits, dropoutMask } =
+                this.forward(context, dropout, true);
+              const probs = this.softmax(logits);
+
+              // Cross-entropy loss
+              const loss = -Math.log(Math.max(probs[target], 1e-10));
+              totalLoss += loss;
+              count++;
+
+              // Backward pass
+              // Output gradient: dL/dlogits = probs - one_hot(target)
+              const dLogits = new Float32Array(probs);
+              dLogits[target] -= 1;
+
+              // Gradient for W2, b2
+              const dW2 = this.zeroMatrix(this.hiddenSize, this.vocabSize);
+              const db2 = new Float32Array(dLogits);
+              for (let j = 0; j < this.hiddenSize; j++) {
+                for (let k = 0; k < this.vocabSize; k++) {
+                  dW2[j][k] = hidden[j] * dLogits[k];
+                }
+              }
+
+              // Hidden gradient: dL/dh = W2 * dLogits
+              const dHidden = new Float32Array(this.hiddenSize);
+              for (let j = 0; j < this.hiddenSize; j++) {
+                let sum = 0;
+                for (let k = 0; k < this.vocabSize; k++) {
+                  sum += this.W2[j][k] * dLogits[k];
+                }
+                dHidden[j] = sum * dropoutMask[j] * this.reluDerivative(preActivation[j]);
+              }
+
+              // Gradient for W1, b1
+              const dW1 = this.zeroMatrix(embeddingConcat.length, this.hiddenSize);
+              const db1 = new Float32Array(dHidden);
+              for (let j = 0; j < embeddingConcat.length; j++) {
+                for (let k = 0; k < this.hiddenSize; k++) {
+                  dW1[j][k] = embeddingConcat[j] * dHidden[k];
+                }
+              }
+
+              // Gradient for embeddings
+              const dEmbConcat = new Float32Array(embeddingConcat.length);
+              for (let j = 0; j < embeddingConcat.length; j++) {
+                let sum = 0;
+                for (let k = 0; k < this.hiddenSize; k++) {
+                  sum += this.W1[j][k] * dHidden[k];
+                }
+                dEmbConcat[j] = sum;
+              }
+
+              // Update weights with momentum SGD
+              // W2
+              for (let j = 0; j < this.hiddenSize; j++) {
+                for (let k = 0; k < this.vocabSize; k++) {
+                  this.vW2[j][k] = momentum * this.vW2[j][k] - lr * dW2[j][k];
+                  this.W2[j][k] += this.vW2[j][k];
+                }
+              }
               for (let k = 0; k < this.vocabSize; k++) {
-                this.vW2[j][k] = momentum * this.vW2[j][k] - lr * dW2[j][k];
-                this.W2[j][k] += this.vW2[j][k];
+                this.vb2[k] = momentum * this.vb2[k] - lr * db2[k];
+                this.b2[k] += this.vb2[k];
               }
-            }
-            for (let k = 0; k < this.vocabSize; k++) {
-              this.vb2[k] = momentum * this.vb2[k] - lr * db2[k];
-              this.b2[k] += this.vb2[k];
-            }
 
-            // W1
-            for (let j = 0; j < embeddingConcat.length; j++) {
+              // W1
+              for (let j = 0; j < embeddingConcat.length; j++) {
+                for (let k = 0; k < this.hiddenSize; k++) {
+                  this.vW1[j][k] = momentum * this.vW1[j][k] - lr * dW1[j][k];
+                  this.W1[j][k] += this.vW1[j][k];
+                }
+              }
               for (let k = 0; k < this.hiddenSize; k++) {
-                this.vW1[j][k] = momentum * this.vW1[j][k] - lr * dW1[j][k];
-                this.W1[j][k] += this.vW1[j][k];
+                this.vb1[k] = momentum * this.vb1[k] - lr * db1[k];
+                this.b1[k] += this.vb1[k];
+              }
+
+              // Embeddings
+              for (let ci = 0; ci < this.contextSize; ci++) {
+                const idx = context[ci];
+                for (let j = 0; j < this.embeddingDim; j++) {
+                  const grad = dEmbConcat[ci * this.embeddingDim + j];
+                  this.vEmb[idx][j] = momentum * this.vEmb[idx][j] - lr * grad;
+                  this.embeddings[idx][j] += this.vEmb[idx][j];
+                }
               }
             }
-            for (let k = 0; k < this.hiddenSize; k++) {
-              this.vb1[k] = momentum * this.vb1[k] - lr * db1[k];
-              this.b1[k] += this.vb1[k];
+
+            const avgLoss = totalLoss / count;
+            const perplexity = Math.exp(avgLoss);
+            this.lossHistory.push(avgLoss);
+
+            if (onProgress) {
+              onProgress(epoch + 1, epochs, avgLoss, perplexity);
             }
 
-            // Embeddings
-            for (let ci = 0; ci < this.contextSize; ci++) {
-              const idx = context[ci];
-              for (let j = 0; j < this.embeddingDim; j++) {
-                const grad = dEmbConcat[ci * this.embeddingDim + j];
-                this.vEmb[idx][j] = momentum * this.vEmb[idx][j] - lr * grad;
-                this.embeddings[idx][j] += this.vEmb[idx][j];
+            // Yield to browser every few epochs
+            if (epoch % 5 === 0) {
+              await new Promise(r => setTimeout(r, 0));
+            }
+          }
+
+          this.trained = true;
+        }
+
+        generate(promptIndices, maxTokens, temperature, topK, topP, charToIdx, idxToChar) {
+          if (!this.trained) {
+            throw new Error('Model must be trained first');
+          }
+
+          let context = [...promptIndices];
+
+          // Pad context if needed
+          while (context.length < this.contextSize) {
+            context.unshift(0);
+          }
+
+          // Take last contextSize tokens
+          context = context.slice(-this.contextSize);
+
+          const generated = [];
+
+          for (let i = 0; i < maxTokens; i++) {
+            const { logits } = this.forward(context, 0, false);
+
+            // Apply temperature
+            const scaledLogits = logits.map(x => x / temperature);
+            let probs = this.softmax(scaledLogits);
+
+            // Apply top-k filtering
+            if (topK > 0 && topK < this.vocabSize) {
+              const sorted = [...probs].map((p, i) => ({ p, i })).sort((a, b) => b.p - a.p);
+              const threshold = sorted[topK - 1].p;
+              probs = probs.map((p, i) => p >= threshold ? p : 0);
+              const sum = probs.reduce((a, b) => a + b, 0);
+              probs = probs.map(p => p / sum);
+            }
+
+            // Apply top-p (nucleus) filtering
+            if (topP > 0 && topP < 1) {
+              const sorted = [...probs].map((p, i) => ({ p, i })).sort((a, b) => b.p - a.p);
+              let cumSum = 0;
+              const filtered = new Float32Array(probs.length);
+              for (const { p, i } of sorted) {
+                if (cumSum < topP) {
+                  filtered[i] = p;
+                  cumSum += p;
+                }
+              }
+              const sum = filtered.reduce((a, b) => a + b, 0);
+              probs = filtered.map(p => p / sum);
+            }
+
+            // Sample from distribution
+            const r = Math.random();
+            let cumProb = 0;
+            let nextToken = 0;
+            for (let j = 0; j < probs.length; j++) {
+              cumProb += probs[j];
+              if (r <= cumProb) {
+                nextToken = j;
+                break;
               }
             }
+
+            generated.push(nextToken);
+            context = [...context.slice(1), nextToken];
           }
 
-          const avgLoss = totalLoss / count;
-          const perplexity = Math.exp(avgLoss);
-          this.lossHistory.push(avgLoss);
+          return generated.map(i => idxToChar[i]).join('');
+        }
+      }
 
-          if (onProgress) {
-            onProgress(epoch + 1, epochs, avgLoss, perplexity);
-          }
+      // ============================================
+      // Application State and UI
+      // ============================================
 
-          // Yield to browser every few epochs
-          if (epoch % 5 === 0) {
-            await new Promise(r => setTimeout(r, 0));
-          }
+      let model = null;
+      let charToIdx = {};
+      let idxToChar = {};
+      let isTraining = false;
+
+      // Initialize vocab info display
+      document.getElementById('corpus').addEventListener('input', updateVocabInfo);
+      updateVocabInfo();
+
+      function updateVocabInfo() {
+        const corpus = document.getElementById('corpus').value;
+        const uniqueChars = new Set(corpus.split(''));
+        document.getElementById('vocabInfo').textContent =
+          `Vocabulary: ${uniqueChars.size} unique characters`;
+      }
+
+      function updateTempDisplay() {
+        document.getElementById('tempValue').textContent =
+          parseFloat(document.getElementById('temperature').value).toFixed(1);
+      }
+
+      async function startTraining() {
+        if (isTraining) return;
+
+        const corpus = document.getElementById('corpus').value.trim();
+        if (corpus.length < 10) {
+          showStatus('trainingStatus', 'Corpus must have at least 10 characters', 'error');
+          return;
         }
 
-        this.trained = true;
-      }
+        const hiddenSize = parseInt(document.getElementById('hiddenSize').value);
+        const epochs = parseInt(document.getElementById('epochs').value);
+        const learningRate = parseFloat(document.getElementById('learningRate').value);
+        const contextSize = parseInt(document.getElementById('contextSize').value);
+        const momentum = parseFloat(document.getElementById('momentum').value);
+        const dropout = parseFloat(document.getElementById('dropout').value);
 
-      generate(promptIndices, maxTokens, temperature, topK, topP, charToIdx, idxToChar) {
-        if (!this.trained) {
-          throw new Error('Model must be trained first');
+        // Build vocabulary
+        const uniqueChars = [...new Set(corpus.split(''))].sort();
+        if (uniqueChars.length < 5) {
+          showStatus('trainingStatus', 'Corpus needs at least 5 unique characters', 'error');
+          return;
         }
 
-        let context = [...promptIndices];
-
-        // Pad context if needed
-        while (context.length < this.contextSize) {
-          context.unshift(0);
-        }
-
-        // Take last contextSize tokens
-        context = context.slice(-this.contextSize);
-
-        const generated = [];
-
-        for (let i = 0; i < maxTokens; i++) {
-          const { logits } = this.forward(context, 0, false);
-
-          // Apply temperature
-          const scaledLogits = logits.map(x => x / temperature);
-          let probs = this.softmax(scaledLogits);
-
-          // Apply top-k filtering
-          if (topK > 0 && topK < this.vocabSize) {
-            const sorted = [...probs].map((p, i) => ({ p, i })).sort((a, b) => b.p - a.p);
-            const threshold = sorted[topK - 1].p;
-            probs = probs.map((p, i) => p >= threshold ? p : 0);
-            const sum = probs.reduce((a, b) => a + b, 0);
-            probs = probs.map(p => p / sum);
-          }
-
-          // Apply top-p (nucleus) filtering
-          if (topP > 0 && topP < 1) {
-            const sorted = [...probs].map((p, i) => ({ p, i })).sort((a, b) => b.p - a.p);
-            let cumSum = 0;
-            const filtered = new Float32Array(probs.length);
-            for (const { p, i } of sorted) {
-              if (cumSum < topP) {
-                filtered[i] = p;
-                cumSum += p;
-              }
-            }
-            const sum = filtered.reduce((a, b) => a + b, 0);
-            probs = filtered.map(p => p / sum);
-          }
-
-          // Sample from distribution
-          const r = Math.random();
-          let cumProb = 0;
-          let nextToken = 0;
-          for (let j = 0; j < probs.length; j++) {
-            cumProb += probs[j];
-            if (r <= cumProb) {
-              nextToken = j;
-              break;
-            }
-          }
-
-          generated.push(nextToken);
-          context = [...context.slice(1), nextToken];
-        }
-
-        return generated.map(i => idxToChar[i]).join('');
-      }
-    }
-
-    // ============================================
-    // Application State and UI
-    // ============================================
-
-    let model = null;
-    let charToIdx = {};
-    let idxToChar = {};
-    let isTraining = false;
-
-    // Initialize vocab info display
-    document.getElementById('corpus').addEventListener('input', updateVocabInfo);
-    updateVocabInfo();
-
-    function updateVocabInfo() {
-      const corpus = document.getElementById('corpus').value;
-      const uniqueChars = new Set(corpus.split(''));
-      document.getElementById('vocabInfo').textContent =
-        `Vocabulary: ${uniqueChars.size} unique characters`;
-    }
-
-    function updateTempDisplay() {
-      document.getElementById('tempValue').textContent =
-        parseFloat(document.getElementById('temperature').value).toFixed(1);
-    }
-
-    async function startTraining() {
-      if (isTraining) return;
-
-      const corpus = document.getElementById('corpus').value.trim();
-      if (corpus.length < 10) {
-        showStatus('trainingStatus', 'Corpus must have at least 10 characters', 'error');
-        return;
-      }
-
-      const hiddenSize = parseInt(document.getElementById('hiddenSize').value);
-      const epochs = parseInt(document.getElementById('epochs').value);
-      const learningRate = parseFloat(document.getElementById('learningRate').value);
-      const contextSize = parseInt(document.getElementById('contextSize').value);
-      const momentum = parseFloat(document.getElementById('momentum').value);
-      const dropout = parseFloat(document.getElementById('dropout').value);
-
-      // Build vocabulary
-      const uniqueChars = [...new Set(corpus.split(''))].sort();
-      if (uniqueChars.length < 5) {
-        showStatus('trainingStatus', 'Corpus needs at least 5 unique characters', 'error');
-        return;
-      }
-
-      charToIdx = {};
-      idxToChar = {};
-      uniqueChars.forEach((char, idx) => {
-        charToIdx[char] = idx;
-        idxToChar[idx] = char;
-      });
-
-      const vocabSize = uniqueChars.length;
-
-      // Initialize model
-      model = new NeuralLM(vocabSize, hiddenSize, contextSize);
-
-      // UI updates
-      isTraining = true;
-      document.getElementById('trainBtn').disabled = true;
-      document.getElementById('generateBtn').disabled = true;
-      document.getElementById('stats').style.display = 'flex';
-      showStatus('trainingStatus', 'Training started...', 'info');
-
-      try {
-        await model.train(
-          corpus,
-          charToIdx,
-          idxToChar,
-          epochs,
-          learningRate,
-          momentum,
-          dropout,
-          (epoch, total, loss, perplexity) => {
-            const progress = (epoch / total) * 100;
-            document.getElementById('progressBar').style.width = `${progress}%`;
-            document.getElementById('lossValue').textContent = loss.toFixed(4);
-            document.getElementById('perplexityValue').textContent = perplexity.toFixed(2);
-            document.getElementById('epochValue').textContent = `${epoch}/${total}`;
-            drawLossChart();
-          }
-        );
-
-        showStatus('trainingStatus', `Training complete! Final loss: ${model.lossHistory[model.lossHistory.length - 1].toFixed(4)}`, 'success');
-        document.getElementById('generateBtn').disabled = false;
-      } catch (error) {
-        showStatus('trainingStatus', `Training error: ${error.message}`, 'error');
-      } finally {
-        isTraining = false;
-        document.getElementById('trainBtn').disabled = false;
-      }
-    }
-
-    function generateText() {
-      if (!model || !model.trained) {
-        showStatus('generateStatus', 'Please train the model first', 'error');
-        return;
-      }
-
-      const prompt = document.getElementById('prompt').value;
-      const maxTokens = parseInt(document.getElementById('maxTokens').value);
-      const temperature = parseFloat(document.getElementById('temperature').value);
-      const topK = parseInt(document.getElementById('topK').value);
-      const topP = parseFloat(document.getElementById('topP').value);
-
-      if (!prompt) {
-        showStatus('generateStatus', 'Please enter a prompt', 'error');
-        return;
-      }
-
-      try {
-        const promptIndices = prompt.split('').map(c => {
-          if (charToIdx[c] !== undefined) return charToIdx[c];
-          // Find closest char or use first
-          return 0;
+        charToIdx = {};
+        idxToChar = {};
+        uniqueChars.forEach((char, idx) => {
+          charToIdx[char] = idx;
+          idxToChar[idx] = char;
         });
 
-        const generated = model.generate(
-          promptIndices,
-          maxTokens,
-          temperature,
-          topK,
-          topP,
-          charToIdx,
-          idxToChar
-        );
+        const vocabSize = uniqueChars.length;
 
-        const outputBox = document.getElementById('output');
-        outputBox.innerHTML = `<span class="prompt">${escapeHtml(prompt)}</span><span class="generated">${escapeHtml(generated)}</span>`;
+        // Initialize model
+        model = new NeuralLM(vocabSize, hiddenSize, contextSize);
 
-        showStatus('generateStatus', `Generated ${generated.length} characters`, 'success');
-      } catch (error) {
-        showStatus('generateStatus', `Generation error: ${error.message}`, 'error');
+        // UI updates
+        isTraining = true;
+        document.getElementById('trainBtn').disabled = true;
+        document.getElementById('generateBtn').disabled = true;
+        document.getElementById('stats').style.display = 'flex';
+        showStatus('trainingStatus', 'Training started...', 'info');
+
+        try {
+          await model.train(
+            corpus,
+            charToIdx,
+            idxToChar,
+            epochs,
+            learningRate,
+            momentum,
+            dropout,
+            (epoch, total, loss, perplexity) => {
+              const progress = (epoch / total) * 100;
+              document.getElementById('progressBar').style.width = `${progress}%`;
+              document.getElementById('lossValue').textContent = loss.toFixed(4);
+              document.getElementById('perplexityValue').textContent = perplexity.toFixed(2);
+              document.getElementById('epochValue').textContent = `${epoch}/${total}`;
+              drawLossChart();
+            }
+          );
+
+          showStatus('trainingStatus', `Training complete! Final loss: ${model.lossHistory[model.lossHistory.length - 1].toFixed(4)}`, 'success');
+          document.getElementById('generateBtn').disabled = false;
+        } catch (error) {
+          showStatus('trainingStatus', `Training error: ${error.message}`, 'error');
+        } finally {
+          isTraining = false;
+          document.getElementById('trainBtn').disabled = false;
+        }
       }
-    }
 
-    function resetModel() {
-      model = null;
-      charToIdx = {};
-      idxToChar = {};
-      document.getElementById('progressBar').style.width = '0%';
-      document.getElementById('stats').style.display = 'none';
-      document.getElementById('generateBtn').disabled = true;
-      document.getElementById('output').innerHTML = '<span class="prompt"></span><span class="generated"></span>';
-      clearLossChart();
-      hideStatus('trainingStatus');
-      hideStatus('generateStatus');
-    }
+      function generateText() {
+        if (!model || !model.trained) {
+          showStatus('generateStatus', 'Please train the model first', 'error');
+          return;
+        }
 
-    function clearOutput() {
-      document.getElementById('output').innerHTML = '<span class="prompt"></span><span class="generated"></span>';
-      hideStatus('generateStatus');
-    }
+        const prompt = document.getElementById('prompt').value;
+        const maxTokens = parseInt(document.getElementById('maxTokens').value);
+        const temperature = parseFloat(document.getElementById('temperature').value);
+        const topK = parseInt(document.getElementById('topK').value);
+        const topP = parseFloat(document.getElementById('topP').value);
 
-    function showStatus(id, message, type) {
-      const el = document.getElementById(id);
-      el.textContent = message;
-      el.className = `status ${type}`;
-      el.style.display = 'block';
-    }
+        if (!prompt) {
+          showStatus('generateStatus', 'Please enter a prompt', 'error');
+          return;
+        }
 
-    function hideStatus(id) {
-      document.getElementById(id).style.display = 'none';
-    }
+        try {
+          const promptIndices = prompt.split('').map(c => {
+            if (charToIdx[c] !== undefined) return charToIdx[c];
+            // Find closest char or use first
+            return 0;
+          });
 
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
+          const generated = model.generate(
+            promptIndices,
+            maxTokens,
+            temperature,
+            topK,
+            topP,
+            charToIdx,
+            idxToChar
+          );
 
-    // ============================================
-    // Loss Chart
-    // ============================================
+          const outputBox = document.getElementById('output');
+          outputBox.innerHTML = `<span class="prompt">${escapeHtml(prompt)}</span><span class="generated">${escapeHtml(generated)}</span>`;
 
-    function drawLossChart() {
-      if (!model || model.lossHistory.length === 0) return;
+          showStatus('generateStatus', `Generated ${generated.length} characters`, 'success');
+        } catch (error) {
+          showStatus('generateStatus', `Generation error: ${error.message}`, 'error');
+        }
+      }
 
-      const canvas = document.getElementById('lossChart');
-      const ctx = canvas.getContext('2d');
-      const rect = canvas.getBoundingClientRect();
+      function resetModel() {
+        model = null;
+        charToIdx = {};
+        idxToChar = {};
+        document.getElementById('progressBar').style.width = '0%';
+        document.getElementById('stats').style.display = 'none';
+        document.getElementById('generateBtn').disabled = true;
+        document.getElementById('output').innerHTML = '<span class="prompt"></span><span class="generated"></span>';
+        clearLossChart();
+        hideStatus('trainingStatus');
+        hideStatus('generateStatus');
+      }
 
-      canvas.width = rect.width * window.devicePixelRatio;
-      canvas.height = rect.height * window.devicePixelRatio;
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      function clearOutput() {
+        document.getElementById('output').innerHTML = '<span class="prompt"></span><span class="generated"></span>';
+        hideStatus('generateStatus');
+      }
 
-      const width = rect.width;
-      const height = rect.height;
-      const padding = 30;
-      const losses = model.lossHistory;
+      function showStatus(id, message, type) {
+        const el = document.getElementById(id);
+        el.textContent = message;
+        el.className = `status ${type}`;
+        el.style.display = 'block';
+      }
 
-      // Clear
-      ctx.fillStyle = '#18181b';
-      ctx.fillRect(0, 0, width, height);
+      function hideStatus(id) {
+        document.getElementById(id).style.display = 'none';
+      }
 
-      if (losses.length < 2) return;
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
 
-      // Calculate bounds
-      const minLoss = Math.min(...losses);
-      const maxLoss = Math.max(...losses);
-      const range = maxLoss - minLoss || 1;
+      // ============================================
+      // Loss Chart
+      // ============================================
 
-      // Draw grid lines
-      ctx.strokeStyle = '#3f3f46';
-      ctx.lineWidth = 0.5;
-      for (let i = 0; i <= 4; i++) {
-        const y = padding + (height - 2 * padding) * (i / 4);
+      function drawLossChart() {
+        if (!model || model.lossHistory.length === 0) return;
+
+        const canvas = document.getElementById('lossChart');
+        const ctx = canvas.getContext('2d');
+        const rect = canvas.getBoundingClientRect();
+
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+        const width = rect.width;
+        const height = rect.height;
+        const padding = 30;
+        const losses = model.lossHistory;
+
+        // Clear
+        ctx.fillStyle = '#18181b';
+        ctx.fillRect(0, 0, width, height);
+
+        if (losses.length < 2) return;
+
+        // Calculate bounds
+        const minLoss = Math.min(...losses);
+        const maxLoss = Math.max(...losses);
+        const range = maxLoss - minLoss || 1;
+
+        // Draw grid lines
+        ctx.strokeStyle = '#3f3f46';
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i <= 4; i++) {
+          const y = padding + (height - 2 * padding) * (i / 4);
+          ctx.beginPath();
+          ctx.moveTo(padding, y);
+          ctx.lineTo(width - padding, y);
+          ctx.stroke();
+        }
+
+        // Draw loss curve
+        ctx.strokeStyle = '#60a5fa';
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(padding, y);
-        ctx.lineTo(width - padding, y);
+
+        losses.forEach((loss, i) => {
+          const x = padding + (width - 2 * padding) * (i / (losses.length - 1));
+          const y = padding + (height - 2 * padding) * (1 - (loss - minLoss) / range);
+
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+
         ctx.stroke();
+
+        // Draw gradient fill
+        const gradient = ctx.createLinearGradient(0, padding, 0, height - padding);
+        gradient.addColorStop(0, 'rgba(96, 165, 250, 0.3)');
+        gradient.addColorStop(1, 'rgba(96, 165, 250, 0)');
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        losses.forEach((loss, i) => {
+          const x = padding + (width - 2 * padding) * (i / (losses.length - 1));
+          const y = padding + (height - 2 * padding) * (1 - (loss - minLoss) / range);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.lineTo(width - padding, height - padding);
+        ctx.lineTo(padding, height - padding);
+        ctx.closePath();
+        ctx.fill();
+
+        // Labels
+        ctx.fillStyle = '#71717a';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(maxLoss.toFixed(2), padding - 5, padding + 4);
+        ctx.fillText(minLoss.toFixed(2), padding - 5, height - padding + 4);
+
+        ctx.textAlign = 'center';
+        ctx.fillText('1', padding, height - padding + 14);
+        ctx.fillText(losses.length.toString(), width - padding, height - padding + 14);
+        ctx.fillText('Epoch', width / 2, height - 5);
       }
 
-      // Draw loss curve
-      ctx.strokeStyle = '#60a5fa';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
+      function clearLossChart() {
+        const canvas = document.getElementById('lossChart');
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#18181b';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
 
-      losses.forEach((loss, i) => {
-        const x = padding + (width - 2 * padding) * (i / (losses.length - 1));
-        const y = padding + (height - 2 * padding) * (1 - (loss - minLoss) / range);
-
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
+      // Handle window resize for chart
+      window.addEventListener('resize', () => {
+        if (model && model.lossHistory.length > 0) {
+          drawLossChart();
         }
       });
-
-      ctx.stroke();
-
-      // Draw gradient fill
-      const gradient = ctx.createLinearGradient(0, padding, 0, height - padding);
-      gradient.addColorStop(0, 'rgba(96, 165, 250, 0.3)');
-      gradient.addColorStop(1, 'rgba(96, 165, 250, 0)');
-
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      losses.forEach((loss, i) => {
-        const x = padding + (width - 2 * padding) * (i / (losses.length - 1));
-        const y = padding + (height - 2 * padding) * (1 - (loss - minLoss) / range);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.lineTo(width - padding, height - padding);
-      ctx.lineTo(padding, height - padding);
-      ctx.closePath();
-      ctx.fill();
-
-      // Labels
-      ctx.fillStyle = '#71717a';
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = 'right';
-      ctx.fillText(maxLoss.toFixed(2), padding - 5, padding + 4);
-      ctx.fillText(minLoss.toFixed(2), padding - 5, height - padding + 4);
-
-      ctx.textAlign = 'center';
-      ctx.fillText('1', padding, height - padding + 14);
-      ctx.fillText(losses.length.toString(), width - padding, height - padding + 14);
-      ctx.fillText('Epoch', width / 2, height - 5);
-    }
-
-    function clearLossChart() {
-      const canvas = document.getElementById('lossChart');
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#18181b';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    // Handle window resize for chart
-    window.addEventListener('resize', () => {
-      if (model && model.lossHistory.length > 0) {
-        drawLossChart();
-      }
-    });
-  </script>
-</body>
+    </script>
+  </body>
 </html>

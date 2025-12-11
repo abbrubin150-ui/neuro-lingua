@@ -438,30 +438,3 @@ export interface ManskiBounds {
   selectionAssumption?: string;
 }
 
-// ============================================================================
-// Export all types
-// ============================================================================
-
-export type {
-  CausalNodeType,
-  CausalNode,
-  CausalEdge,
-  CausalDAG,
-  TemporalLag,
-  TemporalDependencies,
-  SelectionMechanism,
-  UnmeasuredConfounderSpec,
-  DSeparationResult,
-  BackdoorCriterionResult,
-  FrontdoorCriterionResult,
-  InstrumentCheckResult,
-  IdentifiabilityAnalysis,
-  CausalEffectType,
-  CausalQuery,
-  DAGValidationResult,
-  TemporalDAG,
-  TimeSlice,
-  RosenbaumBounds,
-  EValue,
-  ManskiBounds
-};

@@ -46,6 +46,8 @@ interface ChatInterfaceProps {
   onMaxTokensChange?: (value: number) => void;
   samplingMode?: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat';
   onSamplingModeChange?: (value: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat') => void;
+  mirostatEnabled?: boolean;
+  onMirostatEnabledChange?: (value: boolean) => void;
   topK?: number;
   onTopKChange?: (value: number) => void;
   topP?: number;
@@ -85,6 +87,8 @@ export function ChatInterface({
   onMaxTokensChange,
   samplingMode = 'topp',
   onSamplingModeChange,
+  mirostatEnabled = samplingMode === 'mirostat',
+  onMirostatEnabledChange,
   topK = 20,
   onTopKChange,
   topP = 0.9,
@@ -333,6 +337,37 @@ export function ChatInterface({
                 <option value="typical">Typical (entropy-based)</option>
                 <option value="mirostat">Mirostat v2</option>
               </select>
+            </div>
+          )}
+
+          {onMirostatEnabledChange && (
+            <div style={{ alignSelf: 'flex-start' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  color: '#cbd5e1'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={mirostatEnabled}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    onMirostatEnabledChange(enabled);
+                    if (onSamplingModeChange) {
+                      onSamplingModeChange(enabled ? 'mirostat' : 'topp');
+                    }
+                  }}
+                  style={{ width: 14, height: 14, cursor: 'pointer' }}
+                />
+                <span title="Enable adaptive Mirostat v2 sampling and expose its parameters">
+                  Toggle Mirostat v2
+                </span>
+              </label>
             </div>
           )}
 

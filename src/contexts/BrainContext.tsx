@@ -17,7 +17,15 @@
  * 4. Auto-pilot actions are bounded and reversible
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef
+} from 'react';
 import {
   BrainStats,
   BrainEvent,
@@ -26,19 +34,15 @@ import {
   loadBrain,
   saveBrain,
   getBrainStatusMessage,
-  checkBrainNeeds,
   assessBrainNeeds,
-  getUrgentNeed,
   isBrainHealthy,
   getBrainHealthScore,
   createBrain
 } from '../lib/BrainEngine';
 import {
   BrainGovernanceBridge,
-  AutoPilotConfig,
   AutonomousAction,
   RecoveryPlan,
-  DEFAULT_AUTO_PILOT_CONFIG,
   getBridge
 } from '../lib/BrainGovernanceBridge';
 
@@ -103,10 +107,8 @@ interface BrainContextValue {
 const BrainContext = createContext<BrainContextValue | null>(null);
 
 const DEFAULT_IDLE_TICK_INTERVAL = 30000; // 30 seconds
-const DEFAULT_SUGGESTION_CHECK_INTERVAL = 60000; // 1 minute
 const SUGGESTION_DISPLAY_DURATION = 300000; // 5 minutes before auto-dismiss
 const NEEDS_REFRESH_INTERVAL = 15000; // v4.3: Refresh needs every 15 seconds
-const BRIDGE_STORAGE_KEY = 'nl_brain_governance_bridge';
 
 // ============================================================================
 // Provider

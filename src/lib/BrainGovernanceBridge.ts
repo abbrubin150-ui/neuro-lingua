@@ -219,10 +219,7 @@ export class BrainGovernanceBridge {
   /**
    * Get governance activation probability modified by brain mood
    */
-  public getModulatedActivationProbability(
-    baseConfig: GovernorConfig,
-    brainMood: Mood
-  ): number {
+  public getModulatedActivationProbability(baseConfig: GovernorConfig, brainMood: Mood): number {
     const modulator = MOOD_MODULATORS[brainMood];
     const modulatedProbability =
       baseConfig.activationProbability * modulator.activationProbabilityMultiplier;
@@ -232,10 +229,7 @@ export class BrainGovernanceBridge {
   /**
    * Get learning rate adjustment scaled by brain mood
    */
-  public getModulatedLRAdjustment(
-    baseAdjustment: number,
-    brainMood: Mood
-  ): number {
+  public getModulatedLRAdjustment(baseAdjustment: number, brainMood: Mood): number {
     const modulator = MOOD_MODULATORS[brainMood];
     return baseAdjustment * modulator.learningRateAdjustmentScale;
   }
@@ -243,10 +237,7 @@ export class BrainGovernanceBridge {
   /**
    * Get dropout adjustment scaled by brain mood
    */
-  public getModulatedDropoutAdjustment(
-    baseAdjustment: number,
-    brainMood: Mood
-  ): number {
+  public getModulatedDropoutAdjustment(baseAdjustment: number, brainMood: Mood): number {
     const modulator = MOOD_MODULATORS[brainMood];
     return baseAdjustment * modulator.dropoutAdjustmentScale;
   }
@@ -289,10 +280,8 @@ export class BrainGovernanceBridge {
     const stabilityProtection = brain.stability < 20 ? 0.3 : 1.0;
 
     return {
-      creativityDecay:
-        baseCreativityDecay * moodMultiplier * timeScale * creativityProtection,
-      stabilityDecay:
-        baseStabilityDecay * moodMultiplier * timeScale * stabilityProtection
+      creativityDecay: baseCreativityDecay * moodMultiplier * timeScale * creativityProtection,
+      stabilityDecay: baseStabilityDecay * moodMultiplier * timeScale * stabilityProtection
     };
   }
 
@@ -631,13 +620,7 @@ export class BrainGovernanceBridge {
     }
 
     // Sort by priority
-    const priorityOrder: ActionPriority[] = [
-      'critical',
-      'high',
-      'medium',
-      'low',
-      'informational'
-    ];
+    const priorityOrder: ActionPriority[] = ['critical', 'high', 'medium', 'low', 'informational'];
     suggestions.sort(
       (a, b) => priorityOrder.indexOf(a.priority) - priorityOrder.indexOf(b.priority)
     );

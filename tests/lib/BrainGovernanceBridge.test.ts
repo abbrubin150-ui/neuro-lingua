@@ -10,7 +10,7 @@ import {
   getBridge,
   resetBridge
 } from '../../src/lib/BrainGovernanceBridge';
-import { createBrain, reduceBrain, BrainStats, Mood } from '../../src/lib/BrainEngine';
+import { createBrain, BrainStats, Mood } from '../../src/lib/BrainEngine';
 import type { GovernorConfig } from '../../src/types/governance';
 
 describe('BrainGovernanceBridge', () => {

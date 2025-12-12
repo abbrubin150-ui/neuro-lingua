@@ -6,19 +6,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   createBrain,
   reduceBrain,
-  loadBrain,
-  saveBrain,
   assessBrainNeeds,
   getUrgentNeed,
   isBrainHealthy,
   getBrainHealthScore,
-  getBrainStatusMessage,
-  calculateDiversityScore,
-  calculateHeavinessScore,
   BrainStats,
-  BrainEvent,
-  BrainNeed,
-  Mood
+  BrainEvent
 } from '../../src/lib/BrainEngine';
 
 describe('BrainEngine v4.3 - Enhanced Autonomy', () => {

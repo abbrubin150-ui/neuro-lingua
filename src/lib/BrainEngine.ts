@@ -288,9 +288,7 @@ function updateActivityPattern(
         const interval = timestamp - pattern.lastTrainTime;
         // Exponential moving average for frequency
         updated.trainFrequency =
-          pattern.trainFrequency === 0
-            ? interval
-            : pattern.trainFrequency * 0.7 + interval * 0.3;
+          pattern.trainFrequency === 0 ? interval : pattern.trainFrequency * 0.7 + interval * 0.3;
       }
       updated.lastTrainTime = timestamp;
       break;
@@ -298,9 +296,7 @@ function updateActivityPattern(
       if (pattern.lastGenTime > 0) {
         const interval = timestamp - pattern.lastGenTime;
         updated.genFrequency =
-          pattern.genFrequency === 0
-            ? interval
-            : pattern.genFrequency * 0.7 + interval * 0.3;
+          pattern.genFrequency === 0 ? interval : pattern.genFrequency * 0.7 + interval * 0.3;
       }
       updated.lastGenTime = timestamp;
       break;
@@ -308,9 +304,7 @@ function updateActivityPattern(
       if (pattern.lastFeedTime > 0) {
         const interval = timestamp - pattern.lastFeedTime;
         updated.feedFrequency =
-          pattern.feedFrequency === 0
-            ? interval
-            : pattern.feedFrequency * 0.7 + interval * 0.3;
+          pattern.feedFrequency === 0 ? interval : pattern.feedFrequency * 0.7 + interval * 0.3;
       }
       updated.lastFeedTime = timestamp;
       break;
@@ -780,7 +774,10 @@ export function assessBrainNeeds(state: BrainStats): BrainNeed[] {
   } else if (state.stability < 30) {
     needs.push({
       type: 'TRAIN',
-      priority: state.mood === 'AGITATED' ? NEED_WEIGHTS.AGITATED_THRESHOLD : NEED_WEIGHTS.MODERATE_NEED + 15,
+      priority:
+        state.mood === 'AGITATED'
+          ? NEED_WEIGHTS.AGITATED_THRESHOLD
+          : NEED_WEIGHTS.MODERATE_NEED + 15,
       reason: 'Low stability - model needs training',
       suggestedAction: 'Training session recommended to improve stability.',
       estimatedImpact: { creativity: 1, stability: 5 }
@@ -799,7 +796,10 @@ export function assessBrainNeeds(state: BrainStats): BrainNeed[] {
   } else if (state.creativity < 30 || state.mood === 'BURNT_OUT') {
     needs.push({
       type: 'FEED',
-      priority: state.mood === 'BURNT_OUT' ? NEED_WEIGHTS.BURNT_OUT_THRESHOLD : NEED_WEIGHTS.MODERATE_NEED + 10,
+      priority:
+        state.mood === 'BURNT_OUT'
+          ? NEED_WEIGHTS.BURNT_OUT_THRESHOLD
+          : NEED_WEIGHTS.MODERATE_NEED + 10,
       reason: state.mood === 'BURNT_OUT' ? 'Burnt out - needs fresh content' : 'Low creativity',
       suggestedAction: 'Feed interesting text to boost creativity.',
       estimatedImpact: { creativity: 6, stability: -1 }

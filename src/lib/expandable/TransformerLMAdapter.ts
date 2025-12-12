@@ -1,7 +1,6 @@
 import type { InjectableLayer } from './InjectableLayer';
 import type { InjectionTarget } from '../../types/injection';
-import type { TransformerLM } from '../TransformerLM';
-import type { RMSNormState } from '../RMSNorm';
+import type { TransformerLM, TransformerRMSStates } from '../TransformerLM';
 
 /**
  * Adapter that wraps TransformerLM to implement InjectableLayer interface.
@@ -107,9 +106,11 @@ export class TransformerLMAdapter implements InjectableLayer {
       baseArrays.push(new Float32Array(ff1.flat()));
       baseArrays.push(new Float32Array(ff2.flat()));
 
-      // Renorm state
-      baseArrays.push(new Float32Array(renorm.gamma));
-      baseArrays.push(new Float32Array([renorm.epsilon]));
+      // Renorm state (split attention/FFN)
+      baseArrays.push(new Float32Array(renorm.attention.gamma));
+      baseArrays.push(new Float32Array([renorm.attention.epsilon]));
+      baseArrays.push(new Float32Array(renorm.ffn.gamma));
+      baseArrays.push(new Float32Array([renorm.ffn.epsilon]));
     }
 
     return baseArrays;
@@ -176,11 +177,15 @@ export class TransformerLMAdapter implements InjectableLayer {
     const attentionWeights: Array<{ query: number[][]; key: number[][]; value: number[][] }> = [];
     const ffWeights1: number[][][] = [];
     const ffWeights2: number[][][] = [];
-    const renormStates: RMSNormState[] = [];
+    const renormStates: TransformerRMSStates[] = [];
 
-    // 7 arrays per layer: query, key, value, ff1, ff2, gamma, epsilon
-    const arraysPerLayer = 7;
+    // 9 arrays per layer (new format): query, key, value, ff1, ff2, attn gamma/eps, ffn gamma/eps
+    // 7 arrays per layer (legacy): query, key, value, ff1, ff2, shared gamma/eps
     const baseIndex = 6;
+    const arraysPerLayer = (weights.length - baseIndex) / numLayers;
+    if (!Number.isInteger(arraysPerLayer) || (arraysPerLayer !== 7 && arraysPerLayer !== 9)) {
+      throw new Error('Invalid weights array: unexpected transformer payload');
+    }
 
     for (let layer = 0; layer < numLayers; layer++) {
       const offset = baseIndex + layer * arraysPerLayer;
@@ -217,13 +222,27 @@ export class TransformerLMAdapter implements InjectableLayer {
       }
       ffWeights2.push(ff2Layer);
 
-      // Renorm state
-      const gamma = Array.from(weights[offset + 5]);
-      const epsilonArr = Array.from(weights[offset + 6]);
-      renormStates.push({
-        gamma,
-        epsilon: epsilonArr[0] ?? 1e-6
-      });
+      if (arraysPerLayer === 7) {
+        // Legacy format: single RMSNorm used for both sublayers
+        const gamma = Array.from(weights[offset + 5]);
+        const epsilonArr = Array.from(weights[offset + 6]);
+        const epsilon = epsilonArr[0] ?? 1e-6;
+        renormStates.push({
+          attention: { gamma: [...gamma], epsilon },
+          ffn: { gamma: [...gamma], epsilon }
+        });
+      } else {
+        // New format: separate RMSNorm states
+        const attnGamma = Array.from(weights[offset + 5]);
+        const attnEpsilon = Array.from(weights[offset + 6])[0] ?? 1e-6;
+        const ffnGamma = Array.from(weights[offset + 7]);
+        const ffnEpsilon = Array.from(weights[offset + 8])[0] ?? 1e-6;
+
+        renormStates.push({
+          attention: { gamma: attnGamma, epsilon: attnEpsilon },
+          ffn: { gamma: ffnGamma, epsilon: ffnEpsilon }
+        });
+      }
     }
 
     // Set transformer-specific weights

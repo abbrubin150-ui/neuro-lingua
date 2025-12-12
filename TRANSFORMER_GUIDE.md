@@ -5,8 +5,8 @@
 Neuro-Lingua includes a fully integrated **Transformer architecture** based on the attention mechanism. The Transformer offers state-of-the-art sequence modeling capabilities and is now exposed in the UI for easy configuration and training.
 
 **Status:** ✅ Fully integrated into training UI
-**Architecture:** Multi-head attention with feed-forward layers
-**Default Config:** 2 layers, 4 attention heads
+**Architecture:** Multi-head attention with feed-forward layers and RMSNorm pre-attention/pre-FFN
+**Default Config:** 4 layers, 8 attention heads
 
 ---
 
@@ -25,15 +25,15 @@ When Transformer is selected, you'll see:
 ```
 🔮 Transformer Configuration
 ┌─────────────────────────┐
-│ Attention Heads: [4] ← │ (1-16)
-│ Layers: [2] ←          │ (1-8)
+│ Attention Heads: [8] ← │ (1-16)
+│ Layers: [4] ←          │ (1-8)
 └─────────────────────────┘
 ```
 
 **Adjust parameters:**
 
-- **Attention Heads:** Number of parallel attention mechanisms (default: 4)
-- **Layers:** Number of stacked transformer blocks (default: 2)
+- **Attention Heads:** Number of parallel attention mechanisms (default: 8)
+- **Layers:** Number of stacked transformer blocks (default: 4)
 
 ### 3. Train with Transformer
 

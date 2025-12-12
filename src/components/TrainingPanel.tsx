@@ -3,7 +3,7 @@ import type { Optimizer, TokenizerConfig as TokenizerConfigType } from '../lib/P
 import type { ActivationFunction, LRSchedule, InitializationScheme } from '../lib/AdvancedNeuralLM';
 import { clamp } from '../lib/ProNeuralLM';
 import { TokenizerConfig } from './TokenizerConfig';
-import { HYPERPARAMETER_CONSTRAINTS } from '../config/constants';
+import { DEFAULT_HYPERPARAMETERS, HYPERPARAMETER_CONSTRAINTS } from '../config/constants';
 
 export type Architecture = 'feedforward' | 'advanced' | 'transformer';
 
@@ -127,6 +127,7 @@ interface TrainingPanelProps {
   onReset: () => void;
   onSave: () => void;
   onLoad: () => void;
+  onApplyDefaults: () => void;
   onExport: () => void;
   onCompress: () => void;
   onImport: (ev: React.ChangeEvent<HTMLInputElement>) => void;
@@ -212,6 +213,25 @@ export function TrainingPanel(props: TrainingPanelProps) {
           >
             🔮 Transformer
             <div style={{ fontSize: 10, opacity: 0.8, marginTop: 4 }}>Multi-Head Attention</div>
+          </button>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <button
+            onClick={props.onApplyDefaults}
+            aria-label="Apply recommended hyperparameter preset"
+            style={{
+              padding: '10px 12px',
+              background: 'rgba(99,102,241,0.1)',
+              border: '1px solid #6366f1',
+              borderRadius: 10,
+              color: '#c4d3ff',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            🎯 Apply preset ({DEFAULT_HYPERPARAMETERS.hiddenSize}d /{' '}
+            {DEFAULT_HYPERPARAMETERS.transformer.numLayers} layers / Adam{' '}
+            {DEFAULT_HYPERPARAMETERS.learningRate})
           </button>
         </div>
       </div>

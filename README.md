@@ -21,7 +21,7 @@
 
 ### Neural Network Architectures
 
-- **🔮 Transformer**: Fully-implemented multi-head self-attention with position embeddings, residual connections, layer normalization, and **Grouped-Query Attention (GQA)** for efficient KV caching (configurable layers and heads)
+- **🔮 Transformer**: Fully-implemented multi-head self-attention with position embeddings, **pre-attention/pre-FFN RMSNorm**, residual connections, and **Grouped-Query Attention (GQA)** for efficient KV caching (configurable layers and heads)
 - **🚀 AdvancedNeuralLM**: State-of-the-art feedforward architecture
 - **📊 ProNeuralLM**: Standard baseline model
 

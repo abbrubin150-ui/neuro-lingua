@@ -1,8 +1,8 @@
-# Neuro‑Lingua DOMESTICA — v3.2.4 (EN)
+# Neuro‑Lingua DOMESTICA — v4.2.0 (EN)
 
 **Browser‑native neural language model** built in React + TypeScript.
 
-> Runtime version: **v3.2.4** (UI + model) · Governance/export spec documented in **CHANGELOG_v3.3.md**. The bilingual UI, project/run management, and WebGPU acceleration in `App.tsx` match this runtime.
+> Runtime version: **v4.2.0** (UI + model) · Governance/export spec documented in **CHANGELOG_v3.3.md**. The bilingual UI, project/run management, and WebGPU acceleration in `App.tsx` match this runtime.
 
 🌐 **[Try the live demo →](https://abbrubin150-ui.github.io/neuro-lingua/)** — includes an English ↔ Hebrew toggle for the UI
 
@@ -10,9 +10,9 @@
 
 - **Multiple Architectures**: Standard ProNeuralLM, AdvancedNeuralLM, and fully-functional Transformer models with multi-head attention
 - **WebGPU Acceleration**: 2-5x faster training on compatible hardware with automatic CPU fallback (tested on Chromium-based browsers with recent drivers)
-- SGD with **Momentum**, **Adam**, **Damped Newton**, or **L-BFGS** optimization
+- SGD with **Momentum**, **Adam**, **Lion (v4.0)**, **Damped Newton**, or **L-BFGS** optimization
 - **Dropout** (train‑only)
-- **Advanced Text Generation**: Greedy, Sampling (Top-p/Top-k), Beam Search, and Contrastive decoding
+- **Advanced Text Generation**: Greedy, Sampling (Top-p/Top-k/Typical/Mirostat v2), Beam Search, and Contrastive decoding
 - **Session persistence**, onboarding tips, and downloadable **training-history CSVs** (localized labels)
 - **Tokenizer presets** (Unicode/ASCII/custom) with import/export support
 - **Agent** workflow: a single GitHub Action retrains the model and commits the updated JSON artifact
@@ -21,7 +21,7 @@
 
 ### Neural Network Architectures
 
-- **🔮 Transformer**: Fully-implemented multi-head self-attention with position embeddings, residual connections, and layer normalization (configurable layers and heads)
+- **🔮 Transformer**: Fully-implemented multi-head self-attention with position embeddings, residual connections, layer normalization, and **Grouped-Query Attention (GQA)** for efficient KV caching (configurable layers and heads)
 - **🚀 AdvancedNeuralLM**: State-of-the-art feedforward architecture
 - **📊 ProNeuralLM**: Standard baseline model
 
@@ -32,6 +32,8 @@
 - ✅ **Learning Rate Scheduling** - Cosine annealing, exponential decay, warmup
 - ✅ **L2 Regularization** - Weight decay for better generalization
 - ✅ **Layer Normalization** - Training stability
+- ✅ **RMSNorm (v4.0)** - Efficient normalization (20% less memory, 2x faster)
+- ✅ **Lion Optimizer (v4.0)** - Memory-efficient optimizer with faster convergence
 - ✅ **Numerical Stability** - Log-sum-exp, stable softmax
 - ✅ **Perplexity Calculation** - Model evaluation metric
 
@@ -41,6 +43,8 @@
 - ✅ **Temperature Sampling** - Controlled randomness in generation
 - ✅ **Top-k Sampling** - Sample from k most likely tokens
 - ✅ **Nucleus (Top-p) Sampling** - Sample from smallest set with cumulative probability p
+- ✅ **Typical Sampling** - Entropy-based token selection for natural coherence
+- ✅ **Mirostat v2 Sampling** - Adaptive sampling with dynamic perplexity control
 - ✅ **Beam Search** - Maintain multiple hypotheses for higher quality output
 - ✅ **Contrastive Search** - Balance model confidence with diversity to reduce repetition
 
@@ -106,6 +110,24 @@
 - ✅ **Event Diary** - Logs training, generation, and feeding events
 - ✅ **Pet Naming** - Assign friendly labels to model instances
 - ✅ **Telemetry Panel** - Detailed brain analytics and trends
+
+### 📊 DAG-Based Causal Inference (v4.2)
+
+- ✅ **CausalInferenceEngine** - Probabilistic dynamic causal inference system
+- ✅ **Directed Acyclic Graph (DAG)** - Explicit causal structure representation
+- ✅ **Temporal Dependencies** - Y_{t-1} → Y_t autoregressive modeling
+- ✅ **Unmeasured Confounders** - U-variable handling with sensitivity analysis
+- ✅ **AIPW Estimator** - Augmented Inverse Probability Weighting for robust ATE
+- ✅ **Adaptive Quantization** - Entropy-based dynamic discretization
+- ✅ **Bias Verification** - Neutrality axiom and differential privacy checks
+- ✅ **Three-Phase Pipeline** - Offline learning → Online selection → Statistical testing
+
+### 📄 Neuro-Lingua Lite
+
+- ✅ **Single-File HTML** - Complete neural LM in one portable HTML file
+- ✅ **Zero Dependencies** - No build tools, frameworks, or external files
+- ✅ **Mobile Friendly** - Responsive design for all screen sizes
+- ✅ **Quick Start** - Just open `neuro-lingua-lite.html` in any browser
 
 📚 **[See full mathematical documentation →](./MATHEMATICAL_ENHANCEMENTS.md)**
 🚀 **[v4.0 Mathematical & Architectural Upgrades (Hebrew) →](./NEURO_LINGUA_V4_UPGRADES.md)**
@@ -212,6 +234,7 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 │   │   ├── MathUtils.ts            # Numerical stability utilities
 │   │   ├── BrainEngine.ts          # Brain vitals and mood system
 │   │   ├── GovernanceEngine.ts     # Autonomous parameter calibration
+│   │   ├── CausalInferenceEngine.ts # DAG-based causal inference system
 │   │   ├── RMSNorm.ts              # Root Mean Square Normalization
 │   │   ├── storage.ts              # localStorage abstraction
 │   │   ├── utils.ts                # Tokenizer and CSV utilities
@@ -225,8 +248,16 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 │   │       ├── bubbleExtractor.ts  # Extract bubbles from embeddings
 │   │       └── injection_math.ts   # Residual analysis, eigenvectors
 │   ├── losses/                     # Advanced loss functions
-│   ├── training/                   # Optimization algorithms
-│   ├── types/                      # TypeScript type definitions
+│   ├── math/
+│   │   ├── causal_math.ts          # Causal inference mathematics
+│   │   ├── dag_operations.ts       # DAG graph operations
+│   │   ├── analysis.ts             # Spectral/Lyapunov analysis
+│   │   └── statistics.ts           # Fisher information statistics
+│   ├── training/
+│   │   └── LionOptimizer.ts        # Lion optimizer (v4.0)
+│   ├── types/
+│   │   ├── causal.ts               # Causal inference types
+│   │   └── dag.ts                  # DAG structure types
 │   ├── visualization/              # Embedding visualization (t-SNE, UMAP)
 │   ├── App.tsx                     # Main React application
 │   └── main.tsx                    # Application entry point
@@ -236,6 +267,7 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 │   ├── TransformerLM.test.ts       # Transformer tests
 │   └── numerics/                   # Numerical correctness tests
 ├── index.html
+├── neuro-lingua-lite.html          # Standalone lightweight version
 ├── package.json
 ├── tsconfig.json
 ├── vite.config.ts
@@ -337,7 +369,7 @@ Define test scenarios per project:
 
 ### Trace Export
 
-Export models with complete audit trail including project metadata, decision ledger, training trace, and full reproducibility information. The current runtime (v3.2.4) emits the v3.3 governance/export fields described in `CHANGELOG_v3.3.md`.
+Export models with complete audit trail including project metadata, decision ledger, training trace, and full reproducibility information. The current runtime (v4.2.0) emits the v3.3 governance/export fields described in `CHANGELOG_v3.3.md`.
 
 ---
 

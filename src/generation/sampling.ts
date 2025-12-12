@@ -200,19 +200,53 @@ export function mirostatV2Sample(
     targetEntropy = 5,
     learningRate = 0.1,
     temperature = 1,
+    topK = 0,
+    topP = 0,
+    minProbability = 0,
+    frequencyPenalty = 0,
+    presencePenalty = 0,
+    generatedTokens,
     rng = defaultRng,
     state
   } = options;
 
+  if (!(targetEntropy > 0)) {
+    throw new Error('Mirostat targetEntropy must be positive.');
+  }
+
+  if (!(learningRate > 0) || learningRate > 1) {
+    throw new Error('Mirostat learningRate must be in (0, 1].');
+  }
+
   const mu = state?.mu ?? targetEntropy * 2;
-  // Adjust temperature to steer toward desired surprise
-  const adaptiveTemp = clip(Math.exp(mu - targetEntropy), 0.05, 5);
-  const scaled = logits.map((value) => value / clip(temperature * adaptiveTemp, 0.05, 5));
-  const probs = stableSoftmax(scaled);
-  const index = sampleCategorical(probs, rng);
-  const prob = clip(probs[index], 1e-9, 1);
+
+  // Apply optional repetition penalties to discourage loops
+  const penalized = applyRepetitionPenalty(
+    logits,
+    generatedTokens,
+    frequencyPenalty,
+    presencePenalty
+  );
+
+  const scaled = penalized.map((value) => value / clip(temperature, 0.05, 5));
+  let probs = stableSoftmax(scaled);
+
+  // Respect standard filters before applying Mirostat truncation
+  probs = applyTopK(probs, topK);
+  probs = applyTopP(probs, topP);
+  probs = applyMinProbability(probs, minProbability);
+
+  // Dynamic truncation parameter (k = exp(mu))
+  const k = Math.max(1, Math.min(probs.length, Math.round(Math.exp(mu))));
+
+  const ranked = probs.map((value, index) => ({ value, index })).sort((a, b) => b.value - a.value);
+  const cutoff = new Set(ranked.slice(0, k).map((item) => item.index));
+  const truncated = renormalize(probs.map((value, index) => (cutoff.has(index) ? value : 0)));
+
+  const index = sampleCategorical(truncated, rng);
+  const prob = clip(truncated[index], 1e-9, 1);
   const surprise = -Math.log(prob);
-  const newMu = mu + learningRate * (surprise - targetEntropy);
+  const newMu = mu - learningRate * (surprise - targetEntropy);
   return { index, state: { mu: newMu }, surprise };
 }
 

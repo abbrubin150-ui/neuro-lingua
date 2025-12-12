@@ -95,6 +95,7 @@ type UiSettings = {
   topP: number;
   typicalTau: number;
   samplingMode: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat';
+  mirostatEnabled: boolean;
   mirostatTau: number;
   mirostatEta: number;
   seed: number;
@@ -391,6 +392,9 @@ export default function NeuroLinguaDomesticaV324() {
   const [typicalTau, setTypicalTau] = useState(DEFAULT_GENERATION.typicalTau);
   const [mirostatTau, setMirostatTau] = useState(DEFAULT_GENERATION.mirostatTau);
   const [mirostatEta, setMirostatEta] = useState(DEFAULT_GENERATION.mirostatEta);
+  const [mirostatEnabled, setMirostatEnabled] = useState(
+    DEFAULT_GENERATION.samplingMode === 'mirostat'
+  );
   const [samplingMode, setSamplingMode] = useState<
     'off' | 'topk' | 'topp' | 'typical' | 'mirostat'
   >(DEFAULT_GENERATION.samplingMode);
@@ -684,6 +688,10 @@ export default function NeuroLinguaDomesticaV324() {
     document.documentElement.setAttribute('lang', locale === 'he' ? 'he' : 'en');
   }, [direction, locale]);
 
+  useEffect(() => {
+    setMirostatEnabled(samplingMode === 'mirostat');
+  }, [samplingMode]);
+
   // Load settings on mount
   useEffect(() => {
     const saved = StorageManager.get<Partial<UiSettings>>(STORAGE_KEYS.UI_SETTINGS, {});
@@ -714,6 +722,12 @@ export default function NeuroLinguaDomesticaV324() {
     if (typeof saved.typicalTau === 'number') setTypicalTau(saved.typicalTau);
     if (typeof saved.mirostatTau === 'number') setMirostatTau(saved.mirostatTau);
     if (typeof saved.mirostatEta === 'number') setMirostatEta(saved.mirostatEta);
+    if (typeof saved.mirostatEnabled === 'boolean') {
+      setMirostatEnabled(saved.mirostatEnabled);
+      if (saved.mirostatEnabled) {
+        setSamplingMode('mirostat');
+      }
+    }
     if (
       saved.samplingMode === 'off' ||
       saved.samplingMode === 'topk' ||
@@ -931,6 +945,7 @@ export default function NeuroLinguaDomesticaV324() {
       topP,
       typicalTau,
       samplingMode,
+      mirostatEnabled,
       mirostatTau,
       mirostatEta,
       seed,
@@ -979,6 +994,7 @@ export default function NeuroLinguaDomesticaV324() {
     topP,
     typicalTau,
     samplingMode,
+    mirostatEnabled,
     mirostatTau,
     mirostatEta,
     seed,
@@ -2157,6 +2173,11 @@ export default function NeuroLinguaDomesticaV324() {
               onMaxTokensChange={setMaxTokens}
               samplingMode={samplingMode}
               onSamplingModeChange={setSamplingMode}
+              mirostatEnabled={mirostatEnabled}
+              onMirostatEnabledChange={(enabled) => {
+                setMirostatEnabled(enabled);
+                setSamplingMode(enabled ? 'mirostat' : 'topp');
+              }}
               topK={topK}
               onTopKChange={setTopK}
               topP={topP}

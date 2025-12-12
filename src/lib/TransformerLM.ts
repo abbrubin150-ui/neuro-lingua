@@ -126,7 +126,10 @@ export class TransformerLM extends ProNeuralLM {
     state: TransformerRMSStates | RMSNormState | undefined,
     modelDim: number
   ): TransformerRMSStates {
-    const defaultState = { gamma: new Array(modelDim).fill(1), epsilon: 1e-6 } satisfies RMSNormState;
+    const defaultState = {
+      gamma: new Array(modelDim).fill(1),
+      epsilon: 1e-6
+    } satisfies RMSNormState;
     const clone = (s: RMSNormState): RMSNormState => ({ gamma: [...s.gamma], epsilon: s.epsilon });
     if (!state) return { attention: clone(defaultState), ffn: clone(defaultState) };
 
@@ -181,7 +184,10 @@ export class TransformerLM extends ProNeuralLM {
 
     for (let i = 0; i < numLayers; i++) {
       const existingState = existing?.renormStates?.[i];
-      const normalizedState: TransformerRMSStates = this.normalizeRenormState(existingState, modelDim);
+      const normalizedState: TransformerRMSStates = this.normalizeRenormState(
+        existingState,
+        modelDim
+      );
 
       const config: MiniTransformerConfig = {
         modelDim,

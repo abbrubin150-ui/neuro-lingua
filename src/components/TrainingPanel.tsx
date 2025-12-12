@@ -229,7 +229,9 @@ export function TrainingPanel(props: TrainingPanelProps) {
               cursor: 'pointer'
             }}
           >
-            🎯 Apply preset ({DEFAULT_HYPERPARAMETERS.hiddenSize}d / {DEFAULT_HYPERPARAMETERS.transformer.numLayers} layers / Adam {DEFAULT_HYPERPARAMETERS.learningRate})
+            🎯 Apply preset ({DEFAULT_HYPERPARAMETERS.hiddenSize}d /{' '}
+            {DEFAULT_HYPERPARAMETERS.transformer.numLayers} layers / Adam{' '}
+            {DEFAULT_HYPERPARAMETERS.learningRate})
           </button>
         </div>
       </div>

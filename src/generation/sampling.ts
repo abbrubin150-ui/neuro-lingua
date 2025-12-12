@@ -221,7 +221,12 @@ export function mirostatV2Sample(
   const mu = state?.mu ?? targetEntropy * 2;
 
   // Apply optional repetition penalties to discourage loops
-  const penalized = applyRepetitionPenalty(logits, generatedTokens, frequencyPenalty, presencePenalty);
+  const penalized = applyRepetitionPenalty(
+    logits,
+    generatedTokens,
+    frequencyPenalty,
+    presencePenalty
+  );
 
   const scaled = penalized.map((value) => value / clip(temperature, 0.05, 5));
   let probs = stableSoftmax(scaled);
@@ -234,9 +239,7 @@ export function mirostatV2Sample(
   // Dynamic truncation parameter (k = exp(mu))
   const k = Math.max(1, Math.min(probs.length, Math.round(Math.exp(mu))));
 
-  const ranked = probs
-    .map((value, index) => ({ value, index }))
-    .sort((a, b) => b.value - a.value);
+  const ranked = probs.map((value, index) => ({ value, index })).sort((a, b) => b.value - a.value);
   const cutoff = new Set(ranked.slice(0, k).map((item) => item.index));
   const truncated = renormalize(probs.map((value, index) => (cutoff.has(index) ? value : 0)));
 

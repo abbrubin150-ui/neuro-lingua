@@ -317,6 +317,77 @@ export function logSumExp(values: number[]): number {
 }
 
 /**
+ * Bounds at which float32 exponentiation risks overflow/underflow.
+ *
+ * Values above ~88 overflow to Infinity for expf on most platforms while
+ * values below ~-87 collapse to zero. We use slightly conservative limits so
+ * callers can proactively guard inputs before invoking exp.
+ */
+export const FLOAT32_EXP_OVERFLOW_GUARD = 87.5;
+export const FLOAT32_EXP_UNDERFLOW_GUARD = -87.5;
+
+/**
+ * Ensure a numeric array is finite.
+ *
+ * @param values - Values to inspect
+ * @param context - Name of the calling context for error messaging
+ */
+export function assertFiniteArray(values: number[], context: string): void {
+  for (const value of values) {
+    if (!Number.isFinite(value)) {
+      throw new Error(`${context} contains non-finite value: ${value}`);
+    }
+  }
+}
+
+/**
+ * Validate softmax logits before exponentiation.
+ *
+ * Throws when any scaled logit would overflow/underflow a float32 exponent,
+ * ensuring downstream kernels can fail fast instead of propagating NaNs.
+ *
+ * @param logits - Raw logits array
+ * @param temperature - Temperature used for scaling
+ */
+export function assertSoftmaxInputBounds(logits: number[], temperature: number): void {
+  if (!Number.isFinite(temperature) || temperature <= 0) {
+    throw new Error('Softmax temperature must be a finite, positive number.');
+  }
+
+  if (logits.length === 0) return;
+
+  assertFiniteArray(logits, 'Softmax logits');
+
+  const scale = 1 / Math.max(temperature, 1e-8);
+  const scaled = logits.map((logit) => logit * scale);
+  const maxScaled = Math.max(...scaled);
+  const minScaled = Math.min(...scaled);
+  const span = maxScaled - minScaled;
+
+  if (!Number.isFinite(maxScaled) || !Number.isFinite(minScaled)) {
+    throw new Error('Softmax logits contain non-finite scaled values.');
+  }
+
+  if (span > 1e6) {
+    throw new Error(`Softmax logits span too wide for stable normalization: ${span}`);
+  }
+}
+
+/**
+ * Assert that probabilities are well-formed and normalized.
+ *
+ * @param probabilities - Probability vector
+ * @param tolerance - Allowed deviation from a unit sum
+ */
+export function assertNormalizedProbabilities(probabilities: number[], tolerance = 1e-4): void {
+  assertFiniteArray(probabilities, 'Softmax probabilities');
+  const sum = probabilities.reduce((acc, value) => acc + value, 0);
+  if (!Number.isFinite(sum) || Math.abs(sum - 1) > tolerance) {
+    throw new Error(`Softmax probabilities must sum to 1 ±${tolerance}, received ${sum}`);
+  }
+}
+
+/**
  * Numerically stable softmax with temperature
  *
  * @param logits - Input logits
@@ -327,9 +398,13 @@ export function stableSoftmax(logits: number[], temperature = 1.0): number[] {
   if (logits.length === 0) return [];
 
   const T = Math.max(temperature, 1e-8); // Prevent division by zero
+  assertSoftmaxInputBounds(logits, T);
+
   const scaled = logits.map((x) => x / T);
   const normalization = logSumExp(scaled);
-  return scaled.map((x) => Math.exp(x - normalization));
+  const probabilities = scaled.map((x) => Math.exp(x - normalization));
+  assertNormalizedProbabilities(probabilities);
+  return probabilities;
 }
 
 /**

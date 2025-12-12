@@ -23,6 +23,11 @@ import type {
   AIPWComponents,
   BinIndex
 } from '../types/causal';
+import {
+  assertNormalizedProbabilities,
+  assertSoftmaxInputBounds,
+  logSumExp as stableLogSumExp
+} from '../lib/MathUtils';
 
 // ============================================================================
 // Type Aliases
@@ -76,11 +81,7 @@ export function sigmoid(x: number): number {
  * @returns log-sum-exp result
  */
 export function logSumExp(values: Vector): number {
-  if (values.length === 0) return -Infinity;
-  const maxVal = Math.max(...values);
-  if (!isFinite(maxVal)) return maxVal;
-  const sumExp = values.reduce((sum, x) => sum + Math.exp(x - maxVal), 0);
-  return maxVal + Math.log(sumExp);
+  return stableLogSumExp(values);
 }
 
 /**
@@ -89,11 +90,17 @@ export function logSumExp(values: Vector): number {
  * @param logits - Input logits
  * @returns Probability distribution
  */
-export function stableSoftmax(logits: Vector): Vector {
-  const maxLogit = Math.max(...logits);
-  const exps = logits.map((x) => Math.exp(x - maxLogit));
-  const sum = exps.reduce((a, b) => a + b, 0);
-  return exps.map((e) => e / sum);
+export function stableSoftmax(logits: Vector, temperature = 1.0): Vector {
+  if (logits.length === 0) return [];
+
+  const T = Math.max(temperature, EPSILON);
+  assertSoftmaxInputBounds(logits, T);
+
+  const scaled = logits.map((x) => x / T);
+  const normalization = logSumExp(scaled);
+  const probabilities = scaled.map((x) => Math.exp(x - normalization));
+  assertNormalizedProbabilities(probabilities);
+  return probabilities;
 }
 
 /**

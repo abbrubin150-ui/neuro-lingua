@@ -51,6 +51,7 @@ import {
   normalCDF,
   normalQuantile
 } from '../../src/math/causal_math';
+import { WebGPUBackend } from '../../src/backend/webgpu';
 
 // ============================================================================
 // Basic Statistical Functions
@@ -124,6 +125,59 @@ describe('Basic Statistical Functions', () => {
       const probs = stableSoftmax([1000, 1001, 1002]);
       expect(probs.every(isFinite)).toBe(true);
       expect(probs.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
+    });
+
+    it('should avoid overflow near exponent limits', () => {
+      const logits = [1e4, 1e4 - 1, 1e4 - 2];
+      const probs = stableSoftmax(logits);
+      expect(probs.every((p) => p >= 0 && p <= 1)).toBe(true);
+      expect(probs).toMatchObject([
+        expect.closeTo(0.66524096, 6),
+        expect.closeTo(0.24472847, 6),
+        expect.closeTo(0.09003057, 6)
+      ]);
+      expect(probs.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
+    });
+
+    it('should avoid underflow for extremely negative logits', () => {
+      const logits = [-1e4, -1e4 - 1, -1e4 - 2];
+      const probs = stableSoftmax(logits);
+      expect(probs.every((p) => p >= 0 && p <= 1)).toBe(true);
+      expect(probs).toMatchObject([
+        expect.closeTo(0.66524096, 6),
+        expect.closeTo(0.24472847, 6),
+        expect.closeTo(0.09003057, 6)
+      ]);
+      expect(probs.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
+    });
+
+    it('should reject non-finite logits', () => {
+      expect(() => stableSoftmax([0, Number.POSITIVE_INFINITY])).toThrow();
+    });
+  });
+
+  describe('stableSoftmax parity (CPU vs WebGPU)', () => {
+    const hasWebGPU =
+      typeof globalThis.navigator !== 'undefined' &&
+      'gpu' in globalThis.navigator &&
+      Boolean((globalThis.navigator as Navigator & { gpu?: GPU }).gpu);
+
+    const parityTest = hasWebGPU ? it : it.skip;
+
+    parityTest('matches CPU implementation near exponent extremes', async () => {
+      const logits = new Float32Array([80, 79.5, -79.5, -80]);
+      const backend = await WebGPUBackend.create();
+      const tensor = await backend.createTensor(logits, [logits.length]);
+      const gpuSoftmax = await backend.softmax(tensor, 1);
+      const gpuProbs = await gpuSoftmax.toArray();
+      const cpuProbs = stableSoftmax(Array.from(logits));
+
+      for (let i = 0; i < gpuProbs.length; i++) {
+        expect(gpuProbs[i]).toBeCloseTo(cpuProbs[i], 5);
+      }
+
+      tensor.dispose();
+      gpuSoftmax.dispose();
     });
   });
 

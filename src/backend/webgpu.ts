@@ -1,4 +1,8 @@
-import { logSumExp } from '../lib/MathUtils';
+import {
+  assertNormalizedProbabilities,
+  assertSoftmaxInputBounds,
+  logSumExp
+} from '../lib/MathUtils';
 
 type TypedArray = Float32Array | Float64Array | Int32Array | Uint32Array;
 
@@ -345,9 +349,13 @@ export class WebGPUBackend {
 
   async softmax(tensor: WebGPUTensor, temperature = 1): Promise<WebGPUTensor> {
     const data = await tensor.toArray();
-    const scaled = data.map((value) => value / Math.max(temperature, 1e-6));
+    const T = Math.max(temperature, 1e-6);
+    assertSoftmaxInputBounds(Array.from(data), T);
+
+    const scaled = data.map((value) => value / T);
     const norm = logSumExp(Array.from(scaled));
     const probs = new Float32Array(scaled.map((v) => Math.exp(v - norm)));
+    assertNormalizedProbabilities(Array.from(probs));
     return this.createTensor(probs, [...tensor.shape]);
   }
 

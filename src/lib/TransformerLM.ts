@@ -55,8 +55,13 @@ type TransformerSerializedModel = BaseModelJson & {
     attentionWeights: AttentionWeights[];
     ffWeights1: Matrix[];
     ffWeights2: Matrix[];
-    renormStates: RMSNormState[];
+    renormStates: TransformerRMSStates[] | RMSNormState[];
   };
+};
+
+type TransformerRMSStates = {
+  attention: RMSNormState;
+  ffn: RMSNormState;
 };
 
 type TransformerRng = { next(): number; getState(): number };
@@ -92,7 +97,7 @@ export class TransformerLM extends ProNeuralLM {
   private ffWeights2: Matrix[] = [];
 
   // RMSNorm state (gamma/epsilon) for each layer
-  private renormStates: RMSNormState[] = [];
+  private renormStates: TransformerRMSStates[] = [];
 
   constructor(
     vocab: string[],
@@ -115,13 +120,37 @@ export class TransformerLM extends ProNeuralLM {
   }
 
   /**
+   * Ensure RMSNorm states have separate attention/FFN entries and correct dimensions.
+   */
+  private normalizeRenormState(
+    state: TransformerRMSStates | RMSNormState | undefined,
+    modelDim: number
+  ): TransformerRMSStates {
+    const defaultState = { gamma: new Array(modelDim).fill(1), epsilon: 1e-6 } satisfies RMSNormState;
+    const clone = (s: RMSNormState): RMSNormState => ({ gamma: [...s.gamma], epsilon: s.epsilon });
+    if (!state) return { attention: clone(defaultState), ffn: clone(defaultState) };
+
+    // Backward compatibility: previously a single RMSNormState was used for both sublayers
+    if ('gamma' in state && !('attention' in state)) {
+      return { attention: clone(state), ffn: clone(state) };
+    }
+
+    const attention = (state as TransformerRMSStates).attention ?? defaultState;
+    const ffn = (state as TransformerRMSStates).ffn ?? defaultState;
+    return {
+      attention: clone(attention),
+      ffn: clone(ffn)
+    };
+  }
+
+  /**
    * Initialize transformer layers
    */
   private initializeTransformerLayers(existing?: {
     attention?: AttentionWeights[];
     ff1?: Matrix[];
     ff2?: Matrix[];
-    renormStates?: RMSNormState[];
+    renormStates?: TransformerRMSStates[] | RMSNormState[];
   }): void {
     const { numLayers, numHeads, ffHiddenDim, attentionDropout, dropConnectRate, numKVHeads } =
       this.transformerConfig;
@@ -151,9 +180,8 @@ export class TransformerLM extends ProNeuralLM {
     this.renormStates = [];
 
     for (let i = 0; i < numLayers; i++) {
-      const renormState: RMSNormState =
-        existing?.renormStates?.[i] ??
-        ({ gamma: new Array(modelDim).fill(1), epsilon: 1e-6 } satisfies RMSNormState);
+      const existingState = existing?.renormStates?.[i];
+      const normalizedState: TransformerRMSStates = this.normalizeRenormState(existingState, modelDim);
 
       const config: MiniTransformerConfig = {
         modelDim,
@@ -164,13 +192,14 @@ export class TransformerLM extends ProNeuralLM {
         },
         attentionDropout,
         dropConnectRate,
-        rmsState: renormState,
+        attentionRms: normalizedState.attention,
+        ffnRms: normalizedState.ffn,
         ropeBase: 500000,
         numKVHeads: normalizedKVHeads // GQA support
       };
 
       this.transformerLayers.push(new MiniTransformerBlock(config));
-      this.renormStates.push(renormState);
+      this.renormStates.push(normalizedState);
 
       // GQA: K/V weights are smaller when numKVHeads < numHeads
       // Query: [modelDim x modelDim], Key/Value: [modelDim x kvDim]
@@ -709,9 +738,10 @@ export class TransformerLM extends ProNeuralLM {
         }
       }
 
-      // Expand renorm state gamma vector
+      // Expand renorm state gamma vectors
       for (let i = 0; i < k; i++) {
-        renormState.gamma.push(1);
+        renormState.attention.gamma.push(1);
+        renormState.ffn.gamma.push(1);
       }
     }
 
@@ -750,7 +780,8 @@ export class TransformerLM extends ProNeuralLM {
         },
         attentionDropout,
         dropConnectRate,
-        rmsState: this.renormStates[i],
+        attentionRms: this.renormStates[i].attention,
+        ffnRms: this.renormStates[i].ffn,
         ropeBase: 500000,
         numKVHeads: normalizedKVHeads // GQA support
       };
@@ -766,7 +797,7 @@ export class TransformerLM extends ProNeuralLM {
     ffWeights1: Matrix[];
     ffWeights2: Matrix[];
     positionEmbeddings: number[][];
-    renormStates: RMSNormState[];
+    renormStates: TransformerRMSStates[];
   } {
     return {
       attentionWeights: this.attentionWeights,
@@ -785,13 +816,15 @@ export class TransformerLM extends ProNeuralLM {
     ffWeights1: Matrix[];
     ffWeights2: Matrix[];
     positionEmbeddings: number[][];
-    renormStates: RMSNormState[];
+    renormStates: TransformerRMSStates[] | RMSNormState[];
   }): void {
     this.attentionWeights = weights.attentionWeights;
     this.ffWeights1 = weights.ffWeights1;
     this.ffWeights2 = weights.ffWeights2;
     this.positionEmbeddings = weights.positionEmbeddings;
-    this.renormStates = weights.renormStates;
+    this.renormStates = weights.renormStates.map((state) =>
+      this.normalizeRenormState(state as TransformerRMSStates | RMSNormState, this.getHiddenSize())
+    );
     this.reinitializeTransformerLayers();
   }
 

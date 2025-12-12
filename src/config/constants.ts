@@ -37,16 +37,24 @@ export const DEFAULT_CUSTOM_TOKENIZER_PATTERN = "[^\\p{L}\\d\\s'-]";
  * Default hyperparameters for model training
  */
 export const DEFAULT_HYPERPARAMETERS = {
-  hiddenSize: 64,
-  epochs: 20,
-  learningRate: 0.08,
-  optimizer: 'momentum' as Optimizer,
+  hiddenSize: 128,
+  epochs: 30,
+  learningRate: 0.003,
+  optimizer: 'adam' as Optimizer,
   momentum: 0.9,
-  dropout: 0.1,
-  contextSize: 3,
+  dropout: 0.05,
+  contextSize: 4,
   seed: 1337,
-  resume: true
-};
+  resume: true,
+  transformer: {
+    numHeads: 8,
+    numLayers: 4,
+    ffHiddenDim: 512,
+    attentionDropout: 0.1,
+    dropConnectRate: 0.05,
+    numKVHeads: 4
+  }
+} as const;
 
 /**
  * Default generation parameters

@@ -13,6 +13,11 @@ export interface MiniTransformerConfig {
   ff: FeedForwardConfig;
   attentionDropout?: number;
   dropConnectRate?: number;
+  attentionRms?: RMSNormState;
+  ffnRms?: RMSNormState;
+  /**
+   * @deprecated Use attentionRms/ffnRms for explicit pre-attention and pre-FFN norms
+   */
   rmsState?: RMSNormState;
   ropeBase?: number;
   /**
@@ -26,8 +31,10 @@ export interface MiniTransformerConfig {
 export class MiniTransformerBlock {
   private readonly attention: MultiHeadAttention;
   private readonly activation: (x: number) => number;
-  private readonly gamma: number[];
-  private readonly epsilon: number;
+  private readonly attentionGamma: number[];
+  private readonly ffnGamma: number[];
+  private readonly attentionEpsilon: number;
+  private readonly ffnEpsilon: number;
   private readonly ropeBase: number;
 
   constructor(private readonly config: MiniTransformerConfig) {
@@ -40,13 +47,20 @@ export class MiniTransformerBlock {
       numKVHeads: config.numKVHeads // GQA support
     });
     this.activation = config.ff.activation ?? ((x) => Math.tanh(x));
-    this.gamma = config.rmsState?.gamma ?? new Array(config.modelDim).fill(1);
-    this.epsilon = config.rmsState?.epsilon ?? 1e-6;
+    const fallback = config.rmsState ?? { gamma: new Array(config.modelDim).fill(1), epsilon: 1e-6 };
+    this.attentionGamma = config.attentionRms?.gamma ?? fallback.gamma;
+    this.ffnGamma = config.ffnRms?.gamma ?? fallback.gamma;
+    this.attentionEpsilon = config.attentionRms?.epsilon ?? fallback.epsilon;
+    this.ffnEpsilon = config.ffnRms?.epsilon ?? fallback.epsilon;
     this.ropeBase = config.ropeBase ?? 500000;
   }
 
   private applyRMS(row: number[]): number[] {
-    return rmsNorm(row, this.gamma, this.epsilon);
+    return rmsNorm(row, this.attentionGamma, this.attentionEpsilon);
+  }
+
+  private applyFFNRMS(row: number[]): number[] {
+    return rmsNorm(row, this.ffnGamma, this.ffnEpsilon);
   }
 
   private feedForward(inputs: Matrix, weights1: Matrix, weights2: Matrix): Matrix {
@@ -100,7 +114,7 @@ export class MiniTransformerBlock {
       row.map((value, col) => value + attentionOutput[idx][col])
     );
 
-    const renormed = residualAttention.map((row) => this.applyRMS(row));
+    const renormed = residualAttention.map((row) => this.applyFFNRMS(row));
     const feedForwardOutput = this.feedForward(renormed, ffWeights1, ffWeights2);
 
     return renormed.map((row, idx) => row.map((value, col) => value + feedForwardOutput[idx][col]));

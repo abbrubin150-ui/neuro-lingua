@@ -59,7 +59,7 @@ type TransformerSerializedModel = BaseModelJson & {
   };
 };
 
-type TransformerRMSStates = {
+export type TransformerRMSStates = {
   attention: RMSNormState;
   ffn: RMSNormState;
 };

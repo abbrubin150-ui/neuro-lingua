@@ -138,8 +138,10 @@ describe('TransformerLMAdapter', () => {
       const newSize = initialSize + 4;
 
       for (const renorm of transformerWeights.renormStates) {
-        expect(renorm.gamma.length).toBe(newSize);
-        expect(typeof renorm.epsilon).toBe('number');
+        expect(renorm.attention.gamma.length).toBe(newSize);
+        expect(renorm.ffn.gamma.length).toBe(newSize);
+        expect(typeof renorm.attention.epsilon).toBe('number');
+        expect(typeof renorm.ffn.epsilon).toBe('number');
       }
     });
 
@@ -153,8 +155,8 @@ describe('TransformerLMAdapter', () => {
     it('should export weights as Float32Arrays', () => {
       const weights = adapter.exportWeights();
 
-      // Base (5) + position embeddings (1) + per layer (7 * 2 layers) = 20
-      expect(weights.length).toBe(6 + 7 * 2);
+      // Base (5) + position embeddings (1) + per layer (9 * 2 layers) = 24
+      expect(weights.length).toBe(6 + 9 * 2);
       weights.forEach((w) => {
         expect(w).toBeInstanceOf(Float32Array);
       });

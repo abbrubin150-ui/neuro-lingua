@@ -378,13 +378,13 @@ export default function NeuroLinguaDomesticaV324() {
   const [ibMetricsHistory, setIbMetricsHistory] = useState<InformationMetrics[]>([]);
 
   // Hyperparameters
-  const [hiddenSize, setHiddenSize] = useState(DEFAULT_HYPERPARAMETERS.hiddenSize);
-  const [epochs, setEpochs] = useState(DEFAULT_HYPERPARAMETERS.epochs);
-  const [lr, setLr] = useState(DEFAULT_HYPERPARAMETERS.learningRate);
+  const [hiddenSize, setHiddenSize] = useState<number>(DEFAULT_HYPERPARAMETERS.hiddenSize);
+  const [epochs, setEpochs] = useState<number>(DEFAULT_HYPERPARAMETERS.epochs);
+  const [lr, setLr] = useState<number>(DEFAULT_HYPERPARAMETERS.learningRate);
   const [optimizer, setOptimizer] = useState<Optimizer>(DEFAULT_HYPERPARAMETERS.optimizer);
-  const [momentum, setMomentum] = useState(DEFAULT_HYPERPARAMETERS.momentum);
-  const [dropout, setDropout] = useState(DEFAULT_HYPERPARAMETERS.dropout);
-  const [contextSize, setContextSize] = useState(DEFAULT_HYPERPARAMETERS.contextSize);
+  const [momentum, setMomentum] = useState<number>(DEFAULT_HYPERPARAMETERS.momentum);
+  const [dropout, setDropout] = useState<number>(DEFAULT_HYPERPARAMETERS.dropout);
+  const [contextSize, setContextSize] = useState<number>(DEFAULT_HYPERPARAMETERS.contextSize);
   const [temperature, setTemperature] = useState(DEFAULT_GENERATION.temperature);
   const [topK, setTopK] = useState(DEFAULT_GENERATION.topK);
   const [topP, setTopP] = useState(DEFAULT_GENERATION.topP);
@@ -397,8 +397,8 @@ export default function NeuroLinguaDomesticaV324() {
   const [maxTokens, setMaxTokens] = useState(DEFAULT_GENERATION.maxTokens);
   const [frequencyPenalty, setFrequencyPenalty] = useState(DEFAULT_GENERATION.frequencyPenalty);
   const [presencePenalty, setPresencePenalty] = useState(DEFAULT_GENERATION.presencePenalty);
-  const [seed, setSeed] = useState(DEFAULT_HYPERPARAMETERS.seed);
-  const [resume, setResume] = useState(DEFAULT_HYPERPARAMETERS.resume);
+  const [seed, setSeed] = useState<number>(DEFAULT_HYPERPARAMETERS.seed);
+  const [resume, setResume] = useState<boolean>(DEFAULT_HYPERPARAMETERS.resume);
 
   // Architecture selection
   const [architecture, setArchitecture] = useState<Architecture>('feedforward');
@@ -426,16 +426,20 @@ export default function NeuroLinguaDomesticaV324() {
   const [beamWidth, setBeamWidth] = useState(DEFAULT_GENERATION.beamWidth);
 
   // Transformer-specific parameters
-  const [numHeads, setNumHeads] = useState(DEFAULT_HYPERPARAMETERS.transformer.numHeads);
-  const [numLayers, setNumLayers] = useState(DEFAULT_HYPERPARAMETERS.transformer.numLayers);
-  const [ffHiddenDim, setFfHiddenDim] = useState(DEFAULT_HYPERPARAMETERS.transformer.ffHiddenDim);
-  const [attentionDropout, setAttentionDropout] = useState(
+  const [numHeads, setNumHeads] = useState<number>(DEFAULT_HYPERPARAMETERS.transformer.numHeads);
+  const [numLayers, setNumLayers] = useState<number>(DEFAULT_HYPERPARAMETERS.transformer.numLayers);
+  const [ffHiddenDim, setFfHiddenDim] = useState<number>(
+    DEFAULT_HYPERPARAMETERS.transformer.ffHiddenDim
+  );
+  const [attentionDropout, setAttentionDropout] = useState<number>(
     DEFAULT_HYPERPARAMETERS.transformer.attentionDropout
   );
-  const [dropConnectRate, setDropConnectRate] = useState(
+  const [dropConnectRate, setDropConnectRate] = useState<number>(
     DEFAULT_HYPERPARAMETERS.transformer.dropConnectRate
   );
-  const [numKVHeads, setNumKVHeads] = useState(DEFAULT_HYPERPARAMETERS.transformer.numKVHeads); // GQA: default = numHeads (standard MHA)
+  const [numKVHeads, setNumKVHeads] = useState<number>(
+    DEFAULT_HYPERPARAMETERS.transformer.numKVHeads
+  ); // GQA: default = numHeads (standard MHA)
 
   // Information Bottleneck parameters
   const [useIB, setUseIB] = useState(DEFAULT_IB_CONFIG.useIB);

@@ -111,6 +111,68 @@ export const DEFAULT_LION_CONFIG = {
 };
 
 /**
+ * Sophia optimizer configuration defaults (v4.2)
+ *
+ * Sophia (Second-order Stochastic Optimizer) features:
+ * - 2× faster convergence than Adam via curvature-aware updates
+ * - Diagonal Hessian estimation with Gauss-Newton approximation
+ * - Clipped preconditioned updates for stability
+ * - Memory: ~2× parameters (momentum + Hessian diagonal)
+ *
+ * Reference: Liu et al. (2023) "Sophia: A Scalable Stochastic Second-order Optimizer"
+ */
+export const DEFAULT_SOPHIA_CONFIG = {
+  sophiaBeta1: 0.965,
+  sophiaBeta2: 0.99,
+  sophiaWeightDecay: 0.01,
+  /** Clipping bound for preconditioned updates */
+  sophiaRho: 1.0,
+  /** Hessian update frequency (every N steps) */
+  sophiaHessianFreq: 10,
+  /** Recommended LR for Sophia (lower than Adam due to second-order info) */
+  recommendedLR: 1e-4
+};
+
+/**
+ * Sparse Attention configuration defaults (v4.2)
+ *
+ * Reduces O(n²) attention complexity to O(n log n) or O(n).
+ * Enables longer context windows without proportional memory increase.
+ */
+export const DEFAULT_SPARSE_ATTENTION_CONFIG = {
+  /** Default sparse pattern type */
+  pattern: 'local' as const,
+  /** Local attention window size (half-width) */
+  windowSize: 64,
+  /** Number of global tokens for BigBird/Longformer */
+  numGlobalTokens: 2,
+  /** Number of random attention tokens for BigBird */
+  numRandomTokens: 3,
+  /** Block size for block-sparse attention */
+  blockSize: 64,
+  /** Enable causal masking by default */
+  causal: true
+};
+
+/**
+ * Mixed Precision configuration defaults (v4.2)
+ *
+ * FP16/FP32 mixed precision for 2-3× speedup and 50% memory reduction.
+ */
+export const DEFAULT_MIXED_PRECISION_CONFIG = {
+  /** Enable mixed precision when WebGPU available */
+  enabled: false,
+  /** Initial loss scale (high to catch underflow) */
+  initialLossScale: 65536,
+  /** Scale growth factor after successful steps */
+  scaleGrowthFactor: 2,
+  /** Scale backoff factor after overflow */
+  scaleBackoffFactor: 0.5,
+  /** Steps before scaling up */
+  scaleGrowthInterval: 2000
+};
+
+/**
  * Default Information Bottleneck configuration
  */
 export const DEFAULT_IB_CONFIG = {
@@ -184,6 +246,34 @@ export const HYPERPARAMETER_CONSTRAINTS = {
     beta1: { min: 0.8, max: 0.99 },
     beta2: { min: 0.9, max: 0.999 },
     weightDecay: { min: 0, max: 0.1 }
+  },
+  /**
+   * Sophia optimizer constraints (v4.2)
+   */
+  sophia: {
+    beta1: { min: 0.9, max: 0.99 },
+    beta2: { min: 0.9, max: 0.999 },
+    weightDecay: { min: 0, max: 0.1 },
+    rho: { min: 0.1, max: 5.0 },
+    hessianUpdateFreq: { min: 1, max: 100 }
+  },
+  /**
+   * Sparse Attention constraints (v4.2)
+   */
+  sparseAttention: {
+    windowSize: { min: 1, max: 512 },
+    numGlobalTokens: { min: 0, max: 16 },
+    numRandomTokens: { min: 0, max: 16 },
+    blockSize: { min: 8, max: 256 }
+  },
+  /**
+   * Mixed Precision constraints (v4.2)
+   */
+  mixedPrecision: {
+    initialLossScale: { min: 1, max: 16777216 },
+    scaleGrowthFactor: { min: 1.1, max: 4.0 },
+    scaleBackoffFactor: { min: 0.1, max: 0.9 },
+    scaleGrowthInterval: { min: 100, max: 10000 }
   }
 } as const;
 

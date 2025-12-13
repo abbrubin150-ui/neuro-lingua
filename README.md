@@ -1,8 +1,8 @@
-# Neuro‑Lingua DOMESTICA — v4.2.0 (EN)
+# Neuro‑Lingua DOMESTICA — v4.3.0 (EN)
 
 **Browser‑native neural language model** built in React + TypeScript.
 
-> Runtime version: **v4.2.0** (UI + model) · Governance/export spec documented in **CHANGELOG_v3.3.md**. The bilingual UI, project/run management, and WebGPU acceleration in `App.tsx` match this runtime.
+> Runtime version: **v4.3.0** (UI + model) · Governance/export spec documented in **CHANGELOG_v3.3.md**. The bilingual UI, project/run management, and WebGPU acceleration in `App.tsx` match this runtime.
 
 🌐 **[Try the live demo →](https://abbrubin150-ui.github.io/neuro-lingua/)** — includes an English ↔ Hebrew toggle for the UI
 
@@ -10,7 +10,7 @@
 
 - **Multiple Architectures**: Standard ProNeuralLM, AdvancedNeuralLM, and fully-functional Transformer models with multi-head attention
 - **WebGPU Acceleration**: 2-5x faster training on compatible hardware with automatic CPU fallback (tested on Chromium-based browsers with recent drivers)
-- SGD with **Momentum**, **Adam**, **Lion (v4.0)**, **Damped Newton**, or **L-BFGS** optimization
+- **7 Optimizers**: SGD with Momentum, Adam, **Lion (v4.0)**, **Sophia (v4.3)**, Damped Newton, L-BFGS
 - **Dropout** (train‑only)
 - **Advanced Text Generation**: Greedy, Sampling (Top-p/Top-k/Typical/Mirostat v2), Beam Search, and Contrastive decoding
 - **Session persistence**, onboarding tips, and downloadable **training-history CSVs** (localized labels)
@@ -34,6 +34,8 @@
 - ✅ **Layer Normalization** - Training stability
 - ✅ **RMSNorm (v4.0)** - Efficient normalization (20% less memory, 2x faster)
 - ✅ **Lion Optimizer (v4.0)** - Memory-efficient optimizer with faster convergence
+- ✅ **Sophia Optimizer (v4.3)** - Second-order stochastic optimizer with 2× faster convergence
+- ✅ **Mixed Precision Training (v4.3)** - FP16/FP32 for 2-3× speedup and 50% memory reduction
 - ✅ **Numerical Stability** - Log-sum-exp, stable softmax
 - ✅ **Perplexity Calculation** - Model evaluation metric
 
@@ -53,6 +55,20 @@
 - ✅ **WebGPU Acceleration** - Hardware-accelerated training with GPU
 - ✅ **GPU Metrics Dashboard** - Real-time performance monitoring
 - ✅ **Automatic Fallback** - Seamless CPU fallback when GPU unavailable
+- ✅ **Mixed Precision (v4.3)** - FP16/FP32 training with dynamic loss scaling
+
+### 🔀 Sparse Attention (v4.3)
+
+Efficient attention patterns that reduce O(n²) complexity to O(n) for longer sequences:
+
+- ✅ **Local (Sliding Window)** - Each token attends to w neighbors
+- ✅ **BigBird** - Local + Global + Random attention (Google Research)
+- ✅ **Longformer** - Local + Global with task-specific tokens
+- ✅ **Block Sparse** - Block-diagonal for hardware efficiency
+- ✅ **Strided/Dilated** - Hierarchical attention patterns
+- ✅ **Axial** - Factorized 2D attention for image-like data
+
+**Benefits**: 2-4× faster for long sequences (n > 512), enables 4k-16k+ token context windows in browser
 
 #### WebGPU Browser Compatibility
 
@@ -197,7 +213,8 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 ├── src/
 │   ├── backend/
 │   │   ├── webgpu.ts               # WebGPU backend and tensor operations
-│   │   └── gpu_neural_ops.ts      # High-level neural operations on GPU
+│   │   ├── gpu_neural_ops.ts       # High-level neural operations on GPU
+│   │   └── mixed_precision.ts      # FP16/FP32 mixed precision training
 │   ├── compression/
 │   │   ├── compress.ts             # Unified compression interface
 │   │   ├── quantization.ts         # Int8 weight quantization
@@ -253,8 +270,11 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 │   │   ├── dag_operations.ts       # DAG graph operations
 │   │   ├── analysis.ts             # Spectral/Lyapunov analysis
 │   │   └── statistics.ts           # Fisher information statistics
+│   ├── models/
+│   │   └── sparse_attention.ts     # Sparse attention patterns (BigBird, Longformer, etc.)
 │   ├── training/
-│   │   └── LionOptimizer.ts        # Lion optimizer (v4.0)
+│   │   ├── LionOptimizer.ts        # Lion optimizer (v4.0)
+│   │   └── SophiaOptimizer.ts      # Sophia second-order optimizer (v4.3)
 │   ├── types/
 │   │   ├── causal.ts               # Causal inference types
 │   │   └── dag.ts                  # DAG structure types

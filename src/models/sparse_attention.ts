@@ -327,7 +327,7 @@ export function createBlockSparseMask(
   causal: boolean = false
 ): boolean[][] {
   const mask: boolean[][] = [];
-  const numBlocks = Math.ceil(seqLen / blockSize);
+  const _numBlocks = Math.ceil(seqLen / blockSize); // Reserved for future block-level optimizations
 
   for (let i = 0; i < seqLen; i++) {
     const row: boolean[] = [];
@@ -429,11 +429,12 @@ export function createSparseMask(config: SparseAttentionConfig): SparseMask {
       mask = createBlockSparseMask(seqLen, config.blockSize ?? 64, causal);
       break;
 
-    case 'axial':
+    case 'axial': {
       // Default to square grid
       const side = Math.ceil(Math.sqrt(seqLen));
       mask = createAxialMask(side, side, 'row'); // Could combine row + col
       break;
+    }
 
     case 'custom':
       if (!config.customMask) {
@@ -472,8 +473,9 @@ export function createSparseMask(config: SparseAttentionConfig): SparseMask {
 /**
  * Efficient sparse attention matrix multiplication
  * Only computes attention for positions marked true in mask
+ * Reserved for future optimization of large sequences
  */
-function sparseMatmul(a: Matrix, b: Matrix, mask: boolean[][]): Matrix {
+function _sparseMatmul(a: Matrix, b: Matrix, mask: boolean[][]): Matrix {
   const rows = a.length;
   const cols = b[0].length;
   const k = a[0].length;
@@ -497,8 +499,9 @@ function sparseMatmul(a: Matrix, b: Matrix, mask: boolean[][]): Matrix {
 
 /**
  * Apply sparse attention scores with masking
+ * Reserved for future API
  */
-function applySparseScores(scores: Matrix, mask: boolean[][]): Matrix {
+function _applySparseScores(scores: Matrix, mask: boolean[][]): Matrix {
   return scores.map((row, i) =>
     row.map((v, j) => (mask[i][j] ? v : Number.NEGATIVE_INFINITY))
   );
@@ -525,7 +528,7 @@ export function sparseScaledDotProductAttention(
   const keysT = keys[0].map((_, i) => keys.map((row) => row[i]));
 
   // Full matmul then apply mask (can be optimized with sparse matmul for large sequences)
-  let scores: Matrix = [];
+  const scores: Matrix = [];
   for (let i = 0; i < queries.length; i++) {
     const row: number[] = [];
     for (let j = 0; j < keysT[0].length; j++) {

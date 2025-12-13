@@ -155,9 +155,9 @@ export class SophiaOptimizer {
    * @param W - Weight matrix to update (modified in place)
    * @param G - Gradient matrix
    * @param key - Unique identifier for this parameter
-   * @param loss - Optional current loss value for Hutchinson estimator
+   * @param _loss - Optional current loss value for Hutchinson estimator (reserved for future use)
    */
-  updateMatrix(W: number[][], G: number[][], key: string, loss?: number): void {
+  updateMatrix(W: number[][], G: number[][], key: string, _loss?: number): void {
     const { lr, beta1, beta2, weightDecay, epsilon } = this.config;
     const rows = W.length;
     const cols = W[0]?.length ?? 0;

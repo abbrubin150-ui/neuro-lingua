@@ -28,8 +28,7 @@ import {
   getRecommendedPattern,
   combineMasks,
   intersectMasks,
-  SPARSE_ATTENTION_PRESETS,
-  type SparseMask
+  SPARSE_ATTENTION_PRESETS
 } from '../../src/models/sparse_attention';
 
 describe('Local Attention Mask', () => {
@@ -276,7 +275,7 @@ describe('Sparse Attention Computation', () => {
 
     const sparseMask = createSparseMask({ pattern: 'local', seqLen: 1, windowSize: 1 });
 
-    const { output, attention } = sparseScaledDotProductAttention(
+    const { attention } = sparseScaledDotProductAttention(
       queries,
       keys,
       values,

@@ -78,7 +78,7 @@ export const DEFAULT_MIXED_PRECISION_CONFIG: MixedPrecisionConfig = {
 // FP16 constants
 const FP16_MAX = 65504; // Maximum representable value in FP16
 const FP16_MIN_NORMAL = 6.103515625e-5; // Minimum normal positive FP16
-const FP16_EPSILON = 0.0009765625; // FP16 machine epsilon
+const _FP16_EPSILON = 0.0009765625; // FP16 machine epsilon (reserved for future use)
 
 /**
  * Convert FP32 value to FP16 representation
@@ -111,7 +111,7 @@ export function float32ToFloat16Bits(value: number): number {
   // Handle underflow to zero (subnormal)
   if (absValue < FP16_MIN_NORMAL) {
     // Convert to subnormal representation
-    const subnormal = Math.round(absValue / (2 ** -24));
+    const subnormal = Math.round(absValue / 2 ** -24);
     return sign | subnormal;
   }
 
@@ -401,7 +401,10 @@ export class DynamicLossScaler {
   /**
    * Import state from serialization
    */
-  importState(data: { config?: Partial<MixedPrecisionConfig>; state?: Partial<LossScalingState> }): void {
+  importState(data: {
+    config?: Partial<MixedPrecisionConfig>;
+    state?: Partial<LossScalingState>;
+  }): void {
     if (data.config) {
       this.config = { ...this.config, ...data.config };
     }
@@ -537,12 +540,7 @@ export const MixedPrecisionOps = {
    * Compute layer normalization in mixed precision
    * Uses FP32 for mean/variance computation
    */
-  layerNorm(
-    input: number[],
-    gamma: number[],
-    beta: number[],
-    epsilon: number = 1e-5
-  ): number[] {
+  layerNorm(input: number[], gamma: number[], beta: number[], epsilon: number = 1e-5): number[] {
     // Compute mean (FP32)
     let mean = 0;
     for (const x of input) {

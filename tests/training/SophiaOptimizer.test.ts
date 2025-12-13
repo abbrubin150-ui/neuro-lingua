@@ -236,7 +236,7 @@ describe('SophiaOptimizer', () => {
         hessianUpdateFreq: 1
       });
 
-      let x = [10.0]; // Start far from optimum
+      const x = [10.0]; // Start far from optimum
       const history: number[] = [x[0]];
 
       for (let i = 0; i < 100; i++) {

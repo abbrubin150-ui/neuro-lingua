@@ -116,6 +116,26 @@ export {
   type RandomizedSVD
 } from './approximation';
 
-// Re-export existing modules
-export * from './analysis';
-export * from './statistics';
+// Re-export existing modules with explicit exports to avoid conflicts
+// analysis.ts exports
+export {
+  spectralRadius,
+  analyzeLyapunov,
+  ANALYSIS_ASSUMPTIONS,
+  type Matrix,
+  type SpectralRadiusOptions,
+  type SpectralRadiusResult,
+  type LyapunovAnalysisOptions,
+  type LyapunovAnalysisResult
+} from './analysis';
+
+// statistics.ts exports (Vector type only, Matrix already exported from analysis)
+export {
+  empiricalFisherFromGradients,
+  fisherHessianStatistics,
+  fisherDiagonalScaling,
+  fisherQuadraticForm,
+  type Vector,
+  type FisherStatistics,
+  type FisherFromGradientsOptions
+} from './statistics';

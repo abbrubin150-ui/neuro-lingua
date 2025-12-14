@@ -39,6 +39,17 @@
 - ✅ **Numerical Stability** - Log-sum-exp, stable softmax
 - ✅ **Perplexity Calculation** - Model evaluation metric
 
+### 🔬 Mathematical Analysis Module (v4.3)
+
+Rigorous mathematical analysis tools with formal guarantees:
+
+- ✅ **Numerical Stability** - Kahan/Neumaier summation, stable norms, condition number estimation
+- ✅ **Convergence Theorems** - Formal proofs for Sophia, Lion, and SGD optimizers with rate bounds
+- ✅ **Information Theory** - KSG mutual information, k-NN entropy, rate-distortion curves
+- ✅ **Sampling Analysis** - Entropy distribution tests, Mirostat convergence, temperature calibration
+- ✅ **Spectral Graph Analysis** - Laplacian spectrum, Fiedler vectors, expander properties for attention patterns
+- ✅ **Approximation Theory** - Wedin bounds, Nyström approximation, randomized SVD with error guarantees
+
 ### Text Generation Methods
 
 - ✅ **Greedy Decoding** - Deterministic selection of most likely token (argmax)
@@ -266,10 +277,18 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 │   │       └── injection_math.ts   # Residual analysis, eigenvectors
 │   ├── losses/                     # Advanced loss functions
 │   ├── math/
+│   │   ├── index.ts                # Unified exports for math module
+│   │   ├── numerics.ts             # Kahan summation, stable norms
+│   │   ├── convergence.ts          # Optimizer convergence theorems
+│   │   ├── information_theory.ts   # KSG MI, entropy, rate-distortion
+│   │   ├── sampling_analysis.ts    # Mirostat analysis, temperature calibration
+│   │   ├── spectral_graph.ts       # Laplacian spectrum, expander properties
+│   │   ├── approximation.ts        # Wedin bounds, Nyström, randomized SVD
+│   │   ├── analysis.ts             # Spectral/Lyapunov analysis
+│   │   ├── statistics.ts           # Fisher information statistics
 │   │   ├── causal_math.ts          # Causal inference mathematics
 │   │   ├── dag_operations.ts       # DAG graph operations
-│   │   ├── analysis.ts             # Spectral/Lyapunov analysis
-│   │   └── statistics.ts           # Fisher information statistics
+│   │   └── bias_verification.ts    # Neutrality axiom verification
 │   ├── models/
 │   │   └── sparse_attention.ts     # Sparse attention patterns (BigBird, Longformer, etc.)
 │   ├── training/

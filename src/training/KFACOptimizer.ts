@@ -82,7 +82,7 @@ const DEFAULT_KFAC_CONFIG: Required<KFACConfig> = {
 /**
  * Create identity matrix
  */
-function eye(n: number): number[][] {
+function _eye(n: number): number[][] {
   const result: number[][] = [];
   for (let i = 0; i < n; i++) {
     const row = new Array(n).fill(0);
@@ -143,7 +143,7 @@ function matMul(A: number[][], B: number[][]): number[][] {
 /**
  * Matrix transpose
  */
-function transpose(A: number[][]): number[][] {
+function _transpose(A: number[][]): number[][] {
   if (A.length === 0) return [];
   return A[0].map((_, i) => A.map((row) => row[i]));
 }
@@ -524,7 +524,8 @@ export class KFACOptimizer {
     for (let i = 0; i < outputDim; i++) {
       for (let j = 0; j < inputDim; j++) {
         // Momentum update
-        stats.momentum[i][j] = momentum * stats.momentum[i][j] + (1 - momentum) * preconditioned[i][j];
+        stats.momentum[i][j] =
+          momentum * stats.momentum[i][j] + (1 - momentum) * preconditioned[i][j];
 
         // Weight update with weight decay
         W[i][j] -= lr * stats.momentum[i][j] + lr * weightDecay * W[i][j];

@@ -475,13 +475,11 @@ export function updateAdaptiveConformal(
   const covered = predSet.classes.includes(trueLabel) ? 1 : 0;
 
   // Update running coverage estimate
-  const newCoverageEstimate =
-    (1 - state.gamma) * state.coverageEstimate + state.gamma * covered;
+  const newCoverageEstimate = (1 - state.gamma) * state.coverageEstimate + state.gamma * covered;
 
   // Adjust threshold to maintain target coverage
   // If coverage too low, increase threshold (larger sets)
   // If coverage too high, decrease threshold (smaller sets)
-  const alpha = 1 - targetCoverage;
   const coverageError = newCoverageEstimate - targetCoverage;
 
   // Learning rate for threshold adjustment
@@ -607,13 +605,8 @@ export function analyzeConditionalCoverage(
 /**
  * Format prediction set for display
  */
-export function formatPredictionSet(
-  predSet: PredictionSet,
-  classNames?: string[]
-): string {
-  const names = predSet.classes.map((c) =>
-    classNames ? classNames[c] : `Class ${c}`
-  );
+export function formatPredictionSet(predSet: PredictionSet, classNames?: string[]): string {
+  const names = predSet.classes.map((c) => (classNames ? classNames[c] : `Class ${c}`));
 
   if (names.length === 1) {
     return `{${names[0]}} (conf: ${(predSet.topConfidence * 100).toFixed(1)}%)`;

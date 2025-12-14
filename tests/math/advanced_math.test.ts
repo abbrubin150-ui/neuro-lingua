@@ -15,9 +15,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   linearizedAttention,
   multiHeadLinearizedAttention,
-  computeApproximationError,
-  estimateMemorySavings,
-  type KernelType
+  estimateMemorySavings
 } from '../../src/models/linearized_attention';
 
 // K-FAC Optimizer
@@ -29,7 +27,6 @@ import {
   analyzeNTKDynamics,
   analyzeTrainability,
   analyzeSpectrum,
-  computeNTKSummary,
   generateNTKAlerts
 } from '../../src/math/ntk_analysis';
 

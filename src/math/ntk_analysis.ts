@@ -97,7 +97,11 @@ export interface SpectrumAnalysis {
  * @param h Step size for finite difference (default: 1e-5)
  * @returns Gradient vector
  */
-export function numericalGradient(f: (x: number[]) => number, x: number[], h: number = 1e-5): number[] {
+export function numericalGradient(
+  f: (x: number[]) => number,
+  x: number[],
+  h: number = 1e-5
+): number[] {
   const n = x.length;
   const gradient = new Array(n).fill(0);
 
@@ -222,7 +226,7 @@ function computeEigenvalues(matrix: number[][], k: number): number[] {
   if (n === 0) return [];
 
   const eigenvalues: number[] = [];
-  let currentMatrix = matrix.map((row) => [...row]);
+  const currentMatrix = matrix.map((row) => [...row]);
 
   for (let e = 0; e < k && e < n; e++) {
     // Power iteration for largest eigenvalue
@@ -358,7 +362,9 @@ export function analyzeTrainability(
 
   // Condition number check
   if (ntk.conditionNumber > 1e6) {
-    warnings.push(`High condition number ${ntk.conditionNumber.toExponential(2)} may slow convergence`);
+    warnings.push(
+      `High condition number ${ntk.conditionNumber.toExponential(2)} may slow convergence`
+    );
   }
 
   // Effective rank check
@@ -508,21 +514,18 @@ export function predictNTKDynamics(
   // Simplified: assume diagonal approximation for small t
 
   // For each eigenvalue, compute decay factor
-  const decayFactors = ntk.eigenvalues.map((lambda) =>
-    1 - Math.exp(-learningRate * lambda * steps)
+  const decayFactors = ntk.eigenvalues.map(
+    (lambda) => 1 - Math.exp(-learningRate * lambda * steps)
   );
 
   // Approximate: Θ^{-1} * (I - exp(-η*Θ*t)) ≈ diag(decay_i / λ_i)
   // Simplified prediction using effective learning
   const effectiveLR = decayFactors.reduce((a, b) => a + b, 0) / ntk.eigenvalues.length;
 
-  const predictedOutputs = initialOutputs.map(
-    (f0, i) => f0 + effectiveLR * residual[i]
-  );
+  const predictedOutputs = initialOutputs.map((f0, i) => f0 + effectiveLR * residual[i]);
 
   // Expected loss: ||y - f(t)||^2
-  const expectedLoss =
-    predictedOutputs.reduce((s, f, i) => s + (targets[i] - f) ** 2, 0) / n;
+  const expectedLoss = predictedOutputs.reduce((s, f, i) => s + (targets[i] - f) ** 2, 0) / n;
 
   return { predictedOutputs, expectedLoss };
 }

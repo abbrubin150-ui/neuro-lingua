@@ -572,7 +572,14 @@ export interface BetaScheduleConfig {
  * Get beta value with warm-up and annealing schedule
  */
 export function getBetaWithWarmup(epoch: number, config: BetaScheduleConfig): number {
-  const { betaInit, betaFinal, warmupEpochs, annealingEpochs, scheduleType, numCycles = 4 } = config;
+  const {
+    betaInit,
+    betaFinal,
+    warmupEpochs,
+    annealingEpochs,
+    scheduleType,
+    numCycles = 4
+  } = config;
 
   // Warm-up phase
   if (epoch < warmupEpochs) {
@@ -591,12 +598,13 @@ export function getBetaWithWarmup(epoch: number, config: BetaScheduleConfig): nu
       return betaInit * Math.pow(betaFinal / betaInit, annealingProgress);
 
     case 'cosine':
-      return betaFinal + (betaInit - betaFinal) * (1 + Math.cos(Math.PI * annealingProgress)) / 2;
+      return betaFinal + ((betaInit - betaFinal) * (1 + Math.cos(Math.PI * annealingProgress))) / 2;
 
-    case 'cyclical':
+    case 'cyclical': {
       // Cyclical annealing: beta oscillates between betaInit and betaFinal
       const cycleProgress = (annealingProgress * numCycles) % 1;
-      return betaInit + (betaFinal - betaInit) * (1 - Math.cos(Math.PI * cycleProgress)) / 2;
+      return betaInit + ((betaFinal - betaInit) * (1 - Math.cos(Math.PI * cycleProgress))) / 2;
+    }
 
     default:
       return betaInit;
@@ -626,7 +634,7 @@ export interface VIBDiagnostics {
 export function diagnoseVIB(
   encoderParams: GaussianParams[],
   metrics: VIBMetrics,
-  config: VIBConfig
+  _config: VIBConfig
 ): VIBDiagnostics {
   const recommendations: string[] = [];
 
@@ -684,7 +692,9 @@ export function diagnoseVIB(
   }
 
   if (effectiveDims < latentDim / 4) {
-    recommendations.push(`Only ${effectiveDims}/${latentDim} dimensions used: consider smaller latent space`);
+    recommendations.push(
+      `Only ${effectiveDims}/${latentDim} dimensions used: consider smaller latent space`
+    );
   }
 
   if (metrics.klDivergence > 100) {

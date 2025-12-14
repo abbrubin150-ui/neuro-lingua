@@ -17,8 +17,9 @@ import {
   typicalSample
 } from '../generation/sampling';
 import { GPUNeuralOps } from '../backend/gpu_neural_ops';
+import { SophiaOptimizer } from '../training/SophiaOptimizer';
 
-export type Optimizer = 'momentum' | 'adam' | 'newton' | 'bfgs' | 'lion';
+export type Optimizer = 'momentum' | 'adam' | 'newton' | 'bfgs' | 'lion' | 'sophia';
 export type TokenizerMode = 'unicode' | 'ascii' | 'custom';
 
 export type TokenizerConfig = {
@@ -114,6 +115,9 @@ export class ProNeuralLM {
   private lionBeta1 = 0.9;
   private lionBeta2 = 0.99;
   private lionWeightDecay = 0.01;
+
+  // Sophia optimizer instance (v4.2)
+  private sophiaOptimizer: SophiaOptimizer | null = null;
   private aEmbedding: { m: number[][]; v: number[][] } = {
     m: [] as number[][],
     v: [] as number[][]
@@ -167,6 +171,11 @@ export class ProNeuralLM {
     this.wordToIdx = new Map(vocab.map((w, i) => [w, i]));
     this.idxToWord = new Map(vocab.map((w, i) => [i, w]));
     this.initializeParameters();
+
+    // Initialize Sophia optimizer if selected
+    if (this.optimizer === 'sophia') {
+      this.sophiaOptimizer = new SophiaOptimizer({ lr: this.learningRate });
+    }
   }
 
   private static normalizeTokenizerConfig(config?: TokenizerConfig): TokenizerConfig {
@@ -657,6 +666,13 @@ export class ProNeuralLM {
       this.applyLionVector(this.bOutput, dBout, this.mBOutput);
       this.applyLionMatrix(this.wHidden, dWh, this.mWHidden);
       this.applyLionVector(this.bHidden, dBh, this.mBHidden);
+    } else if (this.optimizer === 'sophia' && this.sophiaOptimizer) {
+      // Sophia optimizer (v4.2): second-order with diagonal Hessian
+      this.sophiaOptimizer.updateMatrix(this.wOutput, dWout, 'wOutput');
+      this.sophiaOptimizer.updateVector(this.bOutput, dBout, 'bOutput');
+      this.sophiaOptimizer.updateMatrix(this.wHidden, dWh, 'wHidden');
+      this.sophiaOptimizer.updateVector(this.bHidden, dBh, 'bHidden');
+      this.sophiaOptimizer.step();
     } else {
       this.applyMomentumMatrix(this.wOutput, dWout, this.mWOutput);
       this.applyMomentumVector(this.bOutput, dBout, this.mBOutput);
@@ -688,6 +704,11 @@ export class ProNeuralLM {
       // Lion embedding update
       for (const idx of inputs) {
         this.applyLionRow(this.embedding, idx, dEmb, this.mEmbedding);
+      }
+    } else if (this.optimizer === 'sophia' && this.sophiaOptimizer) {
+      // Sophia embedding update
+      for (const idx of inputs) {
+        this.sophiaOptimizer.updateRow(this.embedding, idx, dEmb, 'embedding');
       }
     } else if (this.optimizer === 'newton' || this.optimizer === 'bfgs') {
       for (const idx of inputs) {

@@ -608,24 +608,40 @@ export class TransformerLM extends ProNeuralLM {
     dHidden: number[]
   ): Promise<void> {
     const lr = (this as any).learningRate as number;
+    const optimizer = (this as any).optimizer as Optimizer;
     const wOutput = (this as any).wOutput as number[][];
     const bOutput = (this as any).bOutput as number[];
-
-    // Simple SGD update for output weights
-    for (let i = 0; i < wOutput.length; i++) {
-      for (let j = 0; j < wOutput[i].length; j++) {
-        wOutput[i][j] -= lr * dWout[i][j];
-      }
-    }
-    for (let j = 0; j < bOutput.length; j++) {
-      bOutput[j] -= lr * dBout[j];
-    }
-
-    // Update embeddings
     const embedding = (this as any).embedding as number[][];
-    for (const idx of inputs) {
-      for (let i = 0; i < embedding[idx].length; i++) {
-        embedding[idx][i] -= lr * dHidden[i] * 0.01;
+
+    if (optimizer === 'sophia') {
+      // Use Sophia optimizer for output weights
+      const sophiaOptimizer = (this as any).sophiaOptimizer;
+      if (sophiaOptimizer) {
+        sophiaOptimizer.updateMatrix(wOutput, dWout, 'wOutput');
+        sophiaOptimizer.updateVector(bOutput, dBout, 'bOutput');
+        // Update embeddings
+        for (const idx of inputs) {
+          const dEmb = dHidden.map((v) => v * 0.01);
+          sophiaOptimizer.updateRow(embedding, idx, dEmb, 'embedding');
+        }
+        sophiaOptimizer.step();
+      }
+    } else {
+      // Simple SGD update for output weights (default)
+      for (let i = 0; i < wOutput.length; i++) {
+        for (let j = 0; j < wOutput[i].length; j++) {
+          wOutput[i][j] -= lr * dWout[i][j];
+        }
+      }
+      for (let j = 0; j < bOutput.length; j++) {
+        bOutput[j] -= lr * dBout[j];
+      }
+
+      // Update embeddings
+      for (const idx of inputs) {
+        for (let i = 0; i < embedding[idx].length; i++) {
+          embedding[idx][i] -= lr * dHidden[i] * 0.01;
+        }
       }
     }
   }

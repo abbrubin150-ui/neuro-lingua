@@ -80,15 +80,12 @@ export interface SparseAttentionPattern {
  * @param normalized - Use normalized Laplacian (default: true)
  * @returns Laplacian matrix
  */
-export function computeLaplacian(
-  attention: number[][],
-  normalized = true
-): number[][] {
+export function computeLaplacian(attention: number[][], normalized = true): number[][] {
   const n = attention.length;
   if (n === 0) return [];
 
   // Compute degree matrix D (diagonal with row sums)
-  const degrees = attention.map(row => kahanSum(row));
+  const degrees = attention.map((row) => kahanSum(row));
 
   // Initialize Laplacian
   const L: number[][] = [];
@@ -145,13 +142,13 @@ function computeEigendecomposition(
   const eigenvectors: number[][] = [];
 
   // Work with a copy to allow deflation
-  const M: number[][] = matrix.map(row => [...row]);
+  const M: number[][] = matrix.map((row) => [...row]);
 
   for (let k = 0; k < numEigenvalues && k < n; k++) {
     // Initialize random vector
     let v = new Array(n).fill(0).map(() => Math.random() - 0.5);
-    let norm = Math.sqrt(kahanSum(v.map(x => x * x)));
-    v = v.map(x => x / norm);
+    let norm = Math.sqrt(kahanSum(v.map((x) => x * x)));
+    v = v.map((x) => x / norm);
 
     let eigenvalue = 0;
 
@@ -167,14 +164,14 @@ function computeEigendecomposition(
 
       // Compute Rayleigh quotient
       const vMv = kahanSum(v.map((vi, i) => vi * w[i]));
-      const vv = kahanSum(v.map(x => x * x));
+      const vv = kahanSum(v.map((x) => x * x));
       eigenvalue = vMv / vv;
 
       // Normalize
-      norm = Math.sqrt(kahanSum(w.map(x => x * x)));
+      norm = Math.sqrt(kahanSum(w.map((x) => x * x)));
       if (norm === 0) break;
 
-      const vNew = w.map(x => x / norm);
+      const vNew = w.map((x) => x / norm);
 
       // Check convergence
       const diff = kahanSum(vNew.map((x, i) => Math.abs(x - v[i])));
@@ -246,11 +243,11 @@ export function analyzeAttentionGraph(
 
   // Compute eigenvalues (for Laplacian, we want smallest)
   // Use negative of L to get smallest eigenvalues via power iteration
-  const negL = L.map(row => row.map(x => -x));
+  const negL = L.map((row) => row.map((x) => -x));
   const { eigenvalues: negEigs, eigenvectors } = computeEigendecomposition(negL, Math.min(n, 10));
 
   // Convert back to positive eigenvalues and sort
-  const eigenvalues = negEigs.map(e => -e).sort((a, b) => a - b);
+  const eigenvalues = negEigs.map((e) => -e).sort((a, b) => a - b);
 
   // Algebraic connectivity is the second smallest eigenvalue
   const algebraicConnectivity = eigenvalues.length >= 2 ? eigenvalues[1] : 0;
@@ -263,7 +260,7 @@ export function analyzeAttentionGraph(
 
   // Count connected components (number of zero eigenvalues)
   const tolerance = 1e-6;
-  const numComponents = eigenvalues.filter(e => Math.abs(e) < tolerance).length;
+  const numComponents = eigenvalues.filter((e) => Math.abs(e) < tolerance).length;
 
   // Detect community structure using Fiedler vector
   const communityStructure = detectCommunities(fiedlerVector);
@@ -317,7 +314,7 @@ function detectCommunities(fiedlerVector: number[]): number[][] {
     }
   }
 
-  return [positive, negative].filter(c => c.length > 0);
+  return [positive, negative].filter((c) => c.length > 0);
 }
 
 /**
@@ -350,16 +347,14 @@ export function checkExpanderProperties(
   }
 
   // Compute degrees
-  const degrees = attention.map(row =>
-    row.filter(w => w > threshold).length
-  );
+  const degrees = attention.map((row) => row.filter((w) => w > threshold).length);
   const avgDegree = kahanSum(degrees) / n;
 
   // Analyze spectral properties
   const L = computeLaplacian(attention, true);
-  const negL = L.map(row => row.map(x => -x));
+  const negL = L.map((row) => row.map((x) => -x));
   const { eigenvalues: negEigs } = computeEigendecomposition(negL, Math.min(n, 5));
-  const eigenvalues = negEigs.map(e => -e).sort((a, b) => a - b);
+  const eigenvalues = negEigs.map((e) => -e).sort((a, b) => a - b);
 
   // Algebraic connectivity λ₂
   const lambda2 = eigenvalues.length >= 2 ? eigenvalues[1] : 0;
@@ -404,13 +399,13 @@ export function checkExpanderProperties(
   const isExpander = lambda2 >= ramanujanBound * 0.5 && expansionRatio >= 0.1;
 
   // Mixing time bound: O(log(n) / λ₂)
-  const mixingTimeBound = lambda2 > 0
-    ? Math.ceil(Math.log(n) / lambda2)
-    : Infinity;
+  const mixingTimeBound = lambda2 > 0 ? Math.ceil(Math.log(n) / lambda2) : Infinity;
 
   // Recommendations
   if (lambda2 < 0.1) {
-    recommendations.push('Low algebraic connectivity indicates potential bottlenecks in attention flow.');
+    recommendations.push(
+      'Low algebraic connectivity indicates potential bottlenecks in attention flow.'
+    );
   }
 
   if (expansionRatio < 0.1) {
@@ -418,7 +413,9 @@ export function checkExpanderProperties(
   }
 
   if (avgDegree < n * 0.1) {
-    recommendations.push('Sparse attention pattern. Consider adding global tokens or more connections.');
+    recommendations.push(
+      'Sparse attention pattern. Consider adding global tokens or more connections.'
+    );
   }
 
   if (mixingTimeBound > n) {
@@ -444,9 +441,7 @@ export function checkExpanderProperties(
  * @param pattern - Sparse attention pattern
  * @returns Analysis results
  */
-export function analyzeSparseAttentionPattern(
-  pattern: SparseAttentionPattern
-): {
+export function analyzeSparseAttentionPattern(pattern: SparseAttentionPattern): {
   density: number;
   reachability: number;
   diameter: number;
@@ -542,11 +537,15 @@ export function analyzeSparseAttentionPattern(
 
   // Generate recommendations
   if (reachability < 1) {
-    recommendations.push('Not all positions are reachable. Add global tokens or increase local window.');
+    recommendations.push(
+      'Not all positions are reachable. Add global tokens or increase local window.'
+    );
   }
 
   if (diameter > Math.log2(numPositions) * 2) {
-    recommendations.push('High diameter indicates slow information flow. Consider shortcuts or global attention.');
+    recommendations.push(
+      'High diameter indicates slow information flow. Consider shortcuts or global attention.'
+    );
   }
 
   if (clusteringCoefficient < 0.1) {
@@ -590,7 +589,11 @@ export function generateSparsePattern(
     case 'local':
       // Local sliding window attention
       for (let i = 0; i < numPositions; i++) {
-        for (let j = Math.max(0, i - windowSize); j <= Math.min(numPositions - 1, i + windowSize); j++) {
+        for (
+          let j = Math.max(0, i - windowSize);
+          j <= Math.min(numPositions - 1, i + windowSize);
+          j++
+        ) {
           connections.get(i)!.add(j);
         }
       }
@@ -600,7 +603,11 @@ export function generateSparsePattern(
       // Strided attention (every k-th position)
       for (let i = 0; i < numPositions; i++) {
         // Local window
-        for (let j = Math.max(0, i - windowSize); j <= Math.min(numPositions - 1, i + windowSize); j++) {
+        for (
+          let j = Math.max(0, i - windowSize);
+          j <= Math.min(numPositions - 1, i + windowSize);
+          j++
+        ) {
           connections.get(i)!.add(j);
         }
         // Strided
@@ -614,7 +621,11 @@ export function generateSparsePattern(
       // Global tokens attend to all
       for (let i = 0; i < numPositions; i++) {
         // Local attention
-        for (let j = Math.max(0, i - windowSize); j <= Math.min(numPositions - 1, i + windowSize); j++) {
+        for (
+          let j = Math.max(0, i - windowSize);
+          j <= Math.min(numPositions - 1, i + windowSize);
+          j++
+        ) {
           connections.get(i)!.add(j);
         }
         // Global tokens
@@ -625,13 +636,17 @@ export function generateSparsePattern(
       }
       break;
 
-    case 'bigbird':
+    case 'bigbird': {
       // BigBird pattern: local + global + random
       const numRandom = Math.ceil(numPositions * 0.1);
 
       for (let i = 0; i < numPositions; i++) {
         // Local window
-        for (let j = Math.max(0, i - windowSize); j <= Math.min(numPositions - 1, i + windowSize); j++) {
+        for (
+          let j = Math.max(0, i - windowSize);
+          j <= Math.min(numPositions - 1, i + windowSize);
+          j++
+        ) {
           connections.get(i)!.add(j);
         }
 
@@ -648,6 +663,7 @@ export function generateSparsePattern(
         }
       }
       break;
+    }
   }
 
   return {

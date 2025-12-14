@@ -44,7 +44,7 @@ export function kahanSum(values: number[]): number {
   for (const value of values) {
     const y = value - compensation;
     const t = sum + y;
-    compensation = (t - sum) - y;
+    compensation = t - sum - y;
     sum = t;
   }
 
@@ -87,9 +87,9 @@ export function neumaierSum(values: number[]): CompensatedSumResult {
 
     const t = sum + value;
     if (Math.abs(sum) >= Math.abs(value)) {
-      compensation += (sum - t) + value;
+      compensation += sum - t + value;
     } else {
-      compensation += (value - t) + sum;
+      compensation += value - t + sum;
     }
     sum = t;
   }
@@ -203,7 +203,10 @@ export function stableFrobeniusNorm(A: number[][]): number {
  * @param options - Computation options
  * @returns Spectral norm with convergence info
  */
-export function stableSpectralNorm(A: number[][], options: MatrixNormOptions = {}): MatrixNormResult {
+export function stableSpectralNorm(
+  A: number[][],
+  options: MatrixNormOptions = {}
+): MatrixNormResult {
   const { maxIterations = 1000, tolerance = 1e-10 } = options;
 
   const m = A.length;
@@ -214,12 +217,12 @@ export function stableSpectralNorm(A: number[][], options: MatrixNormOptions = {
 
   // Initialize random unit vector
   let v = new Array(n).fill(0).map(() => Math.random() - 0.5);
-  let vNorm = Math.sqrt(kahanSum(v.map(x => x * x)));
-  v = v.map(x => x / vNorm);
+  let vNorm = Math.sqrt(kahanSum(v.map((x) => x * x)));
+  v = v.map((x) => x / vNorm);
 
   let sigma = 0;
   let prevSigma = 0;
-  let converged = false;
+  let _converged = false;
 
   for (let iter = 0; iter < maxIterations; iter++) {
     // Compute u = Av
@@ -229,20 +232,20 @@ export function stableSpectralNorm(A: number[][], options: MatrixNormOptions = {
     const vNew = multiplyMatrixTransposeVector(A, u);
 
     // Normalize v
-    vNorm = Math.sqrt(kahanSum(vNew.map(x => x * x)));
+    vNorm = Math.sqrt(kahanSum(vNew.map((x) => x * x)));
     if (vNorm === 0) {
       return { norm: 0, iterations: iter + 1, converged: true };
     }
 
-    v = vNew.map(x => x / vNorm);
+    v = vNew.map((x) => x / vNorm);
 
     // Estimate singular value: sigma = ||Au|| / ||u||
-    const uNorm = Math.sqrt(kahanSum(u.map(x => x * x)));
+    const uNorm = Math.sqrt(kahanSum(u.map((x) => x * x)));
     sigma = uNorm;
 
     // Check convergence
     if (Math.abs(sigma - prevSigma) < tolerance * sigma) {
-      converged = true;
+      _converged = true;
       return {
         norm: sigma,
         iterations: iter + 1,
@@ -276,7 +279,7 @@ function multiplyMatrixVector(A: number[][], v: number[]): number[] {
     for (let j = 0; j < row.length; j++) {
       const y = row[j] * v[j] - c;
       const t = sum + y;
-      c = (t - sum) - y;
+      c = t - sum - y;
       sum = t;
     }
     result[i] = sum;
@@ -300,7 +303,7 @@ function multiplyMatrixTransposeVector(A: number[][], v: number[]): number[] {
     for (let i = 0; i < A.length; i++) {
       const y = A[i][j] * v[i] - c;
       const t = sum + y;
-      c = (t - sum) - y;
+      c = t - sum - y;
       sum = t;
     }
     result[j] = sum;
@@ -326,7 +329,7 @@ export function stableMatrixNorm(A: number[][], options: MatrixNormOptions = {})
     case 'spectral':
       return stableSpectralNorm(A, options);
 
-    case '1':
+    case '1': {
       // Column sum norm
       if (A.length === 0) return { norm: 0, converged: true };
       const colSums = new Array(A[0].length).fill(0);
@@ -336,8 +339,9 @@ export function stableMatrixNorm(A: number[][], options: MatrixNormOptions = {})
         }
       }
       return { norm: Math.max(...colSums), converged: true };
+    }
 
-    case 'inf':
+    case 'inf': {
       // Row sum norm
       let maxRowSum = 0;
       for (const row of A) {
@@ -345,6 +349,7 @@ export function stableMatrixNorm(A: number[][], options: MatrixNormOptions = {})
         if (rowSum > maxRowSum) maxRowSum = rowSum;
       }
       return { norm: maxRowSum, converged: true };
+    }
 
     default:
       return { norm: stableFrobeniusNorm(A), converged: true };
@@ -387,9 +392,9 @@ export function precisionErrorBound(
 ): PrecisionErrorBound {
   // Unit roundoff for each precision
   const unitRoundoffs: Record<string, number> = {
-    fp16: 4.88e-4,   // 2^-11
-    fp32: 5.96e-8,   // 2^-24
-    fp64: 1.11e-16   // 2^-53
+    fp16: 4.88e-4, // 2^-11
+    fp32: 5.96e-8, // 2^-24
+    fp64: 1.11e-16 // 2^-53
   };
 
   const u = unitRoundoffs[inputPrecision];
@@ -468,7 +473,7 @@ export function estimateConditionNumber(A: number[][], maxIterations = 5): numbe
     const y = multiplyMatrixVector(A, x);
 
     // z = A^T * sign(y)
-    const signY = y.map(v => (v >= 0 ? 1 : -1));
+    const signY = y.map((v) => (v >= 0 ? 1 : -1));
     const z = multiplyMatrixTransposeVector(A, signY);
 
     // Find max component of z
@@ -526,7 +531,9 @@ export function checkNumericalStability(A: number[][]): StabilityCheck {
     stable = false;
     recommendations.push('Matrix is ill-conditioned (κ > 10^12). Consider regularization.');
   } else if (condNumber > 1e6) {
-    recommendations.push('Matrix is moderately ill-conditioned (κ > 10^6). Monitor for precision loss.');
+    recommendations.push(
+      'Matrix is moderately ill-conditioned (κ > 10^6). Monitor for precision loss.'
+    );
   }
 
   // Check for very small or very large elements

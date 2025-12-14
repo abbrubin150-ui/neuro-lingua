@@ -65,7 +65,7 @@ function approximateSVD(
   const ATA = multiplyTransposeA(A);
 
   // Copy for deflation
-  const current = ATA.map(row => [...row]);
+  const current = ATA.map((row) => [...row]);
 
   for (let i = 0; i < k && i < Math.min(m, n); i++) {
     // Power iteration for top eigenvector of A^T A
@@ -76,10 +76,10 @@ function approximateSVD(
       const newV = matrixVectorMultiply(current, v);
 
       // Normalize
-      const norm = Math.sqrt(kahanSum(newV.map(x => x * x)));
+      const norm = Math.sqrt(kahanSum(newV.map((x) => x * x)));
       if (norm < 1e-10) break;
 
-      const vNext = newV.map(x => x / norm);
+      const vNext = newV.map((x) => x / norm);
 
       // Check convergence
       const diff = kahanSum(vNext.map((x, j) => Math.abs(x - v[j])));
@@ -98,7 +98,7 @@ function approximateSVD(
     // Compute left singular vector: u = Av / sigma
     if (sigma > 1e-10) {
       const Av = matrixVectorMultiply(A, v);
-      const u = Av.map(x => x / sigma);
+      const u = Av.map((x) => x / sigma);
       U.push(u);
     } else {
       U.push(new Array(m).fill(0));
@@ -165,11 +165,7 @@ function matrixVectorMultiply(A: number[][], v: number[]): number[] {
  * @param rank - Rank of approximation
  * @returns Wedin bound
  */
-export function wedinBound(
-  A: number[][],
-  A_tilde: number[][],
-  rank: number
-): WedinBound {
+export function wedinBound(A: number[][], A_tilde: number[][], rank: number): WedinBound {
   const m = A.length;
   if (m === 0 || m !== A_tilde.length) {
     return {
@@ -225,16 +221,19 @@ export function wedinBound(
 
   let interpretation: string;
   if (!isMeaningful) {
-    interpretation = 'Perturbation too large relative to singular value gap. ' +
-      'Subspaces may have large angle.';
+    interpretation =
+      'Perturbation too large relative to singular value gap. ' + 'Subspaces may have large angle.';
   } else if (sinThetaBound < 0.1) {
-    interpretation = `Subspaces are very close (angle < ${(angleBound * 180 / Math.PI).toFixed(1)}°). ` +
+    interpretation =
+      `Subspaces are very close (angle < ${((angleBound * 180) / Math.PI).toFixed(1)}°). ` +
       'Approximation is stable.';
   } else if (sinThetaBound < 0.5) {
-    interpretation = `Moderate subspace deviation (angle < ${(angleBound * 180 / Math.PI).toFixed(1)}°). ` +
+    interpretation =
+      `Moderate subspace deviation (angle < ${((angleBound * 180) / Math.PI).toFixed(1)}°). ` +
       'Consider increasing rank or reducing perturbation.';
   } else {
-    interpretation = `Significant subspace deviation (angle < ${(angleBound * 180 / Math.PI).toFixed(1)}°). ` +
+    interpretation =
+      `Significant subspace deviation (angle < ${((angleBound * 180) / Math.PI).toFixed(1)}°). ` +
       'Approximation may be unreliable.';
   }
 
@@ -306,8 +305,7 @@ export function nystromApproximation(
   const m = Math.min(numLandmarks, n);
 
   // Select landmark indices (random if not provided)
-  const landmarks = landmarkIndices?.slice(0, m) ??
-    selectLandmarks(n, m);
+  const landmarks = landmarkIndices?.slice(0, m) ?? selectLandmarks(n, m);
 
   // Extract K_mm (landmark submatrix)
   const K_mm: number[][] = [];
@@ -366,7 +364,9 @@ export function nystromApproximation(
 
   // Generate recommendations
   if (conditionNumber > 1e6) {
-    recommendations.push('Landmark submatrix is ill-conditioned. Consider different landmark selection.');
+    recommendations.push(
+      'Landmark submatrix is ill-conditioned. Consider different landmark selection.'
+    );
   }
 
   if (relativeError > 0.2) {
@@ -448,7 +448,7 @@ function pseudoInverse(A: number[][]): {
   }
 
   const maxSigma = singularValues[0] || 1;
-  const minSigma = singularValues.filter(s => s > tolerance).pop() || 1;
+  const minSigma = singularValues.filter((s) => s > tolerance).pop() || 1;
   const conditionNumber = maxSigma / minSigma;
 
   return { inverse, conditionNumber };
@@ -500,10 +500,7 @@ export interface LowRankAnalysis {
  * @param targetEnergy - Target fraction of energy to preserve (default: 0.95)
  * @returns Analysis results
  */
-export function analyzeLowRankApproximation(
-  A: number[][],
-  targetEnergy = 0.95
-): LowRankAnalysis {
+export function analyzeLowRankApproximation(A: number[][], targetEnergy = 0.95): LowRankAnalysis {
   const m = A.length;
   if (m === 0) {
     return {
@@ -524,7 +521,7 @@ export function analyzeLowRankApproximation(
   const { singularValues } = svd;
 
   // Total energy (sum of σ²)
-  const totalEnergy = kahanSum(singularValues.map(s => s * s));
+  const totalEnergy = kahanSum(singularValues.map((s) => s * s));
 
   // Cumulative energy
   const cumulativeEnergy: number[] = [];
@@ -536,7 +533,7 @@ export function analyzeLowRankApproximation(
 
   // Numerical rank (singular values above threshold)
   const tolerance = 1e-10 * singularValues[0];
-  const numericalRank = singularValues.filter(s => s > tolerance).length;
+  const numericalRank = singularValues.filter((s) => s > tolerance).length;
 
   // Recommended rank for target energy
   let recommendedRank = 1;
@@ -642,7 +639,10 @@ export function randomizedSVD(
   const svdB = approximateSVD(B, rank);
 
   // U = Q * U_B
-  const U = multiplyMatrices(Q, svdB.U.map(u => u.slice(0, l)));
+  const U = multiplyMatrices(
+    Q,
+    svdB.U.map((u) => u.slice(0, l))
+  );
 
   // Error bound: ||A - U Σ V^T||_F ≈ σ_{rank+1}
   const errorBound = svdB.singularValues[rank] ?? 0;
@@ -659,7 +659,8 @@ export function randomizedSVD(
  * Generate standard Gaussian random number (Box-Muller)
  */
 function randomGaussian(): number {
-  let u = 0, v = 0;
+  let u = 0,
+    v = 0;
   while (u === 0) u = Math.random();
   while (v === 0) v = Math.random();
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
@@ -705,7 +706,7 @@ function qrOrthogonalize(Y: number[][]): number[][] {
 
     // Subtract projections onto previous columns
     for (let k = 0; k < j; k++) {
-      const qk = Q.map(row => row[k]);
+      const qk = Q.map((row) => row[k]);
       const proj = kahanSum(v.map((vi, i) => vi * qk[i]));
       for (let i = 0; i < m; i++) {
         v[i] -= proj * qk[i];
@@ -713,7 +714,7 @@ function qrOrthogonalize(Y: number[][]): number[][] {
     }
 
     // Normalize
-    const norm = Math.sqrt(kahanSum(v.map(x => x * x)));
+    const norm = Math.sqrt(kahanSum(v.map((x) => x * x)));
     if (norm > 1e-10) {
       for (let i = 0; i < m; i++) {
         Q[i][j] = v[i] / norm;

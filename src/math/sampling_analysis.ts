@@ -19,7 +19,7 @@
  * - Holtzman et al. (2020) "The Curious Case of Neural Text Degeneration"
  */
 
-import { kahanSum, neumaierSum, stableVariance } from './numerics';
+import { kahanSum, stableVariance } from './numerics';
 
 /**
  * Entropy distribution test result
@@ -84,11 +84,7 @@ export function computeCrossEntropy(
 /**
  * Compute KL divergence D_KL(P || Q)
  */
-export function computeKLDivergence(
-  P: number[],
-  Q: number[],
-  epsilon = 1e-10
-): number {
+export function computeKLDivergence(P: number[], Q: number[], epsilon = 1e-10): number {
   if (P.length !== Q.length) {
     throw new Error('Distributions must have same length');
   }
@@ -141,7 +137,7 @@ function standardNormalCDF(x: number): number {
   x = Math.abs(x);
 
   const t = 1.0 / (1.0 + p * x);
-  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x / 2);
+  const y = 1.0 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp((-x * x) / 2);
 
   return 0.5 * (1.0 + sign * y);
 }
@@ -176,14 +172,15 @@ export function entropyDistributionTest(
   }
 
   // Compute surprise for each sample
-  const surprises = samples.map(s => computeSurprise(s.probability));
+  const surprises = samples.map((s) => computeSurprise(s.probability));
 
   // Compute entropy statistics
   const stats = stableVariance(surprises);
   const n = surprises.length;
 
   // Compute skewness and kurtosis
-  let m3 = 0, m4 = 0;
+  let m3 = 0,
+    m4 = 0;
   for (const s of surprises) {
     const diff = s - stats.mean;
     m3 += diff * diff * diff;
@@ -192,12 +189,8 @@ export function entropyDistributionTest(
   m3 /= n;
   m4 /= n;
 
-  const skewness = stats.standardDeviation > 0
-    ? m3 / Math.pow(stats.standardDeviation, 3)
-    : 0;
-  const kurtosis = stats.standardDeviation > 0
-    ? m4 / Math.pow(stats.standardDeviation, 4) - 3
-    : 0;
+  const skewness = stats.standardDeviation > 0 ? m3 / Math.pow(stats.standardDeviation, 3) : 0;
+  const kurtosis = stats.standardDeviation > 0 ? m4 / Math.pow(stats.standardDeviation, 4) - 3 : 0;
 
   // Expected entropy: for typical sampling, E[surprise] ≈ H(p)
   // Under the typical set theorem, samples should concentrate around H
@@ -209,7 +202,7 @@ export function entropyDistributionTest(
 
   // Use Jarque-Bera test for normality of surprises
   // JB = n/6 * (S^2 + K^2/4)
-  const jbStatistic = (n / 6) * (skewness * skewness + kurtosis * kurtosis / 4);
+  const jbStatistic = (n / 6) * (skewness * skewness + (kurtosis * kurtosis) / 4);
 
   // JB ~ χ²(2) under null
   const pValue = 1 - chiSquaredCDF(jbStatistic, 2);
@@ -218,14 +211,17 @@ export function entropyDistributionTest(
 
   let interpretation: string;
   if (passesTest) {
-    interpretation = 'Surprise distribution is consistent with typical sampling. ' +
+    interpretation =
+      'Surprise distribution is consistent with typical sampling. ' +
       `Mean surprise ${stats.mean.toFixed(3)} nats, std ${stats.standardDeviation.toFixed(3)}.`;
   } else {
     if (Math.abs(skewness) > 1) {
-      interpretation = `Distribution is ${skewness > 0 ? 'right' : 'left'}-skewed. ` +
+      interpretation =
+        `Distribution is ${skewness > 0 ? 'right' : 'left'}-skewed. ` +
         'May indicate non-typical token selection.';
     } else if (Math.abs(kurtosis) > 2) {
-      interpretation = `Distribution has ${kurtosis > 0 ? 'heavy' : 'light'} tails. ` +
+      interpretation =
+        `Distribution has ${kurtosis > 0 ? 'heavy' : 'light'} tails. ` +
         'May indicate inconsistent sampling behavior.';
     } else {
       interpretation = 'Surprise distribution deviates from expected typical set behavior.';
@@ -288,7 +284,7 @@ export function analyzeMirostatConvergence(
   muHistory: number[],
   surpriseHistory: number[],
   targetEntropy: number,
-  learningRate: number
+  _learningRate: number
 ): MirostatConvergenceAnalysis {
   const recommendations: string[] = [];
 
@@ -329,7 +325,7 @@ export function analyzeMirostatConvergence(
   // Convergence rate depends on η and variance of surprises
 
   // Estimate autocorrelation of μ to find mixing time
-  const muDemeaned = muHistory.map(m => m - muStats.mean);
+  const muDemeaned = muHistory.map((m) => m - muStats.mean);
   let acf1 = 0;
   for (let i = 1; i < n; i++) {
     acf1 += muDemeaned[i] * muDemeaned[i - 1];
@@ -337,9 +333,7 @@ export function analyzeMirostatConvergence(
   acf1 /= (n - 1) * muStats.variance;
 
   // Time constant: τ = -1/log(ρ) where ρ is lag-1 autocorrelation
-  const timeConstant = acf1 > 0 && acf1 < 1
-    ? -1 / Math.log(acf1)
-    : 50; // Default if undefined
+  const timeConstant = acf1 > 0 && acf1 < 1 ? -1 / Math.log(acf1) : 50; // Default if undefined
 
   // Mixing time: approximately 2-3 time constants
   const mixingTime = Math.ceil(3 * timeConstant);
@@ -352,7 +346,9 @@ export function analyzeMirostatConvergence(
 
   // Generate recommendations
   if (perplexityCV > 0.3) {
-    recommendations.push('High perplexity variation. Consider reducing target entropy or learning rate.');
+    recommendations.push(
+      'High perplexity variation. Consider reducing target entropy or learning rate.'
+    );
   }
 
   if (convergenceRate < 0.05) {
@@ -365,7 +361,9 @@ export function analyzeMirostatConvergence(
 
   const avgSurprise = surpriseStats.mean;
   if (Math.abs(avgSurprise - targetEntropy) > targetEntropy * 0.1) {
-    recommendations.push(`Observed entropy (${avgSurprise.toFixed(2)}) differs from target (${targetEntropy}).`);
+    recommendations.push(
+      `Observed entropy (${avgSurprise.toFixed(2)}) differs from target (${targetEntropy}).`
+    );
   }
 
   if (recommendations.length === 0) {
@@ -431,7 +429,7 @@ export function analyzeSamplingQuality(
   }
 
   // Average entropy from token probabilities
-  const surprises = probabilities.map(p => computeSurprise(p));
+  const surprises = probabilities.map((p) => computeSurprise(p));
   const averageEntropy = kahanSum(surprises) / surprises.length;
 
   // Empirical entropy (entropy of token frequency distribution)
@@ -477,16 +475,20 @@ export function analyzeSamplingQuality(
     const diff = probabilities[i] - probabilities[i - 1];
     probVariance += diff * diff;
   }
-  probVariance /= (probabilities.length - 1);
+  probVariance /= probabilities.length - 1;
   const coherenceScore = 1 / (1 + probVariance * 10);
 
   // Overall score (weighted average)
-  const overallScore = Math.min(100, Math.max(0,
-    25 * (1 - repetitionRate) +          // Low repetition
-    25 * diversityScore +                 // High diversity
-    25 * selfBleuEstimate +               // Low self-BLEU
-    25 * coherenceScore                   // High coherence
-  ) * 100);
+  const overallScore = Math.min(
+    100,
+    Math.max(
+      0,
+      25 * (1 - repetitionRate) + // Low repetition
+        25 * diversityScore + // High diversity
+        25 * selfBleuEstimate + // Low self-BLEU
+        25 * coherenceScore // High coherence
+    ) * 100
+  );
 
   // Grade based on overall score
   let grade: 'A' | 'B' | 'C' | 'D' | 'F';
@@ -553,10 +555,10 @@ export function analyzeTemperatureCalibration(
     for (const logit of logits) {
       // Softmax with temperature
       const maxLogit = Math.max(...logit);
-      const scaledLogits = logit.map(l => (l - maxLogit) / T);
-      const expLogits = scaledLogits.map(l => Math.exp(l));
+      const scaledLogits = logit.map((l) => (l - maxLogit) / T);
+      const expLogits = scaledLogits.map((l) => Math.exp(l));
       const sumExp = kahanSum(expLogits);
-      const probs = expLogits.map(e => e / sumExp);
+      const probs = expLogits.map((e) => e / sumExp);
 
       totalEntropy += computeEntropy(probs);
     }
@@ -575,13 +577,13 @@ export function analyzeTemperatureCalibration(
   }
 
   // Interpolate for optimal temperature
-  let optimalTemperature = temperatures[bestIdx];
+  const optimalTemperature = temperatures[bestIdx];
 
   // Estimate sensitivity using finite difference
   const idx1 = Math.max(0, bestIdx - 1);
   const idx2 = Math.min(temperatures.length - 1, bestIdx + 1);
-  const sensitivity = (entropies[idx2] - entropies[idx1]) /
-    (temperatures[idx2] - temperatures[idx1]);
+  const sensitivity =
+    (entropies[idx2] - entropies[idx1]) / (temperatures[idx2] - temperatures[idx1]);
 
   // Current entropy
   const currentIdx = temperatures.indexOf(currentTemperature) ?? 2; // Default to T=1
@@ -593,10 +595,12 @@ export function analyzeTemperatureCalibration(
   if (Math.abs(entropyDeviation) < 0.1) {
     recommendation = 'Temperature is well-calibrated.';
   } else if (entropyDeviation > 0) {
-    recommendation = `Entropy too high (${currentEntropy.toFixed(2)} > ${targetEntropy}). ` +
+    recommendation =
+      `Entropy too high (${currentEntropy.toFixed(2)} > ${targetEntropy}). ` +
       `Consider lowering temperature to ${(currentTemperature * 0.8).toFixed(2)}.`;
   } else {
-    recommendation = `Entropy too low (${currentEntropy.toFixed(2)} < ${targetEntropy}). ` +
+    recommendation =
+      `Entropy too low (${currentEntropy.toFixed(2)} < ${targetEntropy}). ` +
       `Consider raising temperature to ${(currentTemperature * 1.2).toFixed(2)}.`;
   }
 
@@ -642,9 +646,9 @@ export function analyzeNucleusThreshold(
     for (const logit of logits) {
       // Softmax
       const maxLogit = Math.max(...logit);
-      const expLogits = logit.map(l => Math.exp(l - maxLogit));
+      const expLogits = logit.map((l) => Math.exp(l - maxLogit));
       const sumExp = kahanSum(expLogits);
-      const probs = expLogits.map(e => e / sumExp);
+      const probs = expLogits.map((e) => e / sumExp);
 
       // Sort probabilities descending
       const sorted = [...probs].sort((a, b) => b - a);
@@ -685,9 +689,9 @@ export function analyzeNucleusThreshold(
 
   for (const logit of logits) {
     const maxLogit = Math.max(...logit);
-    const expLogits = logit.map(l => Math.exp(l - maxLogit));
+    const expLogits = logit.map((l) => Math.exp(l - maxLogit));
     const sumExp = kahanSum(expLogits);
-    const probs = expLogits.map(e => e / sumExp);
+    const probs = expLogits.map((e) => e / sumExp);
 
     totalEntropy += computeEntropy(probs);
 
@@ -703,7 +707,7 @@ export function analyzeNucleusThreshold(
 
     // Renormalize
     const nucleusSum = kahanSum(nucleus);
-    const nucleusNorm = nucleus.map(p => p / nucleusSum);
+    const nucleusNorm = nucleus.map((p) => p / nucleusSum);
     truncatedEntropy += computeEntropy(nucleusNorm);
   }
 

@@ -58,7 +58,7 @@ export interface ConvergenceAssumptions {
  */
 export type ConvergenceRate =
   | 'sublinear' // O(1/√T) or O(1/T)
-  | 'linear'    // O(ρ^T) where 0 < ρ < 1
+  | 'linear' // O(ρ^T) where 0 < ρ < 1
   | 'quadratic' // O(ρ^(2^T))
   | 'superlinear'; // Faster than linear
 
@@ -537,9 +537,11 @@ export function analyzeQuasiHessian(hessianDiagonal: number[]): QuasiHessianAnal
   }
 
   // Check for very small values (near-zero curvature)
-  const smallCount = hessianDiagonal.filter(h => h < 1e-8).length;
+  const smallCount = hessianDiagonal.filter((h) => h < 1e-8).length;
   if (smallCount > hessianDiagonal.length * 0.1) {
-    recommendations.push(`${smallCount} dimensions have near-zero curvature; may cause large updates`);
+    recommendations.push(
+      `${smallCount} dimensions have near-zero curvature; may cause large updates`
+    );
   }
 
   return {
@@ -589,7 +591,7 @@ export function analyzeOptimizationStability(
   }
 
   const maxEig = Math.max(...hessianEigenvalues);
-  const minEig = Math.min(...hessianEigenvalues.filter(e => e > 0));
+  const minEig = Math.min(...hessianEigenvalues.filter((e) => e > 0));
 
   // For gradient descent: I - ηH has eigenvalues 1 - ηλ_i
   // Stable when |1 - ηλ| < 1 for all eigenvalues
@@ -605,10 +607,7 @@ export function analyzeOptimizationStability(
   } else {
     // Heavy ball momentum: more complex eigenvalue analysis
     // ρ ≈ max(√β, |1 - ηλ|) approximately
-    spectralRadius = Math.max(
-      Math.sqrt(momentum),
-      Math.abs(1 - learningRate * maxEig)
-    );
+    spectralRadius = Math.max(Math.sqrt(momentum), Math.abs(1 - learningRate * maxEig));
   }
 
   const criticalLR = 2 / maxEig;

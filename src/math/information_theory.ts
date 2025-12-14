@@ -95,7 +95,8 @@ function findKNearestNeighbors(
 
   for (let i = 0; i < points.length; i++) {
     const dist = distanceFn(point, points[i]);
-    if (dist > 0) { // Exclude self (distance = 0)
+    if (dist > 0) {
+      // Exclude self (distance = 0)
       distances.push({ idx: i, dist });
     }
   }
@@ -104,8 +105,8 @@ function findKNearestNeighbors(
 
   const kNearest = distances.slice(0, k);
   return {
-    indices: kNearest.map(d => d.idx),
-    distances: kNearest.map(d => d.dist)
+    indices: kNearest.map((d) => d.idx),
+    distances: kNearest.map((d) => d.dist)
   };
 }
 
@@ -152,11 +153,7 @@ function digamma(x: number): number {
  * @param k - Number of nearest neighbors (default: 3)
  * @returns Estimated MI in nats
  */
-export function ksgMutualInformation(
-  X: number[][],
-  Y: number[][],
-  k = 3
-): MIEstimateResult {
+export function ksgMutualInformation(X: number[][], Y: number[][], k = 3): MIEstimateResult {
   const N = X.length;
   const diagnostics: string[] = [];
 
@@ -218,9 +215,7 @@ export function ksgMutualInformation(
   const mi = digamma(k) + digamma(N) - sumNx / N - sumNy / N;
 
   // Estimate standard error (rough approximation)
-  const standardError = Math.sqrt(
-    (digamma(k) - digamma(1) + 1 / k) / N
-  );
+  const standardError = Math.sqrt((digamma(k) - digamma(1) + 1 / k) / N);
 
   diagnostics.push(`k = ${k} nearest neighbors`);
   diagnostics.push(`N = ${N} samples`);
@@ -274,14 +269,8 @@ function lgamma(x: number): number {
   // Lanczos approximation
   const g = 7;
   const c = [
-    0.99999999999980993,
-    676.5203681218851,
-    -1259.1392167224028,
-    771.32342877765313,
-    -176.61502916214059,
-    12.507343278686905,
-    -0.13857109526572012,
-    9.9843695780195716e-6,
+    0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
+    -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6,
     1.5056327351493116e-7
   ];
 
@@ -308,14 +297,14 @@ export function estimateMutualInformationAdvanced(
   config: MIEstimatorConfig = { estimator: 'ksg' }
 ): MIEstimateResult {
   // Convert 1D arrays to 2D
-  const X2D: number[][] = Array.isArray(X[0]) ? X as number[][] : (X as number[]).map(x => [x]);
-  const Y2D: number[][] = Array.isArray(Y[0]) ? Y as number[][] : (Y as number[]).map(y => [y]);
+  const X2D: number[][] = Array.isArray(X[0]) ? (X as number[][]) : (X as number[]).map((x) => [x]);
+  const Y2D: number[][] = Array.isArray(Y[0]) ? (Y as number[][]) : (Y as number[]).map((y) => [y]);
 
   switch (config.estimator) {
     case 'ksg':
       return ksgMutualInformation(X2D, Y2D, config.k ?? 3);
 
-    case 'knn':
+    case 'knn': {
       // Use entropy-based MI: I(X;Y) = H(X) + H(Y) - H(X,Y)
       const k = config.k ?? 3;
       const hX = knnEntropy(X2D, k);
@@ -329,6 +318,7 @@ export function estimateMutualInformationAdvanced(
         estimator: 'knn',
         diagnostics: [`H(X)=${hX.toFixed(4)}, H(Y)=${hY.toFixed(4)}, H(X,Y)=${hXY.toFixed(4)}`]
       };
+    }
 
     case 'histogram':
       // Fall back to existing histogram-based estimator
@@ -357,16 +347,16 @@ function histogramMI(X: number[][], Y: number[][], numBins: number): MIEstimateR
   }
 
   // Flatten to 1D (use first dimension)
-  const xFlat = X.map(x => x[0] ?? 0);
-  const yFlat = Y.map(y => y[0] ?? 0);
+  const xFlat = X.map((x) => x[0] ?? 0);
+  const yFlat = Y.map((y) => y[0] ?? 0);
 
   const xMin = Math.min(...xFlat);
   const xMax = Math.max(...xFlat);
   const yMin = Math.min(...yFlat);
   const yMax = Math.max(...yFlat);
 
-  const xRange = (xMax - xMin) || 1;
-  const yRange = (yMax - yMin) || 1;
+  const xRange = xMax - xMin || 1;
+  const yRange = yMax - yMin || 1;
 
   // Build histograms
   const jointCounts = new Map<string, number>();
@@ -419,14 +409,18 @@ function kernelMI(X: number[][], Y: number[][], bandwidth?: number): MIEstimateR
   }
 
   // Silverman's rule of thumb for bandwidth
-  const xFlat = X.map(x => x[0] ?? 0);
-  const yFlat = Y.map(y => y[0] ?? 0);
+  const xFlat = X.map((x) => x[0] ?? 0);
+  const yFlat = Y.map((y) => y[0] ?? 0);
 
-  const xStd = Math.sqrt(xFlat.reduce((s, v) => s + v * v, 0) / N - Math.pow(xFlat.reduce((s, v) => s + v, 0) / N, 2));
-  const yStd = Math.sqrt(yFlat.reduce((s, v) => s + v * v, 0) / N - Math.pow(yFlat.reduce((s, v) => s + v, 0) / N, 2));
+  const xStd = Math.sqrt(
+    xFlat.reduce((s, v) => s + v * v, 0) / N - Math.pow(xFlat.reduce((s, v) => s + v, 0) / N, 2)
+  );
+  const yStd = Math.sqrt(
+    yFlat.reduce((s, v) => s + v * v, 0) / N - Math.pow(yFlat.reduce((s, v) => s + v, 0) / N, 2)
+  );
 
-  const hx = bandwidth ?? (1.06 * xStd * Math.pow(N, -0.2));
-  const hy = bandwidth ?? (1.06 * yStd * Math.pow(N, -0.2));
+  const hx = bandwidth ?? 1.06 * xStd * Math.pow(N, -0.2);
+  const hy = bandwidth ?? 1.06 * yStd * Math.pow(N, -0.2);
 
   // Gaussian kernel density estimation
   const gaussianKernel = (u: number) => Math.exp(-0.5 * u * u) / Math.sqrt(2 * Math.PI);
@@ -434,7 +428,9 @@ function kernelMI(X: number[][], Y: number[][], bandwidth?: number): MIEstimateR
   // Estimate MI using leave-one-out density estimation
   let mi = 0;
   for (let i = 0; i < N; i++) {
-    let pxy = 0, px = 0, py = 0;
+    let pxy = 0,
+      px = 0,
+      py = 0;
 
     for (let j = 0; j < N; j++) {
       if (j === i) continue; // Leave-one-out
@@ -514,17 +510,12 @@ export function computeRateDistortionCurve(
   Y: number[],
   config: RateDistortionConfig = {}
 ): RateDistortionPoint[] {
-  const {
-    numBetaValues = 20,
-    betaMin = 0.01,
-    betaMax = 100,
-    estimator = 'ksg'
-  } = config;
+  const { numBetaValues = 20, betaMin = 0.01, betaMax = 100, estimator = 'ksg' } = config;
 
   const points: RateDistortionPoint[] = [];
 
   // Convert Y to 2D for MI estimation
-  const Y2D = Y.map(y => [y]);
+  const Y2D = Y.map((y) => [y]);
 
   // Compute MI values
   const IXZ = estimateMutualInformationAdvanced(X, Z, { estimator, k: 3 });
@@ -608,7 +599,7 @@ export function computeInformationPlane(
   epoch: number,
   config: MIEstimatorConfig = { estimator: 'ksg' }
 ): InformationPlanePoint[] {
-  const Y2D = Y.map(y => [y]);
+  const Y2D = Y.map((y) => [y]);
   const points: InformationPlanePoint[] = [];
 
   for (let layerIdx = 0; layerIdx < layerActivations.length; layerIdx++) {
@@ -717,7 +708,7 @@ function estimateTopEigenvalues(matrix: number[][], k: number): number[] {
   if (n === 0) return [];
 
   const eigenvalues: number[] = [];
-  let currentMatrix = matrix.map(row => [...row]);
+  const currentMatrix = matrix.map((row) => [...row]);
 
   for (let eigIdx = 0; eigIdx < k; eigIdx++) {
     // Power iteration
@@ -734,10 +725,10 @@ function estimateTopEigenvalues(matrix: number[][], k: number): number[] {
       }
 
       // Normalize
-      const norm = Math.sqrt(kahanSum(Av.map(x => x * x)));
+      const norm = Math.sqrt(kahanSum(Av.map((x) => x * x)));
       if (norm === 0) break;
 
-      v = Av.map(x => x / norm);
+      v = Av.map((x) => x / norm);
       eigenvalue = norm;
     }
 

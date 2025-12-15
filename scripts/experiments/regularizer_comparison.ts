@@ -46,7 +46,7 @@ function runBatchRenormDemo() {
   );
 }
 
-function runTransformerDemo() {
+async function runTransformerDemo() {
   const renormState = createRenormState(8);
   const block = new MiniTransformerBlock({
     modelDim: 8,
@@ -65,7 +65,7 @@ function runTransformerDemo() {
   };
   const ff1 = randomMatrix(8, 16);
   const ff2 = randomMatrix(16, 8);
-  const outputs = block.forward(inputs, attentionWeights, ff1, ff2);
+  const outputs = await block.forward(inputs, attentionWeights, ff1, ff2);
   console.log(
     'MiniTransformer output sample:',
     outputs[0].map((v) => Number(v.toFixed(3)))
@@ -75,4 +75,4 @@ function runTransformerDemo() {
 runDropConnectDemo(0.1);
 runDropConnectDemo(0.5);
 runBatchRenormDemo();
-runTransformerDemo();
+runTransformerDemo().catch((error) => console.error(error));

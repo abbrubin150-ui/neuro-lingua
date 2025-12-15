@@ -292,6 +292,72 @@ export class GPUNeuralOps {
     }
   }
 
+  /**
+   * General matrix multiplication: C = A @ B
+   * A: [m, k] matrix
+   * B: [k, n] matrix
+   * Returns: [m, n] matrix
+   */
+  async matrixMultiply(A: number[][], B: number[][]): Promise<number[][]> {
+    if (!this.enabled || !this.backend) {
+      return this.cpuMatrixMultiply(A, B);
+    }
+
+    const startTime = performance.now();
+    try {
+      const m = A.length;
+      const kA = A[0]?.length ?? 0;
+      const kB = B.length;
+      const n = B[0]?.length ?? 0;
+
+      if (kA !== kB) {
+        throw new Error('Matrix dimensions do not align for multiplication');
+      }
+
+      const flatA = new Float32Array(m * kA);
+      for (let i = 0; i < m; i++) {
+        for (let j = 0; j < kA; j++) {
+          flatA[i * kA + j] = A[i][j];
+        }
+      }
+
+      const flatB = new Float32Array(kB * n);
+      for (let i = 0; i < kB; i++) {
+        for (let j = 0; j < n; j++) {
+          flatB[i * n + j] = B[i][j];
+        }
+      }
+
+      const tensorA = await this.backend.createTensor(flatA, [m, kA]);
+      const tensorB = await this.backend.createTensor(flatB, [kB, n]);
+
+      const result = await this.backend.matMul(tensorA, tensorB);
+      const resultArray = await result.toArray();
+
+      const output: number[][] = [];
+      for (let i = 0; i < m; i++) {
+        const row: number[] = [];
+        for (let j = 0; j < n; j++) {
+          row.push(resultArray[i * n + j]);
+        }
+        output.push(row);
+      }
+
+      tensorA.dispose();
+      tensorB.dispose();
+      result.dispose();
+
+      const endTime = performance.now();
+      this.recordOperation(startTime, endTime);
+
+      return output;
+    } catch (error) {
+      console.warn('⚠️ GPU operation failed, falling back to CPU:', error);
+      this.recordFailure(error);
+      return this.cpuMatrixMultiply(A, B);
+    }
+  }
+
   // CPU fallback implementations
 
   private cpuMatrixVectorMul(A: number[][], x: number[]): number[] {
@@ -327,6 +393,30 @@ export class GPUNeuralOps {
 
   private cpuVectorMul(x: number[], y: number[]): number[] {
     return x.map((xi, i) => xi * y[i]);
+  }
+
+  private cpuMatrixMultiply(A: number[][], B: number[][]): number[][] {
+    if (A.length === 0 || B.length === 0) return [];
+    const m = A.length;
+    const kA = A[0].length;
+    const kB = B.length;
+    const n = B[0].length;
+
+    if (kA !== kB) {
+      throw new Error('Matrix dimensions do not align for multiplication');
+    }
+
+    const result: number[][] = Array.from({ length: m }, () => new Array(n).fill(0));
+    for (let i = 0; i < m; i++) {
+      for (let k = 0; k < kA; k++) {
+        const aik = A[i][k];
+        if (aik === 0) continue;
+        for (let j = 0; j < n; j++) {
+          result[i][j] += aik * B[k][j];
+        }
+      }
+    }
+    return result;
   }
 
   /**

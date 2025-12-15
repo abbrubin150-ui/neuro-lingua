@@ -16,6 +16,7 @@ import { MiniTransformerBlock, type MiniTransformerConfig } from '../models/mini
 import type { AttentionWeights, Matrix } from '../models/attention';
 import { stableSoftmax } from './MathUtils';
 import { type RMSNormState } from './RMSNorm';
+import { GPUNeuralOps } from '../backend/gpu_neural_ops';
 
 export type TransformerConfig = {
   numLayers?: number;
@@ -201,7 +202,8 @@ export class TransformerLM extends ProNeuralLM {
         attentionRms: normalizedState.attention,
         ffnRms: normalizedState.ffn,
         ropeBase: 500000,
-        numKVHeads: normalizedKVHeads // GQA support
+        numKVHeads: normalizedKVHeads, // GQA support
+        gpuOps: this.getGPUOpsInstance()
       };
 
       this.transformerLayers.push(new MiniTransformerBlock(config));
@@ -293,10 +295,10 @@ export class TransformerLM extends ProNeuralLM {
    * Transformer forward pass with multi-head self-attention
    * @private
    */
-  private transformerForward(inputEmbeddings: number[][]): {
+  private async transformerForward(inputEmbeddings: number[][]): Promise<{
     output: number[][];
     intermediates: Array<{ attentionOut: number[][]; residual1: number[][]; ffOut: number[][] }>;
-  } {
+  }> {
     let hidden = inputEmbeddings;
     const positions = hidden.map((_, idx) => idx);
 
@@ -311,7 +313,7 @@ export class TransformerLM extends ProNeuralLM {
       const layer = this.transformerLayers[layerIdx];
 
       // Forward through transformer block
-      const output = layer.forward(
+      const output = await layer.forward(
         hidden,
         this.attentionWeights[layerIdx],
         this.ffWeights1[layerIdx],
@@ -354,6 +356,16 @@ export class TransformerLM extends ProNeuralLM {
       ffHiddenDim: this.transformerConfig.ffHiddenDim,
       numKVHeads: this.transformerConfig.numKVHeads
     };
+  }
+
+  /**
+   * Propagate GPU accelerator to transformer layers.
+   */
+  setGPUOps(gpuOps: GPUNeuralOps | null) {
+    super.setGPUOps(gpuOps);
+    for (const layer of this.transformerLayers) {
+      layer.setGPUOps(gpuOps);
+    }
   }
 
   /**
@@ -475,7 +487,7 @@ export class TransformerLM extends ProNeuralLM {
     const embeddings: number[][] = inputs.map((i) => (this as any).embedding[i]);
 
     // Pass through transformer layers
-    const { output: transformerOutput, intermediates } = this.transformerForward(embeddings);
+    const { output: transformerOutput, intermediates } = await this.transformerForward(embeddings);
 
     // Pool transformer output (mean pooling over sequence)
     const avgEmb = this.transformerAverageVectors(embeddings);
@@ -805,7 +817,8 @@ export class TransformerLM extends ProNeuralLM {
         attentionRms: this.renormStates[i].attention,
         ffnRms: this.renormStates[i].ffn,
         ropeBase: 500000,
-        numKVHeads: normalizedKVHeads // GQA support
+        numKVHeads: normalizedKVHeads, // GQA support
+        gpuOps: this.getGPUOpsInstance()
       };
       this.transformerLayers.push(new MiniTransformerBlock(config));
     }

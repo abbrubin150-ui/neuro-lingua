@@ -73,7 +73,7 @@ describe('Grouped-Query Attention (GQA)', () => {
       expect(gqa.getKVDim()).toBe(16);
     });
 
-    it('should correctly repeat KV heads in forward pass', () => {
+    it('should correctly repeat KV heads in forward pass', async () => {
       const gqa = new MultiHeadAttention({
         heads: 4,
         modelDim: 16,
@@ -102,7 +102,7 @@ describe('Grouped-Query Attention (GQA)', () => {
       };
 
       // Should not throw
-      const output = gqa.forward(inputs, weights);
+      const output = await gqa.forward(inputs, weights);
       expect(output).toHaveLength(2);
       expect(output[0]).toHaveLength(16);
     });
@@ -119,7 +119,7 @@ describe('Grouped-Query Attention (GQA)', () => {
       expect(block).toBeDefined();
     });
 
-    it('should work with standard MHA when numKVHeads equals heads', () => {
+    it('should work with standard MHA when numKVHeads equals heads', async () => {
       const block = new MiniTransformerBlock({
         modelDim: 32,
         heads: 4,
@@ -151,7 +151,7 @@ describe('Grouped-Query Attention (GQA)', () => {
         Array.from({ length: 32 }, () => Math.random() * 0.1)
       );
 
-      const output = block.forward(inputs, attentionWeights, ffWeights1, ffWeights2);
+      const output = await block.forward(inputs, attentionWeights, ffWeights1, ffWeights2);
       expect(output).toHaveLength(2);
       expect(output[0]).toHaveLength(32);
     });

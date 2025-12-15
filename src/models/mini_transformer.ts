@@ -1,6 +1,7 @@
 import { MultiHeadAttention, AttentionWeights, Matrix, MultiHeadForwardOptions } from './attention';
 import { applyDropConnect } from './regularizers';
 import { rmsNorm, RMSNormState } from '../lib/RMSNorm';
+import { GPUNeuralOps } from '../backend/gpu_neural_ops';
 
 export interface FeedForwardConfig {
   hiddenDim: number;
@@ -26,6 +27,8 @@ export interface MiniTransformerConfig {
    * Example: heads=8, numKVHeads=2 gives 4× KV cache reduction.
    */
   numKVHeads?: number;
+  /** Optional GPU accelerator shared with the parent model. */
+  gpuOps?: GPUNeuralOps | null;
 }
 
 export class MiniTransformerBlock {
@@ -36,15 +39,18 @@ export class MiniTransformerBlock {
   private readonly attentionEpsilon: number;
   private readonly ffnEpsilon: number;
   private readonly ropeBase: number;
+  private gpuOps: GPUNeuralOps | null;
 
   constructor(private readonly config: MiniTransformerConfig) {
+    this.gpuOps = config.gpuOps ?? null;
     this.attention = new MultiHeadAttention({
       heads: config.heads,
       modelDim: config.modelDim,
       keyDim: config.modelDim / config.heads,
       valueDim: config.modelDim / config.heads,
       dropout: config.attentionDropout,
-      numKVHeads: config.numKVHeads // GQA support
+      numKVHeads: config.numKVHeads, // GQA support
+      gpuOps: this.gpuOps
     });
     this.activation = config.ff.activation ?? ((x) => Math.tanh(x));
     const fallback = config.rmsState ?? { gamma: new Array(config.modelDim).fill(1), epsilon: 1e-6 };
@@ -63,11 +69,19 @@ export class MiniTransformerBlock {
     return rmsNorm(row, this.ffnGamma, this.ffnEpsilon);
   }
 
-  private feedForward(inputs: Matrix, weights1: Matrix, weights2: Matrix): Matrix {
-    // SwiGLU: (XW) * swish(XV)
-    const projected = inputs.map((row) =>
-      weights1[0].map((_, j) => row.reduce((sum, value, idx) => sum + value * weights1[idx][j], 0))
-    );
+  setGPUOps(gpuOps: GPUNeuralOps | null) {
+    this.gpuOps = gpuOps;
+    this.attention.setGPUOps(gpuOps);
+  }
+
+  private async feedForward(inputs: Matrix, weights1: Matrix, weights2: Matrix): Promise<Matrix> {
+    const useGPU = this.gpuOps && this.gpuOps.isEnabled();
+
+    const projected = useGPU
+      ? await this.gpuOps!.matrixMultiply(inputs, weights1)
+      : inputs.map((row) =>
+          weights1[0].map((_, j) => row.reduce((sum, value, idx) => sum + value * weights1[idx][j], 0))
+        );
 
     const hiddenDim = projected[0]?.length ?? 0;
     const half = hiddenDim / 2;
@@ -83,19 +97,21 @@ export class MiniTransformerBlock {
       return values;
     });
 
-    const output = gated.map((row) =>
-      weights2[0].map((_, j) => row.reduce((sum, value, idx) => sum + value * weights2[idx][j], 0))
-    );
+    const output = useGPU
+      ? await this.gpuOps!.matrixMultiply(gated, weights2)
+      : gated.map((row) =>
+          weights2[0].map((_, j) => row.reduce((sum, value, idx) => sum + value * weights2[idx][j], 0))
+        );
     return output;
   }
 
-  forward(
+  async forward(
     inputs: Matrix,
     attentionWeights: AttentionWeights,
     ffWeights1: Matrix,
     ffWeights2: Matrix,
     options: MultiHeadForwardOptions = {}
-  ): Matrix {
+  ): Promise<Matrix> {
     const normedForAttention = inputs.map((row) => this.applyRMS(row));
     const dropconnectedAttention: AttentionWeights = {
       query: applyDropConnect(attentionWeights.query, {
@@ -105,7 +121,7 @@ export class MiniTransformerBlock {
       value: applyDropConnect(attentionWeights.value, { rate: this.config.dropConnectRate ?? 0 })
     };
 
-    const attentionOutput = this.attention.forward(normedForAttention, dropconnectedAttention, {
+    const attentionOutput = await this.attention.forward(normedForAttention, dropconnectedAttention, {
       causal: false,
       ropeBase: this.ropeBase,
       ...options
@@ -115,7 +131,7 @@ export class MiniTransformerBlock {
     );
 
     const renormed = residualAttention.map((row) => this.applyFFNRMS(row));
-    const feedForwardOutput = this.feedForward(renormed, ffWeights1, ffWeights2);
+    const feedForwardOutput = await this.feedForward(renormed, ffWeights1, ffWeights2);
 
     return renormed.map((row, idx) => row.map((value, col) => value + feedForwardOutput[idx][col]));
   }

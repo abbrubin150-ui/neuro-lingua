@@ -6,6 +6,7 @@
  */
 
 import { stableSoftmax } from '../lib/MathUtils';
+import { GPUNeuralOps } from '../backend/gpu_neural_ops';
 
 export type Matrix = number[][];
 
@@ -33,7 +34,7 @@ export interface MultiHeadForwardOptions extends ScaledDotProductAttentionOption
   ropeBase?: number;
 }
 
-function matmul(a: Matrix, b: Matrix): Matrix {
+function cpuMatmul(a: Matrix, b: Matrix): Matrix {
   if (a[0].length !== b.length) throw new Error('Matrix dimensions do not align.');
   const result: Matrix = Array.from({ length: a.length }, () => new Array(b[0].length).fill(0));
   for (let i = 0; i < a.length; i++) {
@@ -97,7 +98,7 @@ export function scaledDotProductAttention(
   const dk = keys[0].length;
   const scale = 1 / Math.sqrt(temperature ?? dk);
 
-  let scores = matmul(queries, transpose(keys)).map((row) => row.map((v) => v * scale));
+  let scores = cpuMatmul(queries, transpose(keys)).map((row) => row.map((v) => v * scale));
 
   if (causal) {
     const mask: Matrix = scores.map((row, i) => row.map((_, j) => (j <= i ? 1 : 0)));
@@ -105,7 +106,7 @@ export function scaledDotProductAttention(
   }
 
   const attention = scores.map((row) => stableSoftmax(row));
-  const output = matmul(attention, values);
+  const output = cpuMatmul(attention, values);
   return { output, attention };
 }
 
@@ -129,6 +130,8 @@ export interface MultiHeadAttentionConfig {
    * Transformer Models from Multi-Head Checkpoints"
    */
   numKVHeads?: number;
+  /** Optional GPU accelerator. */
+  gpuOps?: GPUNeuralOps | null;
 }
 
 export class MultiHeadAttention {
@@ -137,6 +140,7 @@ export class MultiHeadAttention {
   private readonly dropout: number;
   private readonly numKVHeads: number;
   private readonly kvGroupSize: number;
+  private gpuOps: GPUNeuralOps | null;
 
   constructor(private readonly config: MultiHeadAttentionConfig) {
     if (config.modelDim % config.heads !== 0) {
@@ -155,6 +159,7 @@ export class MultiHeadAttention {
       );
     }
     this.kvGroupSize = config.heads / this.numKVHeads;
+    this.gpuOps = config.gpuOps ?? null;
   }
 
   /**
@@ -171,13 +176,25 @@ export class MultiHeadAttention {
     return this.numKVHeads * this.headDim;
   }
 
-  project(input: Matrix, weights: AttentionWeights): AttentionWeights {
-    const project = (matrix: Matrix) => matmul(input, matrix);
-    return {
-      query: project(weights.query),
-      key: project(weights.key),
-      value: project(weights.value)
-    };
+  setGPUOps(gpuOps: GPUNeuralOps | null) {
+    this.gpuOps = gpuOps;
+  }
+
+  private async matmul(a: Matrix, b: Matrix): Promise<Matrix> {
+    if (this.gpuOps && this.gpuOps.isEnabled()) {
+      return this.gpuOps.matrixMultiply(a, b);
+    }
+    return cpuMatmul(a, b);
+  }
+
+  private async project(input: Matrix, weights: AttentionWeights): Promise<AttentionWeights> {
+    const project = (matrix: Matrix) => this.matmul(input, matrix);
+    const [query, key, value] = await Promise.all([
+      project(weights.query),
+      project(weights.key),
+      project(weights.value)
+    ]);
+    return { query, key, value };
   }
 
   /**
@@ -238,9 +255,35 @@ export class MultiHeadAttention {
     );
   }
 
-  forward(inputs: Matrix, weights: AttentionWeights, options: MultiHeadForwardOptions = {}) {
+  private async scaledDotProductAttention(
+    queries: Matrix,
+    keys: Matrix,
+    values: Matrix,
+    options: ScaledDotProductAttentionOptions = {}
+  ): Promise<{ output: Matrix; attention: Matrix }> {
+    const { temperature, causal = false } = options;
+    const dk = keys[0].length;
+    const scale = 1 / Math.sqrt(temperature ?? dk);
+
+    let scores = (await this.matmul(queries, transpose(keys))).map((row) => row.map((v) => v * scale));
+
+    if (causal) {
+      const mask: Matrix = scores.map((row, i) => row.map((_, j) => (j <= i ? 1 : 0)));
+      scores = applyMask(scores, mask);
+    }
+
+    const attention = scores.map((row) => stableSoftmax(row));
+    const output = await this.matmul(attention, values);
+    return { output, attention };
+  }
+
+  async forward(
+    inputs: Matrix,
+    weights: AttentionWeights,
+    options: MultiHeadForwardOptions = {}
+  ): Promise<Matrix> {
     const { positions, ropeBase = 500000, ...attentionOpts } = options;
-    const projections = this.project(inputs, weights);
+    const projections = await this.project(inputs, weights);
 
     // Split queries into numHeads heads
     const queries = this.splitHeads(
@@ -259,7 +302,7 @@ export class MultiHeadAttention {
 
     const headOutputs: Matrix[] = [];
     for (let h = 0; h < this.config.heads; h++) {
-      const { output } = scaledDotProductAttention(queries[h], keys[h], values[h], {
+      const { output } = await this.scaledDotProductAttention(queries[h], keys[h], values[h], {
         ...attentionOpts,
         temperature: this.config.keyDim
       });

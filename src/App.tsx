@@ -1177,7 +1177,11 @@ export default function NeuroLinguaDomesticaV324() {
           vocab,
           hiddenSize,
           lr,
-          clamp(contextSize, 2, 6),
+          clamp(
+            contextSize,
+            HYPERPARAMETER_CONSTRAINTS.contextSize.min,
+            HYPERPARAMETER_CONSTRAINTS.contextSize.max
+          ),
           optimizer,
           momentum,
           clamp(dropout, 0, 0.5),
@@ -1205,7 +1209,11 @@ export default function NeuroLinguaDomesticaV324() {
           vocab,
           hiddenSize,
           lr,
-          clamp(contextSize, 2, 6),
+          clamp(
+            contextSize,
+            HYPERPARAMETER_CONSTRAINTS.contextSize.min,
+            HYPERPARAMETER_CONSTRAINTS.contextSize.max
+          ),
           optimizer,
           momentum,
           clamp(dropout, 0, 0.5),
@@ -1235,7 +1243,11 @@ export default function NeuroLinguaDomesticaV324() {
           vocab,
           hiddenSize,
           lr,
-          clamp(contextSize, 2, 6),
+          clamp(
+            contextSize,
+            HYPERPARAMETER_CONSTRAINTS.contextSize.min,
+            HYPERPARAMETER_CONSTRAINTS.contextSize.max
+          ),
           optimizer,
           momentum,
           clamp(dropout, 0, 0.5),

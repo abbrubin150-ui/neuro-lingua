@@ -148,7 +148,9 @@ interface TrainingPanelProps {
   onMirostatEtaChange: (value: number) => void;
 
   // Advanced Loss Function callbacks
-  onLossFunctionChange: (value: 'cross_entropy' | 'focal' | 'label_smoothing' | 'symmetric_ce') => void;
+  onLossFunctionChange: (
+    value: 'cross_entropy' | 'focal' | 'label_smoothing' | 'symmetric_ce'
+  ) => void;
   onFocalGammaChange: (value: number) => void;
   onFocalAlphaChange: (value: number) => void;
   onLabelSmoothingEpsilonChange: (value: number) => void;
@@ -1208,9 +1210,12 @@ export function TrainingPanel(props: TrainingPanelProps) {
             )}
           </div>
           <div style={{ fontSize: 9, color: '#64748b', marginTop: 8 }}>
-            {props.lossFunction === 'cross_entropy' && 'Standard cross-entropy loss for classification'}
-            {props.lossFunction === 'focal' && 'Focal loss down-weights easy examples (γ=2, α=0.25 typical)'}
-            {props.lossFunction === 'label_smoothing' && 'Prevents overconfident predictions (ε=0.1 typical)'}
+            {props.lossFunction === 'cross_entropy' &&
+              'Standard cross-entropy loss for classification'}
+            {props.lossFunction === 'focal' &&
+              'Focal loss down-weights easy examples (γ=2, α=0.25 typical)'}
+            {props.lossFunction === 'label_smoothing' &&
+              'Prevents overconfident predictions (ε=0.1 typical)'}
             {props.lossFunction === 'symmetric_ce' && 'Robust to noisy labels via bidirectional KL'}
           </div>
         </div>

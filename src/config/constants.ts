@@ -194,11 +194,7 @@ export const DEFAULT_IB_CONFIG = {
  * - symmetric_ce: Symmetric CE for noise robustness
  */
 export const DEFAULT_LOSS_CONFIG = {
-  lossFunction: 'cross_entropy' as
-    | 'cross_entropy'
-    | 'focal'
-    | 'label_smoothing'
-    | 'symmetric_ce',
+  lossFunction: 'cross_entropy' as 'cross_entropy' | 'focal' | 'label_smoothing' | 'symmetric_ce',
   // Focal loss parameters (Lin et al. 2017)
   focalGamma: 2.0, // Focusing parameter - higher = more focus on hard examples
   focalAlpha: 0.25, // Balancing factor

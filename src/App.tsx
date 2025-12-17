@@ -493,7 +493,9 @@ export default function NeuroLinguaDomesticaV324() {
   const [sophiaBeta1, setSophiaBeta1] = useState(DEFAULT_SOPHIA_CONFIG.sophiaBeta1);
   const [sophiaBeta2, setSophiaBeta2] = useState(DEFAULT_SOPHIA_CONFIG.sophiaBeta2);
   const [sophiaRho, setSophiaRho] = useState(DEFAULT_SOPHIA_CONFIG.sophiaRho);
-  const [sophiaHessianFreq, setSophiaHessianFreq] = useState(DEFAULT_SOPHIA_CONFIG.sophiaHessianFreq);
+  const [sophiaHessianFreq, setSophiaHessianFreq] = useState(
+    DEFAULT_SOPHIA_CONFIG.sophiaHessianFreq
+  );
 
   // GPU acceleration
   const [useGPU, setUseGPU] = useState(false);

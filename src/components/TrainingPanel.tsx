@@ -60,6 +60,29 @@ interface TrainingPanelProps {
   ibAlpha: number;
   numBins: number;
 
+  // Advanced Sampling Parameters
+  typicalTau: number;
+  mirostatTau: number;
+  mirostatEta: number;
+
+  // Advanced Loss Functions
+  lossFunction: 'cross_entropy' | 'focal' | 'label_smoothing' | 'symmetric_ce';
+  focalGamma: number;
+  focalAlpha: number;
+  labelSmoothingEpsilon: number;
+  sceBeta: number;
+
+  // Optimizer-specific parameters (Lion v4.0)
+  lionBeta1: number;
+  lionBeta2: number;
+  lionWeightDecay: number;
+
+  // Optimizer-specific parameters (Sophia v4.2)
+  sophiaBeta1: number;
+  sophiaBeta2: number;
+  sophiaRho: number;
+  sophiaHessianFreq: number;
+
   // Tokenizer
   tokenizerConfig: TokenizerConfigType;
   customTokenizerPattern: string;
@@ -118,6 +141,31 @@ interface TrainingPanelProps {
   onBetaScheduleChange: (value: 'constant' | 'linear' | 'exponential' | 'cosine') => void;
   onIbAlphaChange: (value: number) => void;
   onNumBinsChange: (value: number) => void;
+
+  // Advanced Sampling callbacks
+  onTypicalTauChange: (value: number) => void;
+  onMirostatTauChange: (value: number) => void;
+  onMirostatEtaChange: (value: number) => void;
+
+  // Advanced Loss Function callbacks
+  onLossFunctionChange: (
+    value: 'cross_entropy' | 'focal' | 'label_smoothing' | 'symmetric_ce'
+  ) => void;
+  onFocalGammaChange: (value: number) => void;
+  onFocalAlphaChange: (value: number) => void;
+  onLabelSmoothingEpsilonChange: (value: number) => void;
+  onSceBetaChange: (value: number) => void;
+
+  // Lion optimizer callbacks
+  onLionBeta1Change: (value: number) => void;
+  onLionBeta2Change: (value: number) => void;
+  onLionWeightDecayChange: (value: number) => void;
+
+  // Sophia optimizer callbacks
+  onSophiaBeta1Change: (value: number) => void;
+  onSophiaBeta2Change: (value: number) => void;
+  onSophiaRhoChange: (value: number) => void;
+  onSophiaHessianFreqChange: (value: number) => void;
 
   onTokenizerConfigChange: (config: TokenizerConfigType) => void;
   onCustomPatternChange: (pattern: string) => void;
@@ -839,6 +887,339 @@ export function TrainingPanel(props: TrainingPanelProps) {
           />
         </div>
       </div>
+
+      {/* Advanced Sampling Parameters */}
+      {(props.samplingMode === 'typical' || props.samplingMode === 'mirostat') && (
+        <div
+          style={{
+            background: 'rgba(168, 85, 247, 0.1)',
+            border: '1px solid rgba(168, 85, 247, 0.3)',
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#c4b5fd', marginBottom: 8 }}>
+            {props.samplingMode === 'typical' ? '🎯 Typical Sampling' : '🌀 Mirostat v2'} Parameters
+          </div>
+          {props.samplingMode === 'typical' && (
+            <div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                Typical Tau (τ): {props.typicalTau.toFixed(2)}
+              </div>
+              <input
+                aria-label="Typical tau"
+                type="range"
+                min="0.1"
+                max="1"
+                step="0.05"
+                value={props.typicalTau}
+                onChange={(e) => props.onTypicalTauChange(parseFloat(e.target.value))}
+                style={{ width: '100%' }}
+              />
+              <div style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>
+                Lower τ = more focused on typical tokens (0.9 recommended)
+              </div>
+            </div>
+          )}
+          {props.samplingMode === 'mirostat' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  Target Entropy (τ): {props.mirostatTau.toFixed(1)}
+                </div>
+                <input
+                  aria-label="Mirostat target entropy"
+                  type="range"
+                  min="1"
+                  max="10"
+                  step="0.5"
+                  value={props.mirostatTau}
+                  onChange={(e) => props.onMirostatTauChange(parseFloat(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+                <div style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>
+                  Lower = more predictable, Higher = more creative
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  Learning Rate (η): {props.mirostatEta.toFixed(2)}
+                </div>
+                <input
+                  aria-label="Mirostat learning rate"
+                  type="range"
+                  min="0.01"
+                  max="1"
+                  step="0.01"
+                  value={props.mirostatEta}
+                  onChange={(e) => props.onMirostatEtaChange(parseFloat(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+                <div style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>
+                  How fast to adapt (0.1 recommended)
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Optimizer-Specific Parameters */}
+      {(props.optimizer === 'lion' || props.optimizer === 'sophia') && (
+        <div
+          style={{
+            background: 'rgba(34, 197, 94, 0.1)',
+            border: '1px solid rgba(34, 197, 94, 0.3)',
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#86efac', marginBottom: 8 }}>
+            {props.optimizer === 'lion' ? '🦁 Lion (v4.0)' : '🧠 Sophia (v4.2)'} Optimizer Settings
+          </div>
+          {props.optimizer === 'lion' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  β₁ (Update): {props.lionBeta1.toFixed(2)}
+                </div>
+                <input
+                  aria-label="Lion beta1"
+                  type="range"
+                  min="0.8"
+                  max="0.99"
+                  step="0.01"
+                  value={props.lionBeta1}
+                  onChange={(e) => props.onLionBeta1Change(parseFloat(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  β₂ (State): {props.lionBeta2.toFixed(2)}
+                </div>
+                <input
+                  aria-label="Lion beta2"
+                  type="range"
+                  min="0.9"
+                  max="0.999"
+                  step="0.001"
+                  value={props.lionBeta2}
+                  onChange={(e) => props.onLionBeta2Change(parseFloat(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  Weight Decay: {props.lionWeightDecay.toFixed(3)}
+                </div>
+                <input
+                  aria-label="Lion weight decay"
+                  type="range"
+                  min="0"
+                  max="0.1"
+                  step="0.001"
+                  value={props.lionWeightDecay}
+                  onChange={(e) => props.onLionWeightDecayChange(parseFloat(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+            </div>
+          )}
+          {props.optimizer === 'sophia' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  β₁ (Momentum): {props.sophiaBeta1.toFixed(3)}
+                </div>
+                <input
+                  aria-label="Sophia beta1"
+                  type="range"
+                  min="0.9"
+                  max="0.99"
+                  step="0.005"
+                  value={props.sophiaBeta1}
+                  onChange={(e) => props.onSophiaBeta1Change(parseFloat(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  β₂ (Hessian): {props.sophiaBeta2.toFixed(2)}
+                </div>
+                <input
+                  aria-label="Sophia beta2"
+                  type="range"
+                  min="0.9"
+                  max="0.999"
+                  step="0.001"
+                  value={props.sophiaBeta2}
+                  onChange={(e) => props.onSophiaBeta2Change(parseFloat(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  ρ (Clip Bound): {props.sophiaRho.toFixed(1)}
+                </div>
+                <input
+                  aria-label="Sophia rho clipping"
+                  type="range"
+                  min="0.1"
+                  max="5"
+                  step="0.1"
+                  value={props.sophiaRho}
+                  onChange={(e) => props.onSophiaRhoChange(parseFloat(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  Hessian Update Freq: {props.sophiaHessianFreq}
+                </div>
+                <input
+                  aria-label="Sophia Hessian update frequency"
+                  type="range"
+                  min="1"
+                  max="100"
+                  step="1"
+                  value={props.sophiaHessianFreq}
+                  onChange={(e) => props.onSophiaHessianFreqChange(parseInt(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+            </div>
+          )}
+          <div style={{ fontSize: 9, color: '#64748b', marginTop: 8 }}>
+            {props.optimizer === 'lion'
+              ? '💡 Lion: 50% less memory than Adam, use lower LR (~3e-4)'
+              : '💡 Sophia: 2× faster convergence via curvature-aware updates'}
+          </div>
+        </div>
+      )}
+
+      {/* Advanced Loss Function Selector */}
+      {props.useAdvanced && (
+        <div
+          style={{
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#fca5a5', marginBottom: 8 }}>
+            🎯 Loss Function
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <select
+                aria-label="Loss function"
+                value={props.lossFunction}
+                onChange={(e) =>
+                  props.onLossFunctionChange(
+                    e.target.value as 'cross_entropy' | 'focal' | 'label_smoothing' | 'symmetric_ce'
+                  )
+                }
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white',
+                  fontSize: 12
+                }}
+              >
+                <option value="cross_entropy">Cross-Entropy (Standard)</option>
+                <option value="focal">Focal Loss (Class Imbalance)</option>
+                <option value="label_smoothing">Label Smoothing CE</option>
+                <option value="symmetric_ce">Symmetric CE (Noise Robust)</option>
+              </select>
+            </div>
+            {props.lossFunction === 'focal' && (
+              <>
+                <div>
+                  <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 2 }}>
+                    γ (Focus): {props.focalGamma.toFixed(1)}
+                  </div>
+                  <input
+                    aria-label="Focal gamma"
+                    type="range"
+                    min="0"
+                    max="5"
+                    step="0.5"
+                    value={props.focalGamma}
+                    onChange={(e) => props.onFocalGammaChange(parseFloat(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 2 }}>
+                    α (Balance): {props.focalAlpha.toFixed(2)}
+                  </div>
+                  <input
+                    aria-label="Focal alpha"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={props.focalAlpha}
+                    onChange={(e) => props.onFocalAlphaChange(parseFloat(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </>
+            )}
+            {props.lossFunction === 'label_smoothing' && (
+              <div>
+                <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 2 }}>
+                  ε (Smoothing): {props.labelSmoothingEpsilon.toFixed(2)}
+                </div>
+                <input
+                  aria-label="Label smoothing epsilon"
+                  type="range"
+                  min="0"
+                  max="0.3"
+                  step="0.01"
+                  value={props.labelSmoothingEpsilon}
+                  onChange={(e) => props.onLabelSmoothingEpsilonChange(parseFloat(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+            )}
+            {props.lossFunction === 'symmetric_ce' && (
+              <div>
+                <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 2 }}>
+                  β (Reverse Weight): {props.sceBeta.toFixed(1)}
+                </div>
+                <input
+                  aria-label="SCE beta"
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="0.1"
+                  value={props.sceBeta}
+                  onChange={(e) => props.onSceBetaChange(parseFloat(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+            )}
+          </div>
+          <div style={{ fontSize: 9, color: '#64748b', marginTop: 8 }}>
+            {props.lossFunction === 'cross_entropy' &&
+              'Standard cross-entropy loss for classification'}
+            {props.lossFunction === 'focal' &&
+              'Focal loss down-weights easy examples (γ=2, α=0.25 typical)'}
+            {props.lossFunction === 'label_smoothing' &&
+              'Prevents overconfident predictions (ε=0.1 typical)'}
+            {props.lossFunction === 'symmetric_ce' && 'Robust to noisy labels via bidirectional KL'}
+          </div>
+        </div>
+      )}
 
       {/* Advanced Features Toggle */}
       <div style={{ marginTop: 12, marginBottom: 12 }}>

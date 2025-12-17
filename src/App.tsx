@@ -33,6 +33,9 @@ import {
   DEFAULT_GENERATION,
   DEFAULT_ADVANCED_CONFIG,
   DEFAULT_IB_CONFIG,
+  DEFAULT_LOSS_CONFIG,
+  DEFAULT_LION_CONFIG,
+  DEFAULT_SOPHIA_CONFIG,
   DEFAULT_TOKENIZER_CONFIG,
   MIN_VOCAB_SIZE,
   TRAINING_UI_UPDATE_DELAY,
@@ -131,6 +134,21 @@ type UiSettings = {
   betaSchedule: 'constant' | 'linear' | 'exponential' | 'cosine';
   ibAlpha: number;
   numBins: number;
+  // Advanced Loss Functions
+  lossFunction: 'cross_entropy' | 'focal' | 'label_smoothing' | 'symmetric_ce';
+  focalGamma: number;
+  focalAlpha: number;
+  labelSmoothingEpsilon: number;
+  sceBeta: number;
+  // Lion optimizer parameters
+  lionBeta1: number;
+  lionBeta2: number;
+  lionWeightDecay: number;
+  // Sophia optimizer parameters
+  sophiaBeta1: number;
+  sophiaBeta2: number;
+  sophiaRho: number;
+  sophiaHessianFreq: number;
 };
 
 type ModelMetaOverrides = Partial<Omit<ModelMeta, 'architecture' | 'vocab'>>;
@@ -455,6 +473,30 @@ export default function NeuroLinguaDomesticaV324() {
   const [ibAlpha, setIbAlpha] = useState(DEFAULT_IB_CONFIG.ibAlpha);
   const [numBins, setNumBins] = useState(DEFAULT_IB_CONFIG.numBins);
 
+  // Advanced Loss Function parameters
+  const [lossFunction, setLossFunction] = useState<
+    'cross_entropy' | 'focal' | 'label_smoothing' | 'symmetric_ce'
+  >(DEFAULT_LOSS_CONFIG.lossFunction);
+  const [focalGamma, setFocalGamma] = useState(DEFAULT_LOSS_CONFIG.focalGamma);
+  const [focalAlpha, setFocalAlpha] = useState(DEFAULT_LOSS_CONFIG.focalAlpha);
+  const [labelSmoothingEpsilon, setLabelSmoothingEpsilon] = useState(
+    DEFAULT_LOSS_CONFIG.labelSmoothingEpsilon
+  );
+  const [sceBeta, setSceBeta] = useState(DEFAULT_LOSS_CONFIG.sceBeta);
+
+  // Lion optimizer parameters (v4.0)
+  const [lionBeta1, setLionBeta1] = useState(DEFAULT_LION_CONFIG.lionBeta1);
+  const [lionBeta2, setLionBeta2] = useState(DEFAULT_LION_CONFIG.lionBeta2);
+  const [lionWeightDecay, setLionWeightDecay] = useState(DEFAULT_LION_CONFIG.lionWeightDecay);
+
+  // Sophia optimizer parameters (v4.2)
+  const [sophiaBeta1, setSophiaBeta1] = useState(DEFAULT_SOPHIA_CONFIG.sophiaBeta1);
+  const [sophiaBeta2, setSophiaBeta2] = useState(DEFAULT_SOPHIA_CONFIG.sophiaBeta2);
+  const [sophiaRho, setSophiaRho] = useState(DEFAULT_SOPHIA_CONFIG.sophiaRho);
+  const [sophiaHessianFreq, setSophiaHessianFreq] = useState(
+    DEFAULT_SOPHIA_CONFIG.sophiaHessianFreq
+  );
+
   // GPU acceleration
   const [useGPU, setUseGPU] = useState(false);
   const [gpuAvailable, setGpuAvailable] = useState(false);
@@ -709,7 +751,9 @@ export default function NeuroLinguaDomesticaV324() {
       saved.optimizer === 'adam' ||
       saved.optimizer === 'momentum' ||
       saved.optimizer === 'newton' ||
-      saved.optimizer === 'bfgs'
+      saved.optimizer === 'bfgs' ||
+      saved.optimizer === 'lion' ||
+      saved.optimizer === 'sophia'
     ) {
       setOptimizer(saved.optimizer);
     }
@@ -780,6 +824,32 @@ export default function NeuroLinguaDomesticaV324() {
     }
     if (typeof saved.ibAlpha === 'number') setIbAlpha(saved.ibAlpha);
     if (typeof saved.numBins === 'number') setNumBins(saved.numBins);
+
+    // Load advanced loss function settings
+    if (
+      saved.lossFunction === 'cross_entropy' ||
+      saved.lossFunction === 'focal' ||
+      saved.lossFunction === 'label_smoothing' ||
+      saved.lossFunction === 'symmetric_ce'
+    ) {
+      setLossFunction(saved.lossFunction);
+    }
+    if (typeof saved.focalGamma === 'number') setFocalGamma(saved.focalGamma);
+    if (typeof saved.focalAlpha === 'number') setFocalAlpha(saved.focalAlpha);
+    if (typeof saved.labelSmoothingEpsilon === 'number')
+      setLabelSmoothingEpsilon(saved.labelSmoothingEpsilon);
+    if (typeof saved.sceBeta === 'number') setSceBeta(saved.sceBeta);
+
+    // Load Lion optimizer settings (v4.0)
+    if (typeof saved.lionBeta1 === 'number') setLionBeta1(saved.lionBeta1);
+    if (typeof saved.lionBeta2 === 'number') setLionBeta2(saved.lionBeta2);
+    if (typeof saved.lionWeightDecay === 'number') setLionWeightDecay(saved.lionWeightDecay);
+
+    // Load Sophia optimizer settings (v4.2)
+    if (typeof saved.sophiaBeta1 === 'number') setSophiaBeta1(saved.sophiaBeta1);
+    if (typeof saved.sophiaBeta2 === 'number') setSophiaBeta2(saved.sophiaBeta2);
+    if (typeof saved.sophiaRho === 'number') setSophiaRho(saved.sophiaRho);
+    if (typeof saved.sophiaHessianFreq === 'number') setSophiaHessianFreq(saved.sophiaHessianFreq);
 
     const tokenizerRaw = StorageManager.get<unknown>(STORAGE_KEYS.TOKENIZER_CONFIG, null);
     if (tokenizerRaw) {
@@ -977,7 +1047,22 @@ export default function NeuroLinguaDomesticaV324() {
       betaEnd,
       betaSchedule,
       ibAlpha,
-      numBins
+      numBins,
+      // Advanced Loss Functions
+      lossFunction,
+      focalGamma,
+      focalAlpha,
+      labelSmoothingEpsilon,
+      sceBeta,
+      // Lion optimizer (v4.0)
+      lionBeta1,
+      lionBeta2,
+      lionWeightDecay,
+      // Sophia optimizer (v4.2)
+      sophiaBeta1,
+      sophiaBeta2,
+      sophiaRho,
+      sophiaHessianFreq
     };
     StorageManager.set(STORAGE_KEYS.UI_SETTINGS, settings);
   }, [
@@ -1026,7 +1111,19 @@ export default function NeuroLinguaDomesticaV324() {
     betaEnd,
     betaSchedule,
     ibAlpha,
-    numBins
+    numBins,
+    lossFunction,
+    focalGamma,
+    focalAlpha,
+    labelSmoothingEpsilon,
+    sceBeta,
+    lionBeta1,
+    lionBeta2,
+    lionWeightDecay,
+    sophiaBeta1,
+    sophiaBeta2,
+    sophiaRho,
+    sophiaHessianFreq
   ]);
 
   // Persist tokenizer config separately
@@ -2031,6 +2128,40 @@ export default function NeuroLinguaDomesticaV324() {
               onBetaScheduleChange={setBetaSchedule}
               onIbAlphaChange={setIbAlpha}
               onNumBinsChange={setNumBins}
+              // Advanced Sampling Parameters
+              typicalTau={typicalTau}
+              mirostatTau={mirostatTau}
+              mirostatEta={mirostatEta}
+              onTypicalTauChange={setTypicalTau}
+              onMirostatTauChange={setMirostatTau}
+              onMirostatEtaChange={setMirostatEta}
+              // Advanced Loss Functions
+              lossFunction={lossFunction}
+              focalGamma={focalGamma}
+              focalAlpha={focalAlpha}
+              labelSmoothingEpsilon={labelSmoothingEpsilon}
+              sceBeta={sceBeta}
+              onLossFunctionChange={setLossFunction}
+              onFocalGammaChange={setFocalGamma}
+              onFocalAlphaChange={setFocalAlpha}
+              onLabelSmoothingEpsilonChange={setLabelSmoothingEpsilon}
+              onSceBetaChange={setSceBeta}
+              // Lion optimizer parameters (v4.0)
+              lionBeta1={lionBeta1}
+              lionBeta2={lionBeta2}
+              lionWeightDecay={lionWeightDecay}
+              onLionBeta1Change={setLionBeta1}
+              onLionBeta2Change={setLionBeta2}
+              onLionWeightDecayChange={setLionWeightDecay}
+              // Sophia optimizer parameters (v4.2)
+              sophiaBeta1={sophiaBeta1}
+              sophiaBeta2={sophiaBeta2}
+              sophiaRho={sophiaRho}
+              sophiaHessianFreq={sophiaHessianFreq}
+              onSophiaBeta1Change={setSophiaBeta1}
+              onSophiaBeta2Change={setSophiaBeta2}
+              onSophiaRhoChange={setSophiaRho}
+              onSophiaHessianFreqChange={setSophiaHessianFreq}
               onTokenizerConfigChange={setTokenizerConfig}
               onCustomPatternChange={setCustomTokenizerPattern}
               onTokenizerError={setTokenizerError}

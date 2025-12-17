@@ -39,7 +39,7 @@ describe('DatasetBuilder', () => {
     it('should accept split configuration', () => {
       const b = new DatasetBuilder({
         name: 'my-dataset',
-        splitConfig: { trainRatio: 0.7, valRatio: 0.15, testRatio: 0.15 }
+        splitConfig: { trainRatio: 0.7, valRatio: 0.15, testRatio: 0.15, seed: 42 }
       });
       expect(b).toBeDefined();
     });
@@ -211,7 +211,7 @@ describe('DatasetBuilder', () => {
     it('should respect split ratios', async () => {
       const customBuilder = new DatasetBuilder({
         name: 'test',
-        splitConfig: { trainRatio: 0.6, valRatio: 0.2, testRatio: 0.2 }
+        splitConfig: { trainRatio: 0.6, valRatio: 0.2, testRatio: 0.2, seed: 42 }
       });
 
       for (let i = 0; i < 100; i++) {
@@ -593,7 +593,7 @@ describe('fromCorpus', () => {
   it('should accept split config', async () => {
     const corpus = Array.from({ length: 100 }, (_, i) => `Line ${i}`).join('\n');
     const dataset = await fromCorpus(corpus, 'corpus-dataset', {
-      splitConfig: { trainRatio: 0.5, valRatio: 0.25, testRatio: 0.25 }
+      splitConfig: { trainRatio: 0.5, valRatio: 0.25, testRatio: 0.25, seed: 42 }
     });
 
     expect(dataset.splits.train.samples.length).toBeCloseTo(50, -1);

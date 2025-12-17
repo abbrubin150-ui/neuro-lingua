@@ -618,6 +618,8 @@ export function TrainingPanel(props: TrainingPanelProps) {
           <input
             aria-label="Context window"
             type="number"
+            min={HYPERPARAMETER_CONSTRAINTS.contextSize.min}
+            max={HYPERPARAMETER_CONSTRAINTS.contextSize.max}
             value={props.contextSize}
             onChange={(e) =>
               props.onContextSizeChange(

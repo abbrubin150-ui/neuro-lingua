@@ -250,6 +250,13 @@ export class ProNeuralLM {
   }
 
   /**
+   * Accessor for subclasses that need to share the GPU accelerator.
+   */
+  protected getGPUOpsInstance(): GPUNeuralOps | null {
+    return this.gpuOps;
+  }
+
+  /**
    * Check if GPU acceleration is enabled and available
    */
   isGPUEnabled(): boolean {

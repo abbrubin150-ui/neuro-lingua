@@ -224,7 +224,7 @@ export const HYPERPARAMETER_CONSTRAINTS = {
   learningRate: { min: 0.001, max: 1 },
   momentum: { min: 0, max: 0.99 },
   dropout: { min: 0, max: 0.5 },
-  contextSize: { min: 2, max: 6 },
+  contextSize: { min: 2, max: 128 },
   temperature: { min: 0.05, max: 5 },
   topK: { min: 0, max: 1000 },
   topP: { min: 0, max: 0.99 },

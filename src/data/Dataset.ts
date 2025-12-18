@@ -40,12 +40,25 @@ function generateId(): string {
 }
 
 function tokenize(text: string): string[] {
-  return text.toLowerCase().replace(/[^\p{L}\d\s'-]/gu, ' ').split(/\s+/).filter((t) => t.length > 0);
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\d\s'-]/gu, ' ')
+    .split(/\s+/)
+    .filter((t) => t.length > 0);
 }
 
 function calculateStats(samples: DataSample[]): DatasetStats {
   if (samples.length === 0) {
-    return { totalSamples: 0, totalTokens: 0, totalCharacters: 0, uniqueTokens: 0, averageTokensPerSample: 0, medianTokensPerSample: 0, maxTokensPerSample: 0, minTokensPerSample: 0 };
+    return {
+      totalSamples: 0,
+      totalTokens: 0,
+      totalCharacters: 0,
+      uniqueTokens: 0,
+      averageTokensPerSample: 0,
+      medianTokensPerSample: 0,
+      maxTokensPerSample: 0,
+      minTokensPerSample: 0
+    };
   }
   const allTokens: string[] = [];
   const tokenCounts: number[] = [];
@@ -60,7 +73,10 @@ function calculateStats(samples: DataSample[]): DatasetStats {
 
   const sortedCounts = [...tokenCounts].sort((a, b) => a - b);
   const mid = Math.floor(sortedCounts.length / 2);
-  const median = sortedCounts.length % 2 === 0 ? (sortedCounts[mid - 1] + sortedCounts[mid]) / 2 : sortedCounts[mid];
+  const median =
+    sortedCounts.length % 2 === 0
+      ? (sortedCounts[mid - 1] + sortedCounts[mid]) / 2
+      : sortedCounts[mid];
 
   return {
     totalSamples: samples.length,
@@ -116,7 +132,9 @@ export class DatasetBuilder {
         const text = obj[textField];
         const label = labelField ? obj[labelField] : undefined;
         if (text) this.addText(text, label, obj);
-      } catch { /* skip invalid JSON */ }
+      } catch {
+        /* skip invalid JSON */
+      }
     }
     return this;
   }
@@ -124,11 +142,17 @@ export class DatasetBuilder {
   async build(onProgress?: DatasetProgressCallback): Promise<Dataset> {
     if (this.samples.length === 0) throw new Error('No samples added to dataset');
 
-    onProgress?.({ operation: 'tokenizing', current: 0, total: this.samples.length, message: 'Tokenizing samples...' });
+    onProgress?.({
+      operation: 'tokenizing',
+      current: 0,
+      total: this.samples.length,
+      message: 'Tokenizing samples...'
+    });
 
     for (let i = 0; i < this.samples.length; i++) {
       if (!this.samples[i].tokens) this.samples[i].tokens = tokenize(this.samples[i].text);
-      if (onProgress && i % 100 === 0) onProgress({ operation: 'tokenizing', current: i, total: this.samples.length });
+      if (onProgress && i % 100 === 0)
+        onProgress({ operation: 'tokenizing', current: i, total: this.samples.length });
     }
 
     onProgress?.({ operation: 'splitting', current: 0, total: 3, message: 'Creating splits...' });
@@ -171,7 +195,10 @@ export class DatasetBuilder {
       encoding: 'utf-8',
       hasLabels: this.samples.some((s) => s.label !== undefined),
       labelSchema: this.samples.some((s) => s.label !== undefined)
-        ? { type: 'classification', classes: [...new Set(this.samples.map((s) => String(s.label)).filter(Boolean))] }
+        ? {
+            type: 'classification',
+            classes: [...new Set(this.samples.map((s) => String(s.label)).filter(Boolean))]
+          }
         : undefined
     };
 
@@ -185,7 +212,10 @@ export class DatasetBuilder {
     };
   }
 
-  private async createSplit(name: 'train' | 'val' | 'test', samples: DataSample[]): Promise<DatasetSplit> {
+  private async createSplit(
+    name: 'train' | 'val' | 'test',
+    samples: DataSample[]
+  ): Promise<DatasetSplit> {
     const samplesStr = JSON.stringify(samples.map((s) => s.id + s.text));
     const hash = await sha256(samplesStr);
     return { name, samples, stats: calculateStats(samples), hash };
@@ -208,9 +238,17 @@ export class BatchIterator {
   private initState(): BatchIteratorState {
     const indices = Array.from({ length: this.split.samples.length }, (_, i) => i);
     if (this.config.shuffle) this.rng.shuffle(indices);
-    const totalBatches = this.config.dropLast ? Math.floor(indices.length / this.config.batchSize) : Math.ceil(indices.length / this.config.batchSize);
+    const totalBatches = this.config.dropLast
+      ? Math.floor(indices.length / this.config.batchSize)
+      : Math.ceil(indices.length / this.config.batchSize);
     const rngState = this.rng.getState();
-    return { currentBatch: 0, totalBatches, epoch: 0, rngState: [rngState.state0, rngState.state1], shuffledIndices: indices };
+    return {
+      currentBatch: 0,
+      totalBatches,
+      epoch: 0,
+      rngState: [rngState.state0, rngState.state1],
+      shuffledIndices: indices
+    };
   }
 
   next(): Batch | null {
@@ -219,12 +257,19 @@ export class BatchIterator {
     const endIdx = Math.min(startIdx + this.config.batchSize, this.split.samples.length);
     const batchIndices = this.state.shuffledIndices.slice(startIdx, endIdx);
     const samples = batchIndices.map((i) => this.split.samples[i]);
-    const batch: Batch = { samples, indices: batchIndices, batchIndex: this.state.currentBatch, isLast: this.state.currentBatch === this.state.totalBatches - 1 };
+    const batch: Batch = {
+      samples,
+      indices: batchIndices,
+      batchIndex: this.state.currentBatch,
+      isLast: this.state.currentBatch === this.state.totalBatches - 1
+    };
     this.state.currentBatch++;
     return batch;
   }
 
-  hasNext(): boolean { return this.state.currentBatch < this.state.totalBatches; }
+  hasNext(): boolean {
+    return this.state.currentBatch < this.state.totalBatches;
+  }
 
   nextEpoch(): void {
     this.state.epoch++;
@@ -243,8 +288,12 @@ export class BatchIterator {
     this.state = this.initState();
   }
 
-  getState(): BatchIteratorState { return { ...this.state }; }
-  setState(state: BatchIteratorState): void { this.state = { ...state }; }
+  getState(): BatchIteratorState {
+    return { ...this.state };
+  }
+  setState(state: BatchIteratorState): void {
+    this.state = { ...state };
+  }
 
   *[Symbol.iterator](): Generator<Batch, void, unknown> {
     while (this.hasNext()) {
@@ -268,32 +317,56 @@ export async function exportDatasetArtifact(dataset: Dataset): Promise<DatasetAr
     createdAt: dataset.schema.createdAt,
     schema: dataset.schema,
     splitConfig: dataset.splitConfig,
-    splits: { train: serializeSplit(dataset.splits.train), val: serializeSplit(dataset.splits.val), test: serializeSplit(dataset.splits.test) }
+    splits: {
+      train: serializeSplit(dataset.splits.train),
+      val: serializeSplit(dataset.splits.val),
+      test: serializeSplit(dataset.splits.test)
+    }
   };
 }
 
-export async function verifyDataset(dataset: Dataset, artifact: DatasetArtifact): Promise<{ valid: boolean; errors: string[] }> {
+export async function verifyDataset(
+  dataset: Dataset,
+  artifact: DatasetArtifact
+): Promise<{ valid: boolean; errors: string[] }> {
   const errors: string[] = [];
   if (dataset.hash !== artifact.hash) errors.push('Dataset hash mismatch');
   for (const splitName of ['train', 'val', 'test'] as const) {
-    if (dataset.splits[splitName].hash !== artifact.splits[splitName].hash) errors.push(`${splitName} split hash mismatch`);
-    if (dataset.splits[splitName].samples.length !== artifact.splits[splitName].sampleCount) errors.push(`${splitName} split sample count mismatch`);
+    if (dataset.splits[splitName].hash !== artifact.splits[splitName].hash)
+      errors.push(`${splitName} split hash mismatch`);
+    if (dataset.splits[splitName].samples.length !== artifact.splits[splitName].sampleCount)
+      errors.push(`${splitName} split sample count mismatch`);
   }
   return { valid: errors.length === 0, errors };
 }
 
-export async function mergeDatasets(datasets: Dataset[], name: string, seed: number = 42): Promise<Dataset> {
+export async function mergeDatasets(
+  datasets: Dataset[],
+  name: string,
+  seed: number = 42
+): Promise<Dataset> {
   const builder = new DatasetBuilder({ name, seed });
   for (const dataset of datasets) {
-    for (const sample of dataset.splits.train.samples) builder.addText(sample.text, sample.label, sample.metadata);
-    for (const sample of dataset.splits.val.samples) builder.addText(sample.text, sample.label, sample.metadata);
-    for (const sample of dataset.splits.test.samples) builder.addText(sample.text, sample.label, sample.metadata);
+    for (const sample of dataset.splits.train.samples)
+      builder.addText(sample.text, sample.label, sample.metadata);
+    for (const sample of dataset.splits.val.samples)
+      builder.addText(sample.text, sample.label, sample.metadata);
+    for (const sample of dataset.splits.test.samples)
+      builder.addText(sample.text, sample.label, sample.metadata);
   }
   return builder.build();
 }
 
-export async function fromCorpus(corpus: string, name: string, options: { delimiter?: string | RegExp; splitConfig?: SplitConfig; seed?: number } = {}): Promise<Dataset> {
-  const builder = new DatasetBuilder({ name, splitConfig: options.splitConfig, seed: options.seed });
+export async function fromCorpus(
+  corpus: string,
+  name: string,
+  options: { delimiter?: string | RegExp; splitConfig?: SplitConfig; seed?: number } = {}
+): Promise<Dataset> {
+  const builder = new DatasetBuilder({
+    name,
+    splitConfig: options.splitConfig,
+    seed: options.seed
+  });
   builder.addCorpus(corpus, options.delimiter || '\n');
   return builder.build();
 }
@@ -305,9 +378,22 @@ export function sampleDataset(dataset: Dataset, fraction: number, seed: number =
     const shuffled = [...split.samples];
     rng.shuffle(shuffled);
     const sampled = shuffled.slice(0, n);
-    return { ...split, samples: sampled, stats: calculateStats(sampled), hash: quickHash(JSON.stringify(sampled.map((s) => s.id))) };
+    return {
+      ...split,
+      samples: sampled,
+      stats: calculateStats(sampled),
+      hash: quickHash(JSON.stringify(sampled.map((s) => s.id)))
+    };
   };
-  return { ...dataset, splits: { train: sampleSplit(dataset.splits.train, fraction), val: sampleSplit(dataset.splits.val, fraction), test: sampleSplit(dataset.splits.test, fraction) }, hash: quickHash(`sampled-${fraction}-${seed}`) };
+  return {
+    ...dataset,
+    splits: {
+      train: sampleSplit(dataset.splits.train, fraction),
+      val: sampleSplit(dataset.splits.val, fraction),
+      test: sampleSplit(dataset.splits.test, fraction)
+    },
+    hash: quickHash(`sampled-${fraction}-${seed}`)
+  };
 }
 
 export { calculateStats, tokenize, sha256, quickHash, generateId, DEFAULT_SPLIT_CONFIG };

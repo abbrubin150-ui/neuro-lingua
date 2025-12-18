@@ -14,7 +14,7 @@ import {
   withinTolerance,
   arraysWithinTolerance
 } from '../../src/lib/Reproducibility';
-import type { PRNGState, SamplingConfig } from '../../src/types/reproducibility';
+import type { SamplingConfig } from '../../src/types/reproducibility';
 
 describe('SeededRNG', () => {
   describe('constructor', () => {
@@ -365,7 +365,7 @@ describe('SeededSampler', () => {
 
   describe('top-k filtering', () => {
     it('should filter to top-k tokens', () => {
-      const sampler = new SeededSampler({ ...config, topK: 2, topP: 1.0 });
+      const _sampler = new SeededSampler({ ...config, topK: 2, topP: 1.0 });
       const logits = [0.1, 10.0, 5.0, 0.2, 0.3]; // Top 2 are indices 1 and 2
 
       const samples = new Set<number>();
@@ -381,7 +381,7 @@ describe('SeededSampler', () => {
 
   describe('top-p filtering', () => {
     it('should respect top-p (nucleus) sampling', () => {
-      const sampler = new SeededSampler({ ...config, topK: 100, topP: 0.5 });
+      const _sampler = new SeededSampler({ ...config, topK: 100, topP: 0.5 });
       const logits = [0.1, 10.0, 0.1, 0.1, 0.1]; // Most mass in index 1
 
       const samples = new Set<number>();

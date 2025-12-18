@@ -9,7 +9,6 @@ import {
   BPEMergeRule,
   VocabEntry,
   TokenizerMetrics,
-  BPETrainingProgress,
   BPEProgressCallback,
   EncodingResult,
   DecodingOptions,
@@ -124,7 +123,10 @@ export class BPETokenizer {
 
   private preTokenize(corpus: string): Map<string, number> {
     const wordFreqs = new Map<string, number>();
-    const words = corpus.toLowerCase().split(/(\s+)/).filter((w) => w.trim().length > 0);
+    const words = corpus
+      .toLowerCase()
+      .split(/(\s+)/)
+      .filter((w) => w.trim().length > 0);
     for (const word of words) {
       const markedWord = '_' + word;
       wordFreqs.set(markedWord, (wordFreqs.get(markedWord) || 0) + 1);
@@ -148,7 +150,10 @@ export class BPETokenizer {
     return chars;
   }
 
-  private countPairs(wordSplits: Map<string, string[]>, wordFreqs: Map<string, number>): Map<string, number> {
+  private countPairs(
+    wordSplits: Map<string, string[]>,
+    wordFreqs: Map<string, number>
+  ): Map<string, number> {
     const pairFreqs = new Map<string, number>();
     for (const [word, split] of wordSplits) {
       const freq = wordFreqs.get(word) || 0;
@@ -172,7 +177,12 @@ export class BPETokenizer {
     return bestPair;
   }
 
-  private applyMerge(wordSplits: Map<string, string[]>, left: string, right: string, merged: string): void {
+  private applyMerge(
+    wordSplits: Map<string, string[]>,
+    left: string,
+    right: string,
+    merged: string
+  ): void {
     for (const [word, split] of wordSplits) {
       const newSplit: string[] = [];
       let i = 0;
@@ -222,7 +232,9 @@ export class BPETokenizer {
     const tokenizer = new BPETokenizer(artifact.config);
     tokenizer.merges = artifact.merges;
     tokenizer.vocabToId = new Map(Object.entries(artifact.vocabToId));
-    tokenizer.idToVocab = new Map(Object.entries(artifact.idToVocab).map(([k, v]) => [parseInt(k), v]));
+    tokenizer.idToVocab = new Map(
+      Object.entries(artifact.idToVocab).map(([k, v]) => [parseInt(k), v])
+    );
     for (const entry of artifact.vocab) {
       tokenizer.vocab.set(entry.token, entry.frequency);
     }
@@ -303,14 +315,23 @@ export class BPETokenizer {
     return text;
   }
 
-  get vocabSize(): number { return this.vocabToId.size; }
-  get isTrained(): boolean { return this.trained; }
-  get hash(): string { return this.artifactHash; }
+  get vocabSize(): number {
+    return this.vocabToId.size;
+  }
+  get isTrained(): boolean {
+    return this.trained;
+  }
+  get hash(): string {
+    return this.artifactHash;
+  }
 
   calculateMetrics(testCorpus: string): TokenizerMetrics {
     if (!this.trained) throw new Error('Tokenizer not trained.');
     const encoding = this.encode(testCorpus);
-    const words = testCorpus.toLowerCase().split(/\s+/).filter((w) => w.length > 0);
+    const words = testCorpus
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 0);
     const totalChars = testCorpus.length;
     const unkId = this.vocabToId.get(this.config.unknownToken)!;
     const unkCount = encoding.ids.filter((id) => id === unkId).length;
@@ -345,8 +366,12 @@ export class BPETokenizer {
     return BPETokenizer.fromArtifact(artifact);
   }
 
-  tokenToId(token: string): number | undefined { return this.vocabToId.get(token); }
-  idToToken(id: number): string | undefined { return this.idToVocab.get(id); }
+  tokenToId(token: string): number | undefined {
+    return this.vocabToId.get(token);
+  }
+  idToToken(id: number): string | undefined {
+    return this.idToVocab.get(id);
+  }
 
   get specialTokenIds(): Record<string, number> {
     return {

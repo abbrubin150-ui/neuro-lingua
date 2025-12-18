@@ -185,26 +185,6 @@ export const DEFAULT_IB_CONFIG = {
 };
 
 /**
- * Default advanced loss function configuration
- *
- * Supports multiple loss types:
- * - cross_entropy: Standard cross-entropy (default)
- * - focal: Focal loss for class imbalance
- * - label_smoothing: Label smoothing CE for regularization
- * - symmetric_ce: Symmetric CE for noise robustness
- */
-export const DEFAULT_LOSS_CONFIG = {
-  lossFunction: 'cross_entropy' as 'cross_entropy' | 'focal' | 'label_smoothing' | 'symmetric_ce',
-  // Focal loss parameters (Lin et al. 2017)
-  focalGamma: 2.0, // Focusing parameter - higher = more focus on hard examples
-  focalAlpha: 0.25, // Balancing factor
-  // Label smoothing parameters
-  labelSmoothingEpsilon: 0.1, // Smoothing factor (0 = no smoothing, 1 = uniform)
-  // Symmetric CE parameters
-  sceBeta: 1.0 // Weight for reverse KL term (α=1 for forward)
-};
-
-/**
  * Default tokenizer configuration
  */
 export const DEFAULT_TOKENIZER_CONFIG: TokenizerConfig = {

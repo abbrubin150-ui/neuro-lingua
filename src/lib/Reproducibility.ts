@@ -54,7 +54,7 @@ export class SeededRNG {
 
   next(): number {
     this.callCount++;
-    let s0 = this.state[0];
+    const s0 = this.state[0];
     let s1 = this.state[1];
     const result = (s0 + s1) >>> 0;
     s1 ^= s0;
@@ -95,7 +95,12 @@ export class SeededRNG {
   }
 
   getState(): PRNGState {
-    return { seed: this.initialSeed, state0: this.state[0], state1: this.state[1], callCount: this.callCount };
+    return {
+      seed: this.initialSeed,
+      state0: this.state[0],
+      state1: this.state[1],
+      callCount: this.callCount
+    };
   }
 
   setState(savedState: PRNGState): void {
@@ -113,7 +118,9 @@ export class SeededRNG {
     return new SeededRNG(this.initialSeed + seedOffset);
   }
 
-  getCallCount(): number { return this.callCount; }
+  getCallCount(): number {
+    return this.callCount;
+  }
 }
 
 export class SeedManager {
@@ -129,9 +136,15 @@ export class SeedManager {
     this.initRng = new SeededRNG(this.globalSeed + 2);
   }
 
-  getTrainRng(): SeededRNG { return this.trainRng; }
-  getSamplingRng(): SeededRNG { return this.samplingRng; }
-  getInitRng(): SeededRNG { return this.initRng; }
+  getTrainRng(): SeededRNG {
+    return this.trainRng;
+  }
+  getSamplingRng(): SeededRNG {
+    return this.samplingRng;
+  }
+  getInitRng(): SeededRNG {
+    return this.initRng;
+  }
 
   reset(): void {
     this.trainRng.reset();
@@ -139,7 +152,9 @@ export class SeedManager {
     this.initRng.reset();
   }
 
-  getSeed(): number { return this.globalSeed; }
+  getSeed(): number {
+    return this.globalSeed;
+  }
 
   getState(): { globalSeed: number; train: PRNGState; sampling: PRNGState; init: PRNGState } {
     return {
@@ -150,7 +165,12 @@ export class SeedManager {
     };
   }
 
-  restoreState(state: { globalSeed: number; train: PRNGState; sampling: PRNGState; init: PRNGState }): void {
+  restoreState(state: {
+    globalSeed: number;
+    train: PRNGState;
+    sampling: PRNGState;
+    init: PRNGState;
+  }): void {
     this.globalSeed = state.globalSeed;
     this.trainRng.setState(state.train);
     this.samplingRng.setState(state.sampling);
@@ -209,7 +229,8 @@ export class SeededSampler {
   private applyTopP(probs: number[], p: number): number[] {
     const indexed = probs.map((prob, i) => ({ prob, i })).sort((a, b) => b.prob - a.prob);
     const filtered = new Array(probs.length).fill(0);
-    let cumSum = 0, sum = 0;
+    let cumSum = 0,
+      sum = 0;
     for (const { prob, i } of indexed) {
       if (cumSum >= p && sum > 0) break;
       filtered[i] = prob;
@@ -229,7 +250,9 @@ export class SeededSampler {
     return probs.length - 1;
   }
 
-  getState(): SamplingState { return { ...this.state }; }
+  getState(): SamplingState {
+    return { ...this.state };
+  }
   setState(state: SamplingState): void {
     this.state = { ...state };
     this.rng.setState(state.rngState);
@@ -246,11 +269,15 @@ export class SeededSampler {
   }
 }
 
-export async function hashWeights(weights: { [layer: string]: Float32Array | number[][] }): Promise<WeightHash> {
+export async function hashWeights(weights: {
+  [layer: string]: Float32Array | number[][];
+}): Promise<WeightHash> {
   const layerHashes: Record<string, string> = {};
   const allData: string[] = [];
   for (const [name, data] of Object.entries(weights)) {
-    const flatData = Array.isArray(data[0]) ? (data as number[][]).flat() : Array.from(data as Float32Array);
+    const flatData = Array.isArray(data[0])
+      ? (data as number[][]).flat()
+      : Array.from(data as Float32Array);
     const layerStr = flatData.map((v) => v.toFixed(8)).join(',');
     layerHashes[name] = quickHash(layerStr);
     allData.push(layerStr);
@@ -261,7 +288,9 @@ export async function hashWeights(weights: { [layer: string]: Float32Array | num
     algorithm: 'sha256',
     timestamp: new Date().toISOString(),
     parameterCount: Object.values(weights).reduce(
-      (sum, w) => sum + (Array.isArray(w[0]) ? (w as number[][]).flat().length : (w as Float32Array).length), 0
+      (sum, w) =>
+        sum + (Array.isArray(w[0]) ? (w as number[][]).flat().length : (w as Float32Array).length),
+      0
     ),
     layerHashes
   };
@@ -280,7 +309,12 @@ export async function hashConfig(config: {
     seed: quickHash(String(config.seed))
   };
   const combinedHash = await sha256(Object.values(components).join('|'));
-  return { hash: combinedHash, algorithm: 'sha256', timestamp: new Date().toISOString(), components };
+  return {
+    hash: combinedHash,
+    algorithm: 'sha256',
+    timestamp: new Date().toISOString(),
+    components
+  };
 }
 
 export async function createManifest(params: {
@@ -328,7 +362,13 @@ export async function createManifest(params: {
 
 export async function verifyReplay(
   manifest: ReproducibilityManifest,
-  replay: { seed: number; config: Record<string, unknown>; tokenizer: Record<string, unknown>; corpus: string; epochLosses: number[] },
+  replay: {
+    seed: number;
+    config: Record<string, unknown>;
+    tokenizer: Record<string, unknown>;
+    corpus: string;
+    epochLosses: number[];
+  },
   tolerance: ToleranceLevel = 'normal'
 ): Promise<ReplayVerification> {
   const errors: string[] = [];
@@ -355,7 +395,7 @@ export async function verifyReplay(
   if (!configMatch) errors.push('Config hash mismatch');
 
   let epochMatchCount = 0;
-  let maxLossDelta = 0;
+  const maxLossDelta = 0;
   const totalEpochs = Math.min(manifest.epochChecksums.length, replay.epochLosses.length);
 
   for (let i = 0; i < totalEpochs; i++) {
@@ -363,8 +403,24 @@ export async function verifyReplay(
     if (replayChecksum === manifest.epochChecksums[i]) epochMatchCount++;
   }
 
-  const success = seedMatch && corpusMatch && tokenizerMatch && configMatch && epochMatchCount >= totalEpochs * 0.9;
-  return { success, configMatch, seedMatch, corpusMatch, tokenizerMatch, epochMatchCount, totalEpochs, maxLossDelta, tolerance: tol, errors };
+  const success =
+    seedMatch &&
+    corpusMatch &&
+    tokenizerMatch &&
+    configMatch &&
+    epochMatchCount >= totalEpochs * 0.9;
+  return {
+    success,
+    configMatch,
+    seedMatch,
+    corpusMatch,
+    tokenizerMatch,
+    epochMatchCount,
+    totalEpochs,
+    maxLossDelta,
+    tolerance: tol,
+    errors
+  };
 }
 
 export async function takeSnapshot(
@@ -375,14 +431,29 @@ export async function takeSnapshot(
   weights: { [layer: string]: Float32Array | number[][] }
 ): Promise<ReproducibilitySnapshot> {
   const weightsHash = await hashWeights(weights);
-  return { timestamp: new Date().toISOString(), rngState: rng.getState(), epoch, step, loss, weightsHash: weightsHash.hash };
+  return {
+    timestamp: new Date().toISOString(),
+    rngState: rng.getState(),
+    epoch,
+    step,
+    loss,
+    weightsHash: weightsHash.hash
+  };
 }
 
-export function withinTolerance(a: number, b: number, tolerance: ToleranceLevel = 'normal'): boolean {
+export function withinTolerance(
+  a: number,
+  b: number,
+  tolerance: ToleranceLevel = 'normal'
+): boolean {
   return Math.abs(a - b) <= TOLERANCE_LEVELS[tolerance];
 }
 
-export function arraysWithinTolerance(a: number[], b: number[], tolerance: ToleranceLevel = 'normal'): boolean {
+export function arraysWithinTolerance(
+  a: number[],
+  b: number[],
+  tolerance: ToleranceLevel = 'normal'
+): boolean {
   if (a.length !== b.length) return false;
   const tol = TOLERANCE_LEVELS[tolerance];
   for (let i = 0; i < a.length; i++) {

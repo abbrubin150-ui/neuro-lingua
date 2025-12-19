@@ -13,7 +13,7 @@ import {
   calculateStats,
   tokenize
 } from '../../src/data/Dataset';
-import type { Dataset, DatasetSplit, SplitConfig } from '../../src/types/dataset';
+import type { DatasetSplit } from '../../src/types/dataset';
 
 describe('DatasetBuilder', () => {
   let builder: DatasetBuilder;

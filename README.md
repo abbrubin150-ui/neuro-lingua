@@ -1,8 +1,8 @@
-# Neuro‑Lingua DOMESTICA — v4.3.0 (EN)
+# Neuro‑Lingua DOMESTICA — v4.4.0 (EN)
 
 **Browser‑native neural language model** built in React + TypeScript.
 
-> Runtime version: **v4.3.0** (UI + model) · Governance/export spec documented in **CHANGELOG_v3.3.md**. The bilingual UI, project/run management, and WebGPU acceleration in `App.tsx` match this runtime.
+> Runtime version: **v4.4.0** (UI + model) · Governance/export spec documented in **CHANGELOG_v3.3.md**. The bilingual UI, project/run management, and WebGPU acceleration in `App.tsx` match this runtime.
 
 🌐 **[Try the live demo →](https://abbrubin150-ui.github.io/neuro-lingua/)** — includes an English ↔ Hebrew toggle for the UI
 
@@ -14,7 +14,10 @@
 - **Dropout** (train‑only)
 - **Advanced Text Generation**: Greedy, Sampling (Top-p/Top-k/Typical/Mirostat v2), Beam Search, and Contrastive decoding
 - **Session persistence**, onboarding tips, and downloadable **training-history CSVs** (localized labels)
-- **Tokenizer presets** (Unicode/ASCII/custom) with import/export support
+- **Tokenizer presets** (Unicode/ASCII/custom/**BPE** (v4.4)) with import/export support
+- **Dataset abstraction** (v4.4): formal train/val/test splits with reproducible shuffling
+- **Reproducibility layer** (v4.4): deterministic PRNG, config/weight hashing, replay verification
+- **Desktop app** (v4.4): Electron packaging for Windows with full feature parity
 - **Agent** workflow: a single GitHub Action retrains the model and commits the updated JSON artifact
 
 ## 🚀 Advanced Features
@@ -149,6 +152,40 @@ Efficient attention patterns that reduce O(n²) complexity to O(n) for longer se
 - ✅ **Bias Verification** - Neutrality axiom and differential privacy checks
 - ✅ **Three-Phase Pipeline** - Offline learning → Online selection → Statistical testing
 
+### 🔤 BPE Tokenizer (v4.4)
+
+- ✅ **Byte Pair Encoding** - Subword tokenization for better vocabulary coverage
+- ✅ **Configurable Vocab Size** - Train tokenizers with custom vocabulary limits
+- ✅ **Merge Rules** - Priority-based merge operations with full history
+- ✅ **Tokenizer Metrics** - Coverage, entropy, fertility, compression ratio tracking
+- ✅ **Versioned Artifacts** - Hash-verified tokenizer exports with corpus stats
+- ✅ **Special Tokens** - Configurable PAD, BOS, EOS, UNK tokens
+
+### 📦 Dataset Abstraction (v4.4)
+
+- ✅ **Formal Dataset Schema** - Name, version, description, language, license metadata
+- ✅ **Train/Val/Test Splits** - Configurable ratios with reproducible shuffling
+- ✅ **Dataset Statistics** - Token counts, sample lengths, vocabulary analysis
+- ✅ **Batch Iteration** - Configurable batch size with shuffle and drop-last options
+- ✅ **Multi-Format Support** - Text, JSONL, CSV with UTF-8/ASCII encoding
+- ✅ **Progress Callbacks** - Real-time loading, tokenizing, splitting, hashing feedback
+
+### 🔁 Reproducibility Layer (v4.4)
+
+- ✅ **Deterministic PRNG** - Seeded random number generator with state export
+- ✅ **Config Hashing** - SHA-256 hashes for hyperparameters, architecture, tokenizer
+- ✅ **Weight Hashing** - Layer-wise and global weight checksums
+- ✅ **Reproducibility Manifest** - Complete training environment snapshot
+- ✅ **Replay Verification** - Validate training runs match expected loss trajectories
+- ✅ **Tolerance Levels** - Strict (1e-10) to loose (1e-2) numerical tolerance options
+
+### 🖥️ Desktop Application (v4.4)
+
+- ✅ **Electron Packaging** - Native Windows desktop application
+- ✅ **Development Mode** - Hot-reload with `pnpm electron:dev`
+- ✅ **Production Build** - NSIS installer with `pnpm electron:build`
+- ✅ **Full Feature Parity** - All browser features available in desktop app
+
 ### 📄 Neuro-Lingua Lite
 
 - ✅ **Single-File HTML** - Complete neural LM in one portable HTML file
@@ -192,6 +229,10 @@ pnpm train
 
 # 6) GPU Benchmarks (optional)
 pnpm benchmark:gpu
+
+# 7) Desktop App (Windows)
+pnpm electron:dev    # Development with hot-reload
+pnpm electron:build  # Build NSIS installer
 ```
 
 The browser UI allows you to paste a training corpus and interact with the model.  
@@ -296,10 +337,17 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 │   │   └── SophiaOptimizer.ts      # Sophia second-order optimizer (v4.3)
 │   ├── types/
 │   │   ├── causal.ts               # Causal inference types
-│   │   └── dag.ts                  # DAG structure types
+│   │   ├── dag.ts                  # DAG structure types
+│   │   ├── tokenizer.ts            # BPE tokenizer types (v4.4)
+│   │   ├── dataset.ts              # Dataset abstraction types (v4.4)
+│   │   └── reproducibility.ts      # Reproducibility layer types (v4.4)
 │   ├── visualization/              # Embedding visualization (t-SNE, UMAP)
 │   ├── App.tsx                     # Main React application
 │   └── main.tsx                    # Application entry point
+├── electron/                       # Electron desktop app (v4.4)
+│   ├── main.ts                     # Electron main process
+│   ├── preload.ts                  # Preload script
+│   └── tsconfig.json               # Electron TypeScript config
 ├── tests/
 │   ├── ProNeuralLM.test.ts         # Core model tests
 │   ├── AdvancedNeuralLM.test.ts    # Advanced features tests
@@ -408,7 +456,7 @@ Define test scenarios per project:
 
 ### Trace Export
 
-Export models with complete audit trail including project metadata, decision ledger, training trace, and full reproducibility information. The current runtime (v4.2.0) emits the v3.3 governance/export fields described in `CHANGELOG_v3.3.md`.
+Export models with complete audit trail including project metadata, decision ledger, training trace, and full reproducibility information. The current runtime (v4.4.0) emits the v3.3 governance/export fields described in `CHANGELOG_v3.3.md`.
 
 ---
 

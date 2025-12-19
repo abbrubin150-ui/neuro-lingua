@@ -212,6 +212,63 @@ export const DEFAULT_TOKENIZER_CONFIG: TokenizerConfig = {
 } as const;
 
 /**
+ * Default BPE Tokenizer configuration (v4.3)
+ *
+ * Byte Pair Encoding tokenizer for subword tokenization.
+ * Provides better coverage than character-level tokenization.
+ */
+export const DEFAULT_BPE_CONFIG = {
+  vocabSize: 1000,
+  minFrequency: 2,
+  specialTokens: ['<PAD>', '<BOS>', '<EOS>', '<UNK>'] as const,
+  padToken: '<PAD>',
+  bosToken: '<BOS>',
+  eosToken: '<EOS>',
+  unknownToken: '<UNK>'
+} as const;
+
+/**
+ * Default Reproducibility configuration (v4.3)
+ *
+ * Settings for deterministic training and sampling.
+ * Uses xorshift128+ PRNG with splitmix64 initialization.
+ */
+export const DEFAULT_REPRODUCIBILITY_CONFIG = {
+  globalSeed: 1337,
+  trainingSeed: 1337,
+  samplingSeed: 1338,
+  initializationSeed: 1339
+} as const;
+
+/**
+ * Default Dataset configuration (v4.3)
+ *
+ * Configuration for dataset splitting and batching.
+ */
+export const DEFAULT_DATASET_CONFIG = {
+  splitConfig: {
+    trainRatio: 0.8,
+    valRatio: 0.1,
+    testRatio: 0.1
+  },
+  batchConfig: {
+    batchSize: 32,
+    shuffle: true,
+    dropLast: false
+  }
+} as const;
+
+/**
+ * Tolerance levels for reproducibility verification
+ * Values represent maximum allowed absolute difference
+ */
+export const TOLERANCE_LEVELS = {
+  strict: 1e-7,
+  normal: 1e-5,
+  loose: 1e-3
+} as const;
+
+/**
  * Constraints for hyperparameter values
  */
 export const HYPERPARAMETER_CONSTRAINTS = {

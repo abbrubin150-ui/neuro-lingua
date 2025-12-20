@@ -483,6 +483,53 @@ Export models with complete audit trail including project metadata, decision led
 
 ---
 
+## 🧠 NeuroSync: EEG Consciousness Assessment
+
+**NEW:** Python-based framework for analyzing real brain signals alongside artificial neural networks.
+
+### Overview
+
+NeuroSync provides validated metrics for consciousness assessment from EEG data, complementing Neuro-Lingua's artificial neural network analysis with tools for studying biological neural systems.
+
+### Validated Metrics
+
+All metrics based on peer-reviewed neuroscience research:
+
+- **PCI (Perturbational Complexity Index)** - Casali et al. (2013) Science Translational Medicine
+- **PCC (Phase Coherence Complexity)** - Sarasso et al. (2015) Brain
+- **LZc (Lempel-Ziv Complexity)** - Schartner et al. (2015) PLoS Computational Biology
+- **Φ* (Integrated Information)** - Mediano et al. (2021) Neuroscience of Consciousness
+- **CRS (Consciousness Repertoire Score)** - Demertzi et al. (2019) Brain
+
+### Quick Start
+
+```bash
+cd neurosync/
+pip install -r requirements.txt
+python demo.py
+```
+
+### Features
+
+- **Consciousness State Classification**: Conscious, Minimally Conscious, Vegetative, Coma
+- **Neural Synchrony Analysis**: Cross-frequency coupling, functional connectivity
+- **Graph Theory Metrics**: Clustering coefficient, small-worldness
+- **Dynamical Complexity**: Sample entropy, Hurst exponent, DFA
+
+### Documentation
+
+- **[neurosync/README.md](./neurosync/README.md)** - Complete NeuroSync documentation
+- **[docs/NEUROSYNC_INTEGRATION.md](./docs/NEUROSYNC_INTEGRATION.md)** - Integration guide and API reference
+
+### Research Applications
+
+- Compare information complexity in artificial vs. biological neural networks
+- Analyze consciousness markers across different states
+- Study neural synchrony patterns in real and simulated systems
+- Cross-domain consciousness research platform
+
+---
+
 ## 📚 Documentation
 
 - **[CLAUDE.md](./CLAUDE.md)** - Comprehensive AI assistant development guide

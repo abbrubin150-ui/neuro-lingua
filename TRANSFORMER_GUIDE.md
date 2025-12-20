@@ -136,13 +136,13 @@ Position 1 → [sin(1/10000), cos(1/10000), ...]
 ...
 ```
 
-### LayerNorm & Residual Connections
+### RMSNorm & Pre-Norm Residual Connections
 
 Stabilizes training through:
 
-- Layer normalization before attention
-- Residual connections (skip connections)
-- Prevents gradient vanishing/exploding
+- RMS normalization before attention and feedforward blocks (no learned bias)
+- Pre-norm residual layout (normalize → sublayer → residual add) to keep gradients stable
+- Prevents gradient vanishing/exploding while trimming LayerNorm's extra parameters
 
 ---
 

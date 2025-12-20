@@ -1756,6 +1756,7 @@ export default function NeuroLinguaDomesticaV324() {
     setContextSize(DEFAULT_HYPERPARAMETERS.contextSize);
     setSeed(DEFAULT_HYPERPARAMETERS.seed);
     setResume(DEFAULT_HYPERPARAMETERS.resume);
+    setUseLayerNorm(false);
     setNumHeads(DEFAULT_HYPERPARAMETERS.transformer.numHeads);
     setNumLayers(DEFAULT_HYPERPARAMETERS.transformer.numLayers);
     setFfHiddenDim(DEFAULT_HYPERPARAMETERS.transformer.ffHiddenDim);

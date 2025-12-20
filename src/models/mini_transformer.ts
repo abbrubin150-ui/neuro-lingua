@@ -112,6 +112,7 @@ export class MiniTransformerBlock {
     ffWeights2: Matrix,
     options: MultiHeadForwardOptions = {}
   ): Promise<Matrix> {
+    // Pre-norm layout: normalize then apply the sublayer, then add the residual
     const normedForAttention = inputs.map((row) => this.applyRMS(row));
     const dropconnectedAttention: AttentionWeights = {
       query: applyDropConnect(attentionWeights.query, {
@@ -133,6 +134,8 @@ export class MiniTransformerBlock {
     const renormed = residualAttention.map((row) => this.applyFFNRMS(row));
     const feedForwardOutput = await this.feedForward(renormed, ffWeights1, ffWeights2);
 
-    return renormed.map((row, idx) => row.map((value, col) => value + feedForwardOutput[idx][col]));
+    return residualAttention.map((row, idx) =>
+      row.map((value, col) => value + feedForwardOutput[idx][col])
+    );
   }
 }

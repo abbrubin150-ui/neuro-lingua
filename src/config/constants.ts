@@ -50,8 +50,8 @@ export const DEFAULT_HYPERPARAMETERS = {
     numHeads: 8,
     numLayers: 4,
     ffHiddenDim: 512,
-    attentionDropout: 0.1,
-    dropConnectRate: 0.05,
+    attentionDropout: 0.05,
+    dropConnectRate: 0.02,
     numKVHeads: 4
   }
 } as const;

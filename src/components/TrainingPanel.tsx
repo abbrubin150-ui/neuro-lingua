@@ -277,9 +277,16 @@ export function TrainingPanel(props: TrainingPanelProps) {
               cursor: 'pointer'
             }}
           >
-            🎯 Apply preset ({DEFAULT_HYPERPARAMETERS.hiddenSize}d /{' '}
-            {DEFAULT_HYPERPARAMETERS.transformer.numLayers} layers / Adam{' '}
-            {DEFAULT_HYPERPARAMETERS.learningRate})
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span>
+                🎯 Apply RMSNorm preset ({DEFAULT_HYPERPARAMETERS.hiddenSize}d /{' '}
+                {DEFAULT_HYPERPARAMETERS.transformer.numLayers} layers / Adam{' '}
+                {DEFAULT_HYPERPARAMETERS.learningRate})
+              </span>
+              <span style={{ fontSize: 12, opacity: 0.8 }}>
+                Pre-norm residuals with RMSNorm stability and lower dropout defaults
+              </span>
+            </div>
           </button>
         </div>
       </div>

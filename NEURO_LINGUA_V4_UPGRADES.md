@@ -669,8 +669,8 @@ const tokenizer = new BPETokenizer({
 |------|-----------|------|------------|----------|-----------|-----|
 | v3.0 | ReLU | - | Sinusoidal | Greedy | SGD | 45.2 |
 | v3.2 | GELU | LayerNorm | Sinusoidal | Top-p 0.9 | Adam | 38.7 |
-| **v4.0 baseline** | **SwiGLU** | **RMSNorm** | **RoPE** | **Mirostat** | **Lion** | **23.1** |
-| v4.0 + QAT-4bit | SwiGLU | RMSNorm | RoPE | Mirostat | Lion | 24.4 |
+| **v4.0 baseline** | **SwiGLU** | **RMSNorm (pre-norm)** | **RoPE** | **Mirostat** | **Lion** | **23.1** |
+| v4.0 + QAT-4bit | SwiGLU | RMSNorm (pre-norm) | RoPE | Mirostat | Lion | 24.4 |
 
 **שיפור כולל: 40.3% מ-v3.2 → v4.0**
 

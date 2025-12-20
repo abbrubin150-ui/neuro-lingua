@@ -5,7 +5,7 @@
  * - Multi-head self-attention mechanism
  * - Position-aware embeddings
  * - Feed-forward layers with residual connections
- * - Layer normalization
+ * - RMS normalization (pre-norm residual layout)
  * - Compatible with ProNeuralLM interface for seamless UI integration
  */
 
@@ -24,6 +24,7 @@ export type TransformerConfig = {
   ffHiddenDim?: number;
   attentionDropout?: number;
   dropConnectRate?: number;
+  normType?: 'rms' | 'layer';
   /**
    * Number of key-value heads for Grouped-Query Attention (GQA).
    * When numKVHeads < numHeads, multiple query heads share the same K/V heads.
@@ -45,6 +46,7 @@ const DEFAULT_TRANSFORMER_CONFIG: Required<TransformerConfig> = {
   ffHiddenDim: 128,
   attentionDropout: 0.1,
   dropConnectRate: 0.1,
+  normType: 'rms',
   numKVHeads: 4 // Default: same as numHeads (standard MHA)
 };
 

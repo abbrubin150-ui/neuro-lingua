@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { TransformerLM } from '../src/lib/TransformerLM';
+import { MiniTransformerBlock } from '../src/models/mini_transformer';
+import type { AttentionWeights } from '../src/models/attention';
 
 describe('TransformerLM', () => {
   it('should create a transformer model', () => {
@@ -122,6 +124,64 @@ describe('TransformerLM', () => {
 
     // At least the trend should be downward or final loss should be reasonable
     expect(lastLoss).toBeLessThan(firstLoss * 1.5); // Allow some variance
+  });
+
+  it('applies RMSNorm pre-norm residuals without distorting identity when weights are zero', async () => {
+    const block = new MiniTransformerBlock({
+      modelDim: 4,
+      heads: 2,
+      ff: { hiddenDim: 4 },
+      attentionDropout: 0,
+      dropConnectRate: 0,
+      attentionRms: { gamma: new Array(4).fill(1), epsilon: 1e-6 },
+      ffnRms: { gamma: new Array(4).fill(1), epsilon: 1e-6 },
+      numKVHeads: 2
+    });
+
+    const inputs = [
+      [1, 1, 1, 1],
+      [2, 2, 2, 2]
+    ];
+    const zeroAttention: AttentionWeights = {
+      query: Array.from({ length: 4 }, () => new Array(4).fill(0)),
+      key: Array.from({ length: 4 }, () => new Array(4).fill(0)),
+      value: Array.from({ length: 4 }, () => new Array(4).fill(0))
+    };
+    const zeroFf1 = Array.from({ length: 4 }, () => new Array(8).fill(0));
+    const zeroFf2 = Array.from({ length: 4 }, () => new Array(4).fill(0));
+
+    const output = await block.forward(inputs, zeroAttention, zeroFf1, zeroFf2, { positions: [0, 1] });
+
+    expect(output).toHaveLength(inputs.length);
+    output.forEach((row, rowIdx) => {
+      row.forEach((value, colIdx) => {
+        expect(value).toBeCloseTo(inputs[rowIdx][colIdx]);
+      });
+    });
+  });
+
+  it('keeps RMS-normalized forward passes numerically stable across iterations', async () => {
+    const vocab = ['<BOS>', '<EOS>', '<UNK>', '<PAD>', 'x', 'y'];
+    const model = new TransformerLM(vocab, 16, 0.05, 2, 'adam', 0.9, 0.05, 13, { mode: 'unicode' }, {
+      numLayers: 1,
+      numHeads: 2,
+      ffHiddenDim: 32
+    });
+
+    const samples = [
+      [0, 4],
+      [0, 5]
+    ];
+
+    for (const sample of samples) {
+      const cache = await (model as any).transformerForwardPass(sample, false);
+      expect(cache.h.every(Number.isFinite)).toBe(true);
+      expect(cache.transformerHidden.flat().every(Number.isFinite)).toBe(true);
+    }
+
+    const corpus = 'x y x y x y x y';
+    const result = await model.train(corpus, 3);
+    expect(result.history[2].loss).toBeLessThan(result.history[0].loss * 1.1);
   });
 
   it('serializes transformer-specific state', () => {

@@ -239,4 +239,58 @@ describe('Text Sampler / Generator', () => {
       expect(Number.isFinite(surprise)).toBe(true);
     });
   });
+
+  describe('Mirostat v2 sampler', () => {
+    const deterministicRng = () => 0.0001;
+
+    it('is deterministic with fixed RNG and initial μ', () => {
+      const logits = [3, 1, -2];
+      const opts = {
+        targetEntropy: 5,
+        learningRate: 0.2,
+        initialMu: 8,
+        rng: deterministicRng
+      } as const;
+
+      const first = mirostatV2Sample(logits, opts);
+      const second = mirostatV2Sample(logits, opts);
+
+      expect(first.index).toBe(second.index);
+      expect(first.state.mu).toBeCloseTo(second.state.mu, 5);
+    });
+
+    it('updates μ to push surprise toward target entropy', () => {
+      const logits = [0, -4, -6]; // Strong peak on token 0
+      const targetEntropy = 1.0;
+      const first = mirostatV2Sample(logits, {
+        targetEntropy,
+        learningRate: 0.5,
+        initialMu: 6,
+        rng: deterministicRng
+      });
+
+      const second = mirostatV2Sample(logits, {
+        targetEntropy,
+        learningRate: 0.5,
+        initialMu: 6,
+        state: first.state,
+        rng: deterministicRng
+      });
+
+      // Surprise for dominant token < targetEntropy, so μ should increase
+      expect(second.state.mu).toBeGreaterThan(first.state.mu);
+    });
+
+    it('validates parameter boundaries', () => {
+      expect(() =>
+        mirostatV2Sample([1, 0.5], { targetEntropy: -1, rng: deterministicRng })
+      ).toThrow();
+      expect(() =>
+        mirostatV2Sample([1, 0.5], { targetEntropy: 5, learningRate: 1.5, rng: deterministicRng })
+      ).toThrow();
+      expect(() =>
+        mirostatV2Sample([1, 0.5], { targetEntropy: 5, initialMu: 0, rng: deterministicRng })
+      ).toThrow();
+    });
+  });
 });

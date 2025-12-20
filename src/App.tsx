@@ -99,6 +99,7 @@ type UiSettings = {
   typicalTau: number;
   samplingMode: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat';
   mirostatEnabled: boolean;
+  mirostatMu: number;
   mirostatTau: number;
   mirostatEta: number;
   seed: number;
@@ -408,6 +409,7 @@ export default function NeuroLinguaDomesticaV324() {
   const [topK, setTopK] = useState(DEFAULT_GENERATION.topK);
   const [topP, setTopP] = useState(DEFAULT_GENERATION.topP);
   const [typicalTau, setTypicalTau] = useState(DEFAULT_GENERATION.typicalTau);
+  const [mirostatMu, setMirostatMu] = useState(DEFAULT_GENERATION.mirostatMu);
   const [mirostatTau, setMirostatTau] = useState(DEFAULT_GENERATION.mirostatTau);
   const [mirostatEta, setMirostatEta] = useState(DEFAULT_GENERATION.mirostatEta);
   const [mirostatEnabled, setMirostatEnabled] = useState(
@@ -764,6 +766,7 @@ export default function NeuroLinguaDomesticaV324() {
     if (typeof saved.topK === 'number') setTopK(saved.topK);
     if (typeof saved.topP === 'number') setTopP(saved.topP);
     if (typeof saved.typicalTau === 'number') setTypicalTau(saved.typicalTau);
+    if (typeof saved.mirostatMu === 'number') setMirostatMu(saved.mirostatMu);
     if (typeof saved.mirostatTau === 'number') setMirostatTau(saved.mirostatTau);
     if (typeof saved.mirostatEta === 'number') setMirostatEta(saved.mirostatEta);
     if (typeof saved.mirostatEnabled === 'boolean') {
@@ -1016,6 +1019,7 @@ export default function NeuroLinguaDomesticaV324() {
       typicalTau,
       samplingMode,
       mirostatEnabled,
+      mirostatMu,
       mirostatTau,
       mirostatEta,
       seed,
@@ -1080,6 +1084,7 @@ export default function NeuroLinguaDomesticaV324() {
     typicalTau,
     samplingMode,
     mirostatEnabled,
+    mirostatMu,
     mirostatTau,
     mirostatEta,
     seed,
@@ -1799,6 +1804,7 @@ export default function NeuroLinguaDomesticaV324() {
           const p = samplingMode === 'topp' ? topP : 0;
           const tau = samplingMode === 'typical' ? typicalTau : 0;
           const miroTau = samplingMode === 'mirostat' ? mirostatTau : 0;
+          const miroMu = samplingMode === 'mirostat' ? mirostatMu : 0;
           const miroEta = samplingMode === 'mirostat' ? mirostatEta : 0.1;
           sample = await modelRef.current.generate(
             input,
@@ -1810,6 +1816,7 @@ export default function NeuroLinguaDomesticaV324() {
             presencePenalty,
             tau,
             miroTau,
+            miroMu,
             miroEta
           );
         }
@@ -1846,6 +1853,7 @@ export default function NeuroLinguaDomesticaV324() {
         const p = samplingMode === 'topp' ? topP : 0;
         const tau = samplingMode === 'typical' ? typicalTau : 0;
         const miroTau = samplingMode === 'mirostat' ? mirostatTau : 0;
+        const miroMu = samplingMode === 'mirostat' ? mirostatMu : 0;
         const miroEta = samplingMode === 'mirostat' ? mirostatEta : 0.1;
         txt = await modelRef.current.generate(
           input,
@@ -1857,6 +1865,7 @@ export default function NeuroLinguaDomesticaV324() {
           presencePenalty,
           tau,
           miroTau,
+          miroMu,
           miroEta
         );
       }
@@ -2131,9 +2140,11 @@ export default function NeuroLinguaDomesticaV324() {
               onNumBinsChange={setNumBins}
               // Advanced Sampling Parameters
               typicalTau={typicalTau}
+              mirostatMu={mirostatMu}
               mirostatTau={mirostatTau}
               mirostatEta={mirostatEta}
               onTypicalTauChange={setTypicalTau}
+              onMirostatMuChange={setMirostatMu}
               onMirostatTauChange={setMirostatTau}
               onMirostatEtaChange={setMirostatEta}
               // Advanced Loss Functions
@@ -2328,6 +2339,8 @@ export default function NeuroLinguaDomesticaV324() {
               onTopPChange={setTopP}
               typicalTau={typicalTau}
               onTypicalTauChange={setTypicalTau}
+              mirostatMu={mirostatMu}
+              onMirostatMuChange={setMirostatMu}
               mirostatTau={mirostatTau}
               onMirostatTauChange={setMirostatTau}
               mirostatEta={mirostatEta}

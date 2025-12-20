@@ -54,6 +54,8 @@ interface ChatInterfaceProps {
   onTopPChange?: (value: number) => void;
   typicalTau?: number;
   onTypicalTauChange?: (value: number) => void;
+  mirostatMu?: number;
+  onMirostatMuChange?: (value: number) => void;
   mirostatTau?: number;
   onMirostatTauChange?: (value: number) => void;
   mirostatEta?: number;
@@ -95,6 +97,8 @@ export function ChatInterface({
   onTopPChange,
   typicalTau = 0.9,
   onTypicalTauChange,
+  mirostatMu = 10,
+  onMirostatMuChange,
   mirostatTau = 5,
   onMirostatTauChange,
   mirostatEta = 0.1,
@@ -501,10 +505,36 @@ export function ChatInterface({
           )}
 
           {/* Mirostat v2 controls */}
-          {samplingMode === 'mirostat' && onMirostatTauChange && onMirostatEtaChange && (
+          {samplingMode === 'mirostat' &&
+            onMirostatTauChange &&
+            onMirostatEtaChange &&
+            onMirostatMuChange && (
             <div
-              style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}
             >
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: 11,
+                    color: '#94a3b8',
+                    marginBottom: 4,
+                    fontWeight: 600
+                  }}
+                  title="Initial truncation window size μ (higher = more exploration)."
+                >
+                  Initial μ: {mirostatMu.toFixed(1)}
+                </label>
+                <input
+                  type="range"
+                  min="2"
+                  max="16"
+                  step="0.5"
+                  value={mirostatMu}
+                  onChange={(e) => onMirostatMuChange(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
               <div>
                 <label
                   style={{

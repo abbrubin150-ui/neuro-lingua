@@ -802,6 +802,7 @@ export class ProNeuralLM {
     presencePenalty = 0,
     typicalTau = 0,
     mirostatTau = 0,
+    mirostatMu = 0,
     mirostatEta = 0.1,
     mirostatState?: MirostatV2State
   ): { index: number; state?: MirostatV2State } {
@@ -809,6 +810,7 @@ export class ProNeuralLM {
       const { index, state } = mirostatV2Sample(logits, {
         targetEntropy: mirostatTau,
         learningRate: mirostatEta,
+        initialMu: mirostatMu > 0 ? mirostatMu : undefined,
         temperature,
         rng: () => this.nextRandom(),
         state: mirostatState
@@ -849,6 +851,7 @@ export class ProNeuralLM {
     presencePenalty = 0,
     typicalTau = 0,
     mirostatTau = 0,
+    mirostatMu = 0,
     mirostatEta = 0.1
   ): Promise<string> {
     const seedToks = this.tokenize(seedText).map((t) => this.toIndex(t));
@@ -872,6 +875,7 @@ export class ProNeuralLM {
         presencePenalty,
         typicalTau,
         mirostatTau,
+        mirostatMu,
         mirostatEta,
         mirostatState
       );

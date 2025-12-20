@@ -60,13 +60,15 @@ export const DEFAULT_HYPERPARAMETERS = {
  * Default generation parameters
  */
 export const DEFAULT_GENERATION = {
-  temperature: 0.8,
+ temperature: 0.8,
   topK: 20,
   topP: 0.9,
   typicalTau: 0.9,
-  samplingMode: 'topp' as 'off' | 'topk' | 'topp' | 'typical' | 'mirostat',
+  // Recommended decoding defaults: Mirostat v2 with conservative adaptation
+  samplingMode: 'mirostat' as 'off' | 'topk' | 'topp' | 'typical' | 'mirostat',
+  mirostatMu: 10,
   mirostatTau: 5,
-  mirostatEta: 0.1,
+  mirostatEta: 0.15,
   maxTokens: 25,
   useBeamSearch: false,
   beamWidth: 4,

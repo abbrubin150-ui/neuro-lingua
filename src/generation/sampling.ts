@@ -20,6 +20,7 @@ export interface MirostatV2State {
 export interface MirostatV2Options extends SamplingOptions {
   targetEntropy?: number; // tau in the paper (desired surprise)
   learningRate?: number; // eta update factor
+  initialMu?: number; // explicit initial mu (defaults to 2 * tau)
   state?: MirostatV2State;
 }
 
@@ -199,6 +200,7 @@ export function mirostatV2Sample(
   const {
     targetEntropy = 5,
     learningRate = 0.1,
+    initialMu,
     temperature = 1,
     topK = 0,
     topP = 0,
@@ -218,7 +220,12 @@ export function mirostatV2Sample(
     throw new Error('Mirostat learningRate must be in (0, 1].');
   }
 
-  const mu = state?.mu ?? targetEntropy * 2;
+  const baseMu = initialMu ?? targetEntropy * 2;
+  if (!(baseMu > 0)) {
+    throw new Error('Mirostat initialMu must be positive.');
+  }
+
+  const mu = state?.mu ?? baseMu;
 
   // Apply optional repetition penalties to discourage loops
   const penalized = applyRepetitionPenalty(

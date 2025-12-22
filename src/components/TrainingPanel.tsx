@@ -62,6 +62,7 @@ interface TrainingPanelProps {
 
   // Advanced Sampling Parameters
   typicalTau: number;
+  mirostatMu: number;
   mirostatTau: number;
   mirostatEta: number;
 
@@ -144,6 +145,7 @@ interface TrainingPanelProps {
 
   // Advanced Sampling callbacks
   onTypicalTauChange: (value: number) => void;
+  onMirostatMuChange: (value: number) => void;
   onMirostatTauChange: (value: number) => void;
   onMirostatEtaChange: (value: number) => void;
 
@@ -930,7 +932,25 @@ export function TrainingPanel(props: TrainingPanelProps) {
             </div>
           )}
           {props.samplingMode === 'mirostat' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  Initial μ: {props.mirostatMu.toFixed(1)}
+                </div>
+                <input
+                  aria-label="Mirostat initial mu"
+                  type="range"
+                  min="2"
+                  max="16"
+                  step="0.5"
+                  value={props.mirostatMu}
+                  onChange={(e) => props.onMirostatMuChange(parseFloat(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+                <div style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>
+                  Controls starting truncation window (μ ≈ 2τ works well)
+                </div>
+              </div>
               <div>
                 <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
                   Target Entropy (τ): {props.mirostatTau.toFixed(1)}

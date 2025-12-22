@@ -1,9 +1,68 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export interface Message {
   type: 'system' | 'user' | 'assistant';
   content: string;
   timestamp?: number;
+}
+
+/**
+ * Format messages as plain text for export/copy
+ */
+function formatMessagesAsText(messages: Message[], locale: 'en' | 'he'): string {
+  if (messages.length === 0) {
+    return locale === 'he' ? 'אין הודעות לייצא' : 'No messages to export';
+  }
+
+  const lines: string[] = [];
+  lines.push(
+    locale === 'he' ? '=== שיחה עם Neuro-Lingua ===' : '=== Neuro-Lingua Chat Conversation ==='
+  );
+  lines.push(
+    locale === 'he'
+      ? `ייצוא בתאריך: ${new Date().toLocaleString('he-IL')}`
+      : `Exported: ${new Date().toLocaleString('en-US')}`
+  );
+  lines.push('');
+
+  messages.forEach((msg, idx) => {
+    const roleLabel =
+      msg.type === 'user'
+        ? locale === 'he'
+          ? 'משתמש'
+          : 'User'
+        : msg.type === 'assistant'
+          ? locale === 'he'
+            ? 'עוזר'
+            : 'Assistant'
+          : locale === 'he'
+            ? 'מערכת'
+            : 'System';
+
+    const timestamp = msg.timestamp
+      ? ` [${new Date(msg.timestamp).toLocaleTimeString(locale === 'he' ? 'he-IL' : 'en-US')}]`
+      : '';
+
+    lines.push(`${roleLabel}${timestamp}:`);
+    lines.push(msg.content);
+    if (idx < messages.length - 1) {
+      lines.push('');
+    }
+  });
+
+  return lines.join('\n');
+}
+
+/**
+ * Download a blob as a file
+ */
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export interface ChatInterfaceStrings {
@@ -106,11 +165,58 @@ export function ChatInterface({
   useBeamSearch = false,
   onUseBeamSearchChange
 }: ChatInterfaceProps) {
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       onGenerate();
     }
+  };
+
+  const handleCopyChat = async () => {
+    if (messages.length === 0) return;
+
+    try {
+      const text = formatMessagesAsText(messages, locale);
+      await navigator.clipboard.writeText(text);
+      setCopyStatus('success');
+      setTimeout(() => setCopyStatus('idle'), 2000);
+    } catch (error) {
+      console.error('Failed to copy chat:', error);
+      setCopyStatus('error');
+      setTimeout(() => setCopyStatus('idle'), 2000);
+    }
+  };
+
+  const handleExportText = () => {
+    if (messages.length === 0) return;
+
+    const text = formatMessagesAsText(messages, locale);
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const filename = `neuro-lingua-chat-${new Date().toISOString().slice(0, 10)}.txt`;
+    downloadBlob(blob, filename);
+  };
+
+  const handleExportJSON = () => {
+    if (messages.length === 0) return;
+
+    const exportData = {
+      exported: new Date().toISOString(),
+      messageCount: messages.length,
+      locale,
+      messages: messages.map((msg) => ({
+        type: msg.type,
+        content: msg.content,
+        timestamp: msg.timestamp
+      }))
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: 'application/json;charset=utf-8'
+    });
+    const filename = `neuro-lingua-chat-${new Date().toISOString().slice(0, 10)}.json`;
+    downloadBlob(blob, filename);
   };
 
   const assistantReplies = messages.filter((m) => m.type === 'assistant').length;
@@ -135,12 +241,148 @@ export function ChatInterface({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: 16
+          marginBottom: 16,
+          gap: 12
         }}
       >
         <h3 style={{ color: '#60a5fa', margin: 0 }}>{strings.title}</h3>
-        <div style={{ fontSize: 12, color: '#94a3b8' }} aria-live="polite">
-          {strings.replies(assistantReplies)}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 12, color: '#94a3b8' }} aria-live="polite">
+            {strings.replies(assistantReplies)}
+          </div>
+
+          {messages.length > 0 && (
+            <div style={{ display: 'flex', gap: 4 }}>
+              {/* Copy Chat Button */}
+              <button
+                onClick={handleCopyChat}
+                title={locale === 'he' ? 'העתק שיחה ללוח' : 'Copy chat to clipboard'}
+                style={{
+                  padding: '6px 12px',
+                  background:
+                    copyStatus === 'success'
+                      ? 'rgba(34, 197, 94, 0.2)'
+                      : copyStatus === 'error'
+                        ? 'rgba(239, 68, 68, 0.2)'
+                        : 'rgba(59, 130, 246, 0.2)',
+                  border: `1px solid ${
+                    copyStatus === 'success'
+                      ? 'rgba(34, 197, 94, 0.4)'
+                      : copyStatus === 'error'
+                        ? 'rgba(239, 68, 68, 0.4)'
+                        : 'rgba(59, 130, 246, 0.4)'
+                  }`,
+                  borderRadius: 8,
+                  color:
+                    copyStatus === 'success'
+                      ? '#34d399'
+                      : copyStatus === 'error'
+                        ? '#f87171'
+                        : '#60a5fa',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {copyStatus === 'success'
+                  ? locale === 'he'
+                    ? '✓ הועתק'
+                    : '✓ Copied'
+                  : copyStatus === 'error'
+                    ? locale === 'he'
+                      ? '✗ שגיאה'
+                      : '✗ Error'
+                    : locale === 'he'
+                      ? '📋 העתק'
+                      : '📋 Copy'}
+              </button>
+
+              {/* Export Dropdown */}
+              <details style={{ position: 'relative', display: 'inline-block' }}>
+                <summary
+                  style={{
+                    padding: '6px 12px',
+                    background: 'rgba(139, 92, 246, 0.2)',
+                    border: '1px solid rgba(139, 92, 246, 0.4)',
+                    borderRadius: 8,
+                    color: '#a78bfa',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    listStyle: 'none',
+                    whiteSpace: 'nowrap',
+                    userSelect: 'none'
+                  }}
+                  title={locale === 'he' ? 'ייצא שיחה' : 'Export chat'}
+                >
+                  💾 {locale === 'he' ? 'ייצוא' : 'Export'}
+                </summary>
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    [direction === 'rtl' ? 'left' : 'right']: 0,
+                    marginTop: 4,
+                    background: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: 8,
+                    padding: 4,
+                    zIndex: 100,
+                    minWidth: 140,
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+                  }}
+                >
+                  <button
+                    onClick={handleExportText}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '8px 12px',
+                      background: 'transparent',
+                      border: 'none',
+                      borderRadius: 6,
+                      color: '#e2e8f0',
+                      fontSize: 12,
+                      textAlign: direction === 'rtl' ? 'right' : 'left',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)')
+                    }
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    📄 {locale === 'he' ? 'קובץ טקסט (.txt)' : 'Text file (.txt)'}
+                  </button>
+                  <button
+                    onClick={handleExportJSON}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '8px 12px',
+                      background: 'transparent',
+                      border: 'none',
+                      borderRadius: 6,
+                      color: '#e2e8f0',
+                      fontSize: 12,
+                      textAlign: direction === 'rtl' ? 'right' : 'left',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)')
+                    }
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    📦 {locale === 'he' ? 'קובץ JSON (.json)' : 'JSON file (.json)'}
+                  </button>
+                </div>
+              </details>
+            </div>
+          )}
         </div>
       </div>
 

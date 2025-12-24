@@ -6,6 +6,8 @@
  * Run with: npx tsx scripts/benchmark_gpu.ts
  */
 
+import fs from 'fs';
+import path from 'path';
 import { WebGPUBackend } from '../src/backend/webgpu';
 
 interface BenchmarkResult {
@@ -15,6 +17,14 @@ interface BenchmarkResult {
   gpuTimeMs: number;
   speedup: number;
   iterations: number;
+}
+
+interface BenchmarkSummary {
+  timestamp: string;
+  averageSpeedup: number;
+  fastestOperation: BenchmarkResult;
+  slowestOperation: BenchmarkResult;
+  results: BenchmarkResult[];
 }
 
 /**
@@ -195,6 +205,53 @@ function printSummary(results: BenchmarkResult[]) {
   console.log();
 }
 
+function persistComparison(results: BenchmarkResult[]) {
+  const logsDir = path.resolve(process.cwd(), 'logs');
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
+
+  const timestamp = new Date().toISOString();
+  const sortedBySpeedup = [...results].sort((a, b) => b.speedup - a.speedup);
+
+  const summary: BenchmarkSummary = {
+    timestamp,
+    averageSpeedup: results.reduce((sum, r) => sum + r.speedup, 0) / results.length,
+    fastestOperation: sortedBySpeedup[0],
+    slowestOperation: sortedBySpeedup[sortedBySpeedup.length - 1],
+    results
+  };
+
+  const jsonPath = path.join(logsDir, 'benchmark_comparison.json');
+  fs.writeFileSync(jsonPath, JSON.stringify(summary, null, 2));
+
+  const markdownPath = path.join(logsDir, 'benchmark_comparison.md');
+  const markdownTable =
+    ['| Operation | Size | CPU (ms) | GPU (ms) | Speedup |', '| --- | --- | --- | --- | --- |']
+      .concat(
+        results.map((r) =>
+          `| ${r.operation} | ${r.size} | ${r.cpuTimeMs.toFixed(2)} | ${r.gpuTimeMs.toFixed(
+            2
+          )} | ${r.speedup.toFixed(2)}x |`
+        )
+      )
+      .join('\n');
+
+  const markdown = `# GPU vs CPU Benchmark Comparison\n\n- Timestamp: ${timestamp}\n- Average speedup: ${summary.averageSpeedup.toFixed(
+    2
+  )}x\n- Fastest: ${summary.fastestOperation.operation} (${summary.fastestOperation.speedup.toFixed(
+    2
+  )}x)\n- Slowest: ${summary.slowestOperation.operation} (${summary.slowestOperation.speedup.toFixed(
+    2
+  )}x)\n\n${markdownTable}\n`;
+
+  fs.writeFileSync(markdownPath, markdown);
+
+  console.log('🗂️  Saved GPU/CPU comparison reports:');
+  console.log(`   - JSON: ${jsonPath}`);
+  console.log(`   - Markdown: ${markdownPath}`);
+}
+
 /**
  * Main benchmark function
  */
@@ -228,6 +285,7 @@ async function main() {
     results.push(await benchmarkElementwise(backend, 100000, 50));
 
     printSummary(results);
+    persistComparison(results);
 
     // Recommendations based on results
     console.log('💡 RECOMMENDATIONS:');

@@ -125,8 +125,8 @@ describe('TransformerLM device parity', () => {
 
     // Generate text with temperature 0 for determinism
     const prompt = 'hello';
-    const cpuOutput = await cpuModel.generate(prompt, 5, { temperature: 0 });
-    const gpuOutput = await gpuModel.generate(prompt, 5, { temperature: 0 });
+    const cpuOutput = await cpuModel.generate(prompt, 5, 0); // temperature = 0
+    const gpuOutput = await gpuModel.generate(prompt, 5, 0);
 
     // Outputs should be identical
     expect(gpuOutput).toBe(cpuOutput);

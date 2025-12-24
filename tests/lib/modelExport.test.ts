@@ -11,8 +11,8 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ProNeuralLM, MODEL_STORAGE_KEY } from '../../src/lib/ProNeuralLM';
-import { TransformerLM, TRANSFORMER_MODEL_STORAGE_KEY } from '../../src/lib/TransformerLM';
+import { ProNeuralLM, MODEL_STORAGE_KEY, TRANSFORMER_MODEL_STORAGE_KEY } from '../../src/lib/ProNeuralLM';
+import { TransformerLM } from '../../src/lib/TransformerLM';
 
 // Mock localStorage
 const storage = new Map<string, string>();
@@ -332,8 +332,8 @@ describe('TransformerLM Export/Import', () => {
       const config = {
         numLayers: 2,
         numHeads: 4,
-        ffDim: 32,
-        dropoutRate: 0.1
+        ffHiddenDim: 32,
+        attentionDropout: 0.1
       };
 
       const model = new TransformerLM(vocab, 16, 0.05, 2, 'momentum', 0.9, 0, 42, undefined, config);
@@ -341,7 +341,7 @@ describe('TransformerLM Export/Import', () => {
 
       expect(json.transformer.config.numLayers).toBe(2);
       expect(json.transformer.config.numHeads).toBe(4);
-      expect(json.transformer.config.ffDim).toBe(32);
+      expect(json.transformer.config.ffHiddenDim).toBe(32);
     });
   });
 

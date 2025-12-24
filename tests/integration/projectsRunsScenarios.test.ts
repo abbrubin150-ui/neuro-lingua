@@ -17,8 +17,6 @@ import {
   createDecisionLedger,
   computeExecutionStatus,
   type Project,
-  type Run,
-  type Scenario,
   type DecisionLedger,
   type TrainingConfig
 } from '../../src/types/project';

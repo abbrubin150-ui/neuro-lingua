@@ -103,8 +103,10 @@ interface ChatInterfaceProps {
   onTemperatureChange?: (value: number) => void;
   maxTokens?: number;
   onMaxTokensChange?: (value: number) => void;
-  samplingMode?: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat';
-  onSamplingModeChange?: (value: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat') => void;
+  samplingMode?: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat' | 'contrastive';
+  onSamplingModeChange?: (
+    value: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat' | 'contrastive'
+  ) => void;
   mirostatEnabled?: boolean;
   onMirostatEnabledChange?: (value: boolean) => void;
   topK?: number;
@@ -117,6 +119,10 @@ interface ChatInterfaceProps {
   onMirostatTauChange?: (value: number) => void;
   mirostatEta?: number;
   onMirostatEtaChange?: (value: number) => void;
+  contrastiveTopK?: number;
+  onContrastiveTopKChange?: (value: number) => void;
+  contrastiveAlpha?: number;
+  onContrastiveAlphaChange?: (value: number) => void;
   frequencyPenalty?: number;
   onFrequencyPenaltyChange?: (value: number) => void;
   presencePenalty?: number;
@@ -158,6 +164,10 @@ export function ChatInterface({
   onMirostatTauChange,
   mirostatEta = 0.1,
   onMirostatEtaChange,
+  contrastiveTopK = 10,
+  onContrastiveTopKChange,
+  contrastiveAlpha = 0.6,
+  onContrastiveAlphaChange,
   frequencyPenalty = 0,
   onFrequencyPenaltyChange,
   presencePenalty = 0,
@@ -560,7 +570,13 @@ export function ChatInterface({
                 value={samplingMode}
                 onChange={(e) =>
                   onSamplingModeChange(
-                    e.target.value as 'off' | 'topk' | 'topp' | 'typical' | 'mirostat'
+                    e.target.value as
+                      | 'off'
+                      | 'topk'
+                      | 'topp'
+                      | 'typical'
+                      | 'mirostat'
+                      | 'contrastive'
                   )
                 }
                 style={{
@@ -578,6 +594,7 @@ export function ChatInterface({
                 <option value="topp">Top-P (Nucleus)</option>
                 <option value="typical">Typical (entropy-based)</option>
                 <option value="mirostat">Mirostat v2</option>
+                <option value="contrastive">Contrastive Search</option>
               </select>
             </div>
           )}
@@ -793,6 +810,66 @@ export function ChatInterface({
               </div>
             </div>
           )}
+
+          {/* Contrastive Search controls */}
+          {samplingMode === 'contrastive' &&
+            onContrastiveTopKChange &&
+            onContrastiveAlphaChange && (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: 8
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: 11,
+                      color: '#94a3b8',
+                      marginBottom: 4,
+                      fontWeight: 600
+                    }}
+                    title="Number of top candidates to consider for contrastive scoring"
+                  >
+                    Top-K: {contrastiveTopK} ℹ️
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="100"
+                    step="1"
+                    value={contrastiveTopK}
+                    onChange={(e) => onContrastiveTopKChange(Number(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: 11,
+                      color: '#94a3b8',
+                      marginBottom: 4,
+                      fontWeight: 600
+                    }}
+                    title="Balance between model confidence (0) and diversity (1)"
+                  >
+                    Alpha (α): {contrastiveAlpha.toFixed(2)} ℹ️
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={contrastiveAlpha}
+                    onChange={(e) => onContrastiveAlphaChange(Number(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+            )}
 
           {/* Frequency Penalty */}
           {onFrequencyPenaltyChange && (

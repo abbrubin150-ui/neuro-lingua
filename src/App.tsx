@@ -97,10 +97,12 @@ type UiSettings = {
   topK: number;
   topP: number;
   typicalTau: number;
-  samplingMode: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat';
+  samplingMode: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat' | 'contrastive';
   mirostatEnabled: boolean;
   mirostatTau: number;
   mirostatEta: number;
+  contrastiveTopK: number;
+  contrastiveAlpha: number;
   seed: number;
   resume: boolean;
   tokenizerConfig: TokenizerConfig;
@@ -414,8 +416,10 @@ export default function NeuroLinguaDomesticaV324() {
     DEFAULT_GENERATION.samplingMode === 'mirostat'
   );
   const [samplingMode, setSamplingMode] = useState<
-    'off' | 'topk' | 'topp' | 'typical' | 'mirostat'
+    'off' | 'topk' | 'topp' | 'typical' | 'mirostat' | 'contrastive'
   >(DEFAULT_GENERATION.samplingMode);
+  const [contrastiveTopK, setContrastiveTopK] = useState(DEFAULT_GENERATION.contrastiveTopK);
+  const [contrastiveAlpha, setContrastiveAlpha] = useState(DEFAULT_GENERATION.contrastiveAlpha);
   const [maxTokens, setMaxTokens] = useState(DEFAULT_GENERATION.maxTokens);
   const [frequencyPenalty, setFrequencyPenalty] = useState(DEFAULT_GENERATION.frequencyPenalty);
   const [presencePenalty, setPresencePenalty] = useState(DEFAULT_GENERATION.presencePenalty);
@@ -777,10 +781,13 @@ export default function NeuroLinguaDomesticaV324() {
       saved.samplingMode === 'topk' ||
       saved.samplingMode === 'topp' ||
       saved.samplingMode === 'typical' ||
-      saved.samplingMode === 'mirostat'
+      saved.samplingMode === 'mirostat' ||
+      saved.samplingMode === 'contrastive'
     ) {
       setSamplingMode(saved.samplingMode);
     }
+    if (typeof saved.contrastiveTopK === 'number') setContrastiveTopK(saved.contrastiveTopK);
+    if (typeof saved.contrastiveAlpha === 'number') setContrastiveAlpha(saved.contrastiveAlpha);
     if (typeof saved.seed === 'number') setSeed(saved.seed);
     if (typeof saved.resume === 'boolean') setResume(saved.resume);
     if (saved.tokenizerConfig) {
@@ -1018,6 +1025,8 @@ export default function NeuroLinguaDomesticaV324() {
       mirostatEnabled,
       mirostatTau,
       mirostatEta,
+      contrastiveTopK,
+      contrastiveAlpha,
       seed,
       resume,
       tokenizerConfig,
@@ -1082,6 +1091,8 @@ export default function NeuroLinguaDomesticaV324() {
     mirostatEnabled,
     mirostatTau,
     mirostatEta,
+    contrastiveTopK,
+    contrastiveAlpha,
     seed,
     resume,
     tokenizerConfig,
@@ -1794,6 +1805,14 @@ export default function NeuroLinguaDomesticaV324() {
             temperature
           );
           sample = result.text;
+        } else if (samplingMode === 'contrastive' && modelRef.current instanceof AdvancedNeuralLM) {
+          const result = await modelRef.current.generateContrastive(
+            input,
+            maxTokens,
+            contrastiveTopK,
+            contrastiveAlpha
+          );
+          sample = result.text;
         } else {
           const k = samplingMode === 'topk' ? topK : 0;
           const p = samplingMode === 'topp' ? topP : 0;
@@ -1838,6 +1857,15 @@ export default function NeuroLinguaDomesticaV324() {
           maxTokens,
           beamWidth,
           temperature
+        );
+        txt = result.text;
+      } else if (samplingMode === 'contrastive' && modelRef.current instanceof AdvancedNeuralLM) {
+        // Use contrastive search generation
+        const result = await modelRef.current.generateContrastive(
+          input,
+          maxTokens,
+          contrastiveTopK,
+          contrastiveAlpha
         );
         txt = result.text;
       } else {
@@ -2332,6 +2360,10 @@ export default function NeuroLinguaDomesticaV324() {
               onMirostatTauChange={setMirostatTau}
               mirostatEta={mirostatEta}
               onMirostatEtaChange={setMirostatEta}
+              contrastiveTopK={contrastiveTopK}
+              onContrastiveTopKChange={setContrastiveTopK}
+              contrastiveAlpha={contrastiveAlpha}
+              onContrastiveAlphaChange={setContrastiveAlpha}
               frequencyPenalty={frequencyPenalty}
               onFrequencyPenaltyChange={setFrequencyPenalty}
               presencePenalty={presencePenalty}

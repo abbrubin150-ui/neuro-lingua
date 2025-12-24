@@ -104,7 +104,9 @@ interface ChatInterfaceProps {
   maxTokens?: number;
   onMaxTokensChange?: (value: number) => void;
   samplingMode?: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat' | 'contrastive';
-  onSamplingModeChange?: (value: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat' | 'contrastive') => void;
+  onSamplingModeChange?: (
+    value: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat' | 'contrastive'
+  ) => void;
   mirostatEnabled?: boolean;
   onMirostatEnabledChange?: (value: boolean) => void;
   topK?: number;
@@ -568,7 +570,13 @@ export function ChatInterface({
                 value={samplingMode}
                 onChange={(e) =>
                   onSamplingModeChange(
-                    e.target.value as 'off' | 'topk' | 'topp' | 'typical' | 'mirostat' | 'contrastive'
+                    e.target.value as
+                      | 'off'
+                      | 'topk'
+                      | 'topp'
+                      | 'typical'
+                      | 'mirostat'
+                      | 'contrastive'
                   )
                 }
                 style={{
@@ -804,58 +812,64 @@ export function ChatInterface({
           )}
 
           {/* Contrastive Search controls */}
-          {samplingMode === 'contrastive' && onContrastiveTopKChange && onContrastiveAlphaChange && (
-            <div
-              style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}
-            >
-              <div>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: 11,
-                    color: '#94a3b8',
-                    marginBottom: 4,
-                    fontWeight: 600
-                  }}
-                  title="Number of top candidates to consider for contrastive scoring"
-                >
-                  Top-K: {contrastiveTopK} ℹ️
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="100"
-                  step="1"
-                  value={contrastiveTopK}
-                  onChange={(e) => onContrastiveTopKChange(Number(e.target.value))}
-                  style={{ width: '100%' }}
-                />
+          {samplingMode === 'contrastive' &&
+            onContrastiveTopKChange &&
+            onContrastiveAlphaChange && (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: 8
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: 11,
+                      color: '#94a3b8',
+                      marginBottom: 4,
+                      fontWeight: 600
+                    }}
+                    title="Number of top candidates to consider for contrastive scoring"
+                  >
+                    Top-K: {contrastiveTopK} ℹ️
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="100"
+                    step="1"
+                    value={contrastiveTopK}
+                    onChange={(e) => onContrastiveTopKChange(Number(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: 11,
+                      color: '#94a3b8',
+                      marginBottom: 4,
+                      fontWeight: 600
+                    }}
+                    title="Balance between model confidence (0) and diversity (1)"
+                  >
+                    Alpha (α): {contrastiveAlpha.toFixed(2)} ℹ️
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={contrastiveAlpha}
+                    onChange={(e) => onContrastiveAlphaChange(Number(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
               </div>
-              <div>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: 11,
-                    color: '#94a3b8',
-                    marginBottom: 4,
-                    fontWeight: 600
-                  }}
-                  title="Balance between model confidence (0) and diversity (1)"
-                >
-                  Alpha (α): {contrastiveAlpha.toFixed(2)} ℹ️
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={contrastiveAlpha}
-                  onChange={(e) => onContrastiveAlphaChange(Number(e.target.value))}
-                  style={{ width: '100%' }}
-                />
-              </div>
-            </div>
-          )}
+            )}
 
           {/* Frequency Penalty */}
           {onFrequencyPenaltyChange && (

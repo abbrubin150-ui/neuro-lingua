@@ -7,6 +7,27 @@ import React, { useState } from 'react';
 import type { DecisionLedger, ExecutionStatus } from '../types/project';
 import { computeExecutionStatus } from '../types/project';
 
+const STATUS_META: Record<ExecutionStatus, { color: string; title: string; summary: string; detail: string }> = {
+  EXECUTE: {
+    color: '#10b981',
+    title: 'EXECUTE',
+    summary: 'Training permitted',
+    detail: 'All governance checks passed and the expiry window is valid.'
+  },
+  HOLD: {
+    color: '#f59e0b',
+    title: 'HOLD',
+    summary: 'Training paused or expired',
+    detail: 'The Decision Ledger is complete but the expiry date has passed; update it to continue.'
+  },
+  ESCALATE: {
+    color: '#ef4444',
+    title: 'ESCALATE',
+    summary: 'Review required',
+    detail: 'Missing rationale or witness. Capture both before attempting a new training run.'
+  }
+};
+
 interface DecisionLedgerEditorProps {
   ledger: DecisionLedger;
   onChange: (ledger: DecisionLedger) => void;
@@ -14,25 +35,14 @@ interface DecisionLedgerEditorProps {
 }
 
 function getStatusColor(status: ExecutionStatus): string {
-  switch (status) {
-    case 'EXECUTE':
-      return '#10b981'; // green
-    case 'HOLD':
-      return '#f59e0b'; // amber
-    case 'ESCALATE':
-      return '#ef4444'; // red
-  }
+  return STATUS_META[status].color;
 }
 
 function getStatusLabel(status: ExecutionStatus): string {
-  switch (status) {
-    case 'EXECUTE':
-      return '✅ EXECUTE - Training permitted';
-    case 'HOLD':
-      return '⏸️ HOLD - Training paused or expired';
-    case 'ESCALATE':
-      return '🚨 ESCALATE - Review required';
-  }
+  const { title, summary } = STATUS_META[status];
+  const prefix = status === 'EXECUTE' ? '✅' : status === 'HOLD' ? '⏸️' : '🚨';
+
+  return `${prefix} ${title} - ${summary}`;
 }
 
 export function DecisionLedgerEditor({
@@ -76,6 +86,55 @@ export function DecisionLedgerEditor({
           }}
         >
           {getStatusLabel(status)}
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gap: 8,
+          marginBottom: isExpanded ? 12 : 8,
+          background: 'rgba(15, 23, 42, 0.5)',
+          border: '1px dashed rgba(148, 163, 184, 0.4)',
+          borderRadius: 10,
+          padding: 10
+        }}
+      >
+        <div style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 700 }}>
+          Inline status guide
+        </div>
+        <div
+          style={{
+            display: 'grid',
+            gap: 6,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))'
+          }}
+        >
+          {Object.entries(STATUS_META).map(([key, meta]) => (
+            <div
+              key={key}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 8,
+                padding: '8px 10px',
+                borderRadius: 8,
+                background: `${meta.color}10`,
+                border: `1px solid ${meta.color}33`,
+                color: '#e2e8f0'
+              }}
+            >
+              <span aria-hidden style={{ fontSize: 14 }}>
+                {key === 'EXECUTE' ? '✅' : key === 'HOLD' ? '⏸️' : '🚨'}
+              </span>
+              <div style={{ fontSize: 12, lineHeight: 1.4 }}>
+                <div style={{ fontWeight: 700 }}>
+                  {meta.title} — {meta.summary}
+                </div>
+                <div style={{ color: '#cbd5e1' }}>{meta.detail}</div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -230,22 +289,9 @@ export function DecisionLedgerEditor({
               borderRadius: 6
             }}
           >
-            {status === 'EXECUTE' && (
-              <>
-                ✅ <strong>EXECUTE:</strong> All governance checks passed. Training is permitted.
-              </>
-            )}
-            {status === 'HOLD' && (
-              <>
-                ⏸️ <strong>HOLD:</strong> This run has expired. Update the expiry date to continue.
-              </>
-            )}
-            {status === 'ESCALATE' && (
-              <>
-                🚨 <strong>ESCALATE:</strong> Missing rationale or witness. Complete all fields
-                before training.
-              </>
-            )}
+            <>
+              <span style={{ fontWeight: 700 }}>{STATUS_META[status].title}:</span> {STATUS_META[status].detail}
+            </>
           </div>
         </div>
       )}

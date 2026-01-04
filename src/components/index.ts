@@ -17,3 +17,4 @@ export { BrainPanel } from './BrainPanel';
 export { BrainTelemetryPanel } from './BrainTelemetryPanel';
 export { CerebroPanel } from './CerebroPanel';
 export { CerebroBubbleGraph } from './CerebroBubbleGraph';
+export { TriadicOperatorPanel } from './TriadicOperatorPanel';

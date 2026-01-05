@@ -7,7 +7,7 @@
  */
 
 import React, { useState } from 'react';
-import { TRIADIC_TABLE, getTriadicCell } from '../data/triadicTable';
+import { TRIADIC_TABLE } from '../data/triadicTable';
 import { triadicOperator, triadicVectorToString } from '../lib/triadicOperator';
 import type { TriadicCell, TriadicVector } from '../types/triadic';
 
@@ -29,9 +29,19 @@ const CellDisplay: React.FC<CellDisplayProps> = ({ cell, onClick }) => {
   // Compute the triadic vector for this cell (assuming all true for visualization)
   const vector = triadicOperator(true, true, true);
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
     <div
       onClick={onClick}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
       className="triadic-cell"
       style={{
         padding: '8px',
@@ -41,7 +51,7 @@ const CellDisplay: React.FC<CellDisplayProps> = ({ cell, onClick }) => {
         cursor: 'pointer',
         fontSize: '12px',
         textAlign: 'center',
-        backgroundColor: vector.strong ? '#e8f5e9' : vector.tension ? '#fff3e0' : '#f5f5f5',
+        backgroundColor: vector.strong ? '#e8f5e9' : vector.tension ? '#fff3e0' : '#f5f5f5'
       }}
       title={`${cell.a} → ${cell.b} → ${cell.c}\n${triadicVectorToString(vector)}`}
     >
@@ -77,7 +87,7 @@ const CellDetail: React.FC<CellDetailProps> = ({ cell, vector, onClose }) => {
         borderRadius: '8px',
         boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
         zIndex: 1000,
-        minWidth: '400px',
+        minWidth: '400px'
       }}
     >
       <h3 style={{ marginTop: 0 }}>Triadic Cell Details</h3>
@@ -121,8 +131,7 @@ const CellDetail: React.FC<CellDetailProps> = ({ cell, vector, onClose }) => {
         {vector.tension && !vector.strong && (
           <p>
             <strong>Partial Connection:</strong> An asymmetric situation where the mediator{' '}
-            <em>{cell.b}</em> ({cell.emojiB}) connects to only one side, creating systemic
-            tension.
+            <em>{cell.b}</em> ({cell.emojiB}) connects to only one side, creating systemic tension.
           </p>
         )}
         {vector.weak && !vector.strong && !vector.tension && (
@@ -147,7 +156,7 @@ const CellDetail: React.FC<CellDetailProps> = ({ cell, vector, onClose }) => {
           color: 'white',
           border: 'none',
           borderRadius: '4px',
-          cursor: 'pointer',
+          cursor: 'pointer'
         }}
       >
         Close
@@ -159,9 +168,7 @@ const CellDetail: React.FC<CellDetailProps> = ({ cell, vector, onClose }) => {
 /**
  * Main triadic operator panel component
  */
-export const TriadicOperatorPanel: React.FC<TriadicOperatorPanelProps> = ({
-  language = 'en',
-}) => {
+export const TriadicOperatorPanel: React.FC<TriadicOperatorPanelProps> = ({ language = 'en' }) => {
   const [selectedCell, setSelectedCell] = useState<{
     cell: TriadicCell;
     domainId: string;
@@ -186,14 +193,17 @@ export const TriadicOperatorPanel: React.FC<TriadicOperatorPanelProps> = ({
       <h2>𝕋 Triadic Operator Table</h2>
 
       <p style={{ marginBottom: '16px', color: '#666' }}>
-        A unified framework for analyzing three-way relationships using NAND-based logic. Each
-        cell represents a triadic relationship 𝕋(A,B,C) = ⟨W,S,T,N⟩.
+        A unified framework for analyzing three-way relationships using NAND-based logic. Each cell
+        represents a triadic relationship 𝕋(A,B,C) = ⟨W,S,T,N⟩.
       </p>
 
       {/* Domain filter */}
       <div style={{ marginBottom: '16px' }}>
-        <label style={{ marginRight: '8px' }}>Filter by Domain:</label>
+        <label htmlFor="domain-filter" style={{ marginRight: '8px' }}>
+          Filter by Domain:
+        </label>
         <select
+          id="domain-filter"
           value={selectedDomainId || ''}
           onChange={(e) => setSelectedDomainId(e.target.value || null)}
           style={{ padding: '4px 8px' }}
@@ -233,7 +243,7 @@ export const TriadicOperatorPanel: React.FC<TriadicOperatorPanelProps> = ({
               style={{
                 display: 'grid',
                 gridTemplateColumns: `repeat(${TRIADIC_TABLE.columns.length}, 1fr)`,
-                gap: '4px',
+                gap: '4px'
               }}
             >
               {domain.cells.map((cell, idx) => (
@@ -256,6 +266,14 @@ export const TriadicOperatorPanel: React.FC<TriadicOperatorPanelProps> = ({
           {/* Backdrop */}
           <div
             onClick={handleCloseDetail}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                handleCloseDetail();
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Close modal"
             style={{
               position: 'fixed',
               top: 0,
@@ -263,7 +281,7 @@ export const TriadicOperatorPanel: React.FC<TriadicOperatorPanelProps> = ({
               right: 0,
               bottom: 0,
               backgroundColor: 'rgba(0,0,0,0.5)',
-              zIndex: 999,
+              zIndex: 999
             }}
           />
 
@@ -277,16 +295,31 @@ export const TriadicOperatorPanel: React.FC<TriadicOperatorPanelProps> = ({
       )}
 
       {/* Footer */}
-      <div style={{ marginTop: '32px', padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+      <div
+        style={{
+          marginTop: '32px',
+          padding: '16px',
+          backgroundColor: '#f5f5f5',
+          borderRadius: '4px'
+        }}
+      >
         <h4>About the Triadic Operator</h4>
         <p style={{ fontSize: '14px', color: '#666', margin: '8px 0' }}>
           The triadic operator 𝕋 computes a 4-bit vector ⟨W,S,T,N⟩ using only NAND gates:
         </p>
         <ul style={{ fontSize: '13px', color: '#666' }}>
-          <li><strong>W (Weak):</strong> At least one weak link through B</li>
-          <li><strong>S (Strong):</strong> Both links are strong (complete triad)</li>
-          <li><strong>T (Tension):</strong> Exactly one strong link (XOR)</li>
-          <li><strong>N (Null):</strong> No weak link at all</li>
+          <li>
+            <strong>W (Weak):</strong> At least one weak link through B
+          </li>
+          <li>
+            <strong>S (Strong):</strong> Both links are strong (complete triad)
+          </li>
+          <li>
+            <strong>T (Tension):</strong> Exactly one strong link (XOR)
+          </li>
+          <li>
+            <strong>N (Null):</strong> No weak link at all
+          </li>
         </ul>
         <p style={{ fontSize: '12px', color: '#999', marginTop: '8px' }}>
           See <code>/docs/theory/triadic-operator.md</code> for complete documentation.

@@ -13,7 +13,7 @@ import type {
   TriadicTable,
   TriadicDomain,
   TriadicColumnGroup,
-  TriadicCell,
+  TriadicCell
 } from '../types/triadic';
 
 /**
@@ -24,80 +24,80 @@ export const TRIADIC_COLUMNS: TriadicColumnGroup[] = [
     id: 'col1',
     nameEn: 'Noise → Regulation → Control',
     nameHe: '🔊 רעש → ⚙️ ויסות → 🎛️ שליטה',
-    index: 0,
+    index: 0
   },
   {
     id: 'col2',
     nameEn: 'Variation → Selection → Retention',
     nameHe: '🔀 שונות → 🧬 ברירה → 🗂️ שימור',
-    index: 1,
+    index: 1
   },
   {
     id: 'col3',
     nameEn: 'Fluctuation → Order Parameter → Slaving',
     nameHe: '🌊 תנודה → 🎚️ פרמטר סדר → 🧲 שעבוד',
-    index: 2,
+    index: 2
   },
   {
     id: 'col4',
     nameEn: 'Disorder → Interaction → Organization',
     nameHe: '🌪️ אי-סדר → 🤝 אינטראקציה → 🏗️ ארגון',
-    index: 3,
+    index: 3
   },
   {
     id: 'col5',
     nameEn: 'Oscillation → Interference → Resonant Attractor',
     nameHe: '🔄 תנודה → 💥 התערבות → 🎯 אטרקטור תהודה',
-    index: 4,
+    index: 4
   },
   {
     id: 'col6',
     nameEn: 'Rhythm → Harmony → Emergence',
     nameHe: '🥁 קצב → 🎶 הרמוניה → ✨ הופעה',
-    index: 5,
+    index: 5
   },
   {
     id: 'col7',
     nameEn: 'Drive → Constraint → Mediation',
     nameHe: '🚀 דחף → 🧱 אילוץ → 🤝 תיווך',
-    index: 6,
+    index: 6
   },
   {
     id: 'col8',
     nameEn: 'Explore → Exploit → Policy',
     nameHe: '🧭 חקירה → 💎 ניצול → 📜 מדיניות',
-    index: 7,
+    index: 7
   },
   {
     id: 'col9',
     nameEn: 'Prediction → Error → Model Update',
     nameHe: '🔮 תחזית → ❌ שגיאה → 🔁 עדכון מודל',
-    index: 8,
+    index: 8
   },
   {
     id: 'col10',
     nameEn: 'Signal → Code → Interpretation',
     nameHe: '📡 אות → 💻 קוד → 🧠 פרשנות',
-    index: 9,
+    index: 9
   },
   {
     id: 'col11',
     nameEn: 'Coordination → Alignment → Mandate',
     nameHe: '👥 תיאום → 🧲 יישור → 🏛️ מנדט',
-    index: 10,
+    index: 10
   },
   {
     id: 'col12',
     nameEn: 'Contribution → Interoperability → Infrastructure',
     nameHe: '🧩 תרומה → 🔌 יכולת פעולה → 🏗️ תשתית',
-    index: 11,
+    index: 11
   },
   {
     id: 'col13',
     nameEn: 'Boundary → State → Transition',
     nameHe: '🚧 גבול → 📍 מצב → 🔀 מעבר',
-    index: 12,
-  },
+    index: 12
+  }
 ];
 
 /**
@@ -122,8 +122,8 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'binary', b: 'opcode', c: 'execute', emojiA: '🔢', emojiB: '💻', emojiC: '▶️' },
       { a: 'nodes', b: 'consensus', c: 'chain', emojiA: '🧑‍🤝‍🧑', emojiB: '🧲', emojiC: '🏛️' },
       { a: 'hardware', b: 'API', c: 'cloud', emojiA: '🧩', emojiB: '🔌', emojiC: '☁️' },
-      { a: 'boundary', b: 'state', c: 'error', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' },
-    ],
+      { a: 'boundary', b: 'state', c: 'error', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' }
+    ]
   },
   {
     id: 'logic',
@@ -143,8 +143,8 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'input', b: 'function', c: 'truth', emojiA: '📡', emojiB: '💻', emojiC: '🧠' },
       { a: 'ops', b: 'precedence', c: 'eval', emojiA: '👥', emojiB: '🧲', emojiC: '🏛️' },
       { a: 'gate', b: 'circuit', c: 'logic', emojiA: '🧩', emojiB: '🔌', emojiC: '🏗️' },
-      { a: 'var', b: 'assign', c: 'compute', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' },
-    ],
+      { a: 'var', b: 'assign', c: 'compute', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' }
+    ]
   },
   {
     id: 'questions',
@@ -164,8 +164,15 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'phenomenon', b: 'question', c: 'meaning', emojiA: '📡', emojiB: '💻', emojiC: '🧠' },
       { a: 'thinkers', b: 'discourse', c: 'canon', emojiA: '👥', emojiB: '🧲', emojiC: '🏛️' },
       { a: 'idea', b: 'citation', c: 'knowledge', emojiA: '🧩', emojiB: '🔌', emojiC: '🏗️' },
-      { a: 'ignorance', b: 'understanding', c: 'paradigm', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' },
-    ],
+      {
+        a: 'ignorance',
+        b: 'understanding',
+        c: 'paradigm',
+        emojiA: '🚧',
+        emojiB: '📍',
+        emojiC: '🔀'
+      }
+    ]
   },
   {
     id: 'governance',
@@ -176,7 +183,14 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'conflict', b: 'rules', c: 'power', emojiA: '🌪️', emojiB: '⚙️', emojiC: '🎛️' },
       { a: 'policy', b: 'vote', c: 'institution', emojiA: '🔀', emojiB: '🧬', emojiC: '🗂️' },
       { a: 'authority', b: 'leadership', c: 'hierarchy', emojiA: '🌊', emojiB: '🎚️', emojiC: '🧲' },
-      { a: 'institution', b: 'negotiation', c: 'authority', emojiA: '🌪️', emojiB: '🤝', emojiC: '🏗️' },
+      {
+        a: 'institution',
+        b: 'negotiation',
+        c: 'authority',
+        emojiA: '🌪️',
+        emojiB: '🤝',
+        emojiC: '🏗️'
+      },
       { a: 'faction', b: 'coalition', c: 'gov', emojiA: '🔄', emojiB: '💥', emojiC: '🎯' },
       { a: 'decision', b: 'process', c: 'policy', emojiA: '🥁', emojiB: '🎶', emojiC: '✨' },
       { a: 'power', b: 'law', c: 'compromise', emojiA: '🚀', emojiB: '🧱', emojiC: '🤝' },
@@ -185,8 +199,8 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'citizen', b: 'law', c: 'rights', emojiA: '📡', emojiB: '💻', emojiC: '🧠' },
       { a: 'actors', b: 'roles', c: 'constitution', emojiA: '👥', emojiB: '🧲', emojiC: '🏛️' },
       { a: 'resource', b: 'division', c: 'org', emojiA: '🧩', emojiB: '🔌', emojiC: '🏗️' },
-      { a: 'jurisdiction', b: 'sovereignty', c: 'regime', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' },
-    ],
+      { a: 'jurisdiction', b: 'sovereignty', c: 'regime', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' }
+    ]
   },
   {
     id: 'standards',
@@ -206,8 +220,8 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'requirement', b: 'clause', c: 'legal', emojiA: '📡', emojiB: '💻', emojiC: '🧠' },
       { a: 'body', b: 'jurisdiction', c: 'mandate', emojiA: '👥', emojiB: '🧲', emojiC: '🏛️' },
       { a: 'stakeholder', b: 'conform', c: 'standards', emojiA: '🧩', emojiB: '🔌', emojiC: '🏗️' },
-      { a: 'scope', b: 'compliant', c: 'deregulate', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' },
-    ],
+      { a: 'scope', b: 'compliant', c: 'deregulate', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' }
+    ]
   },
   {
     id: 'execution',
@@ -227,8 +241,8 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'instruction', b: 'procedure', c: 'result', emojiA: '📡', emojiB: '💻', emojiC: '🧠' },
       { a: 'team', b: 'roles', c: 'delivery', emojiA: '👥', emojiB: '🧲', emojiC: '🏛️' },
       { a: 'effort', b: 'integrate', c: 'ops', emojiA: '🧩', emojiB: '🔌', emojiC: '🏗️' },
-      { a: 'start', b: 'progress', c: 'complete', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' },
-    ],
+      { a: 'start', b: 'progress', c: 'complete', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' }
+    ]
   },
   {
     id: 'measurement',
@@ -248,8 +262,8 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'observation', b: 'scale', c: 'value', emojiA: '📡', emojiB: '💻', emojiC: '🧠' },
       { a: 'component', b: 'hierarchy', c: 'command', emojiA: '👥', emojiB: '🧲', emojiC: '🏛️' },
       { a: 'instrument', b: 'protocol', c: 'control', emojiA: '🧩', emojiB: '🔌', emojiC: '🏗️' },
-      { a: 'threshold', b: 'regulated', c: 'failure', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' },
-    ],
+      { a: 'threshold', b: 'regulated', c: 'failure', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' }
+    ]
   },
   {
     id: 'monitoring',
@@ -269,8 +283,8 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'log', b: 'signature', c: 'threat', emojiA: '📡', emojiB: '💻', emojiC: '🧠' },
       { a: 'team', b: 'chain', c: 'mandate', emojiA: '👥', emojiB: '🧲', emojiC: '🏛️' },
       { a: 'data', b: 'tool', c: 'monitoring', emojiA: '🧩', emojiB: '🔌', emojiC: '🏗️' },
-      { a: 'normal', b: 'alert', c: 'recover', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' },
-    ],
+      { a: 'normal', b: 'alert', c: 'recover', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' }
+    ]
   },
   {
     id: 'learning',
@@ -280,7 +294,14 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
     cells: [
       { a: 'data', b: 'preprocess', c: 'train', emojiA: '🌪️', emojiB: '⚙️', emojiC: '🎛️' },
       { a: 'feature', b: 'validate', c: 'model', emojiA: '🔀', emojiB: '🧬', emojiC: '🗂️' },
-      { a: 'performance', b: 'hyperparam', c: 'gradient', emojiA: '🌊', emojiB: '🎚️', emojiC: '🧲' },
+      {
+        a: 'performance',
+        b: 'hyperparam',
+        c: 'gradient',
+        emojiA: '🌊',
+        emojiB: '🎚️',
+        emojiC: '🧲'
+      },
       { a: 'error', b: 'optimize', c: 'converge', emojiA: '🌪️', emojiB: '🤝', emojiC: '🏗️' },
       { a: 'epoch', b: 'regularize', c: 'optimum', emojiA: '🔄', emojiB: '💥', emojiC: '🎯' },
       { a: 'iteration', b: 'converge', c: 'capability', emojiA: '🥁', emojiB: '🎶', emojiC: '✨' },
@@ -290,8 +311,8 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'example', b: 'represent', c: 'knowledge', emojiA: '📡', emojiB: '💻', emojiC: '🧠' },
       { a: 'agent', b: 'curriculum', c: 'mandate', emojiA: '👥', emojiB: '🧲', emojiC: '🏛️' },
       { a: 'experience', b: 'transfer', c: 'knowledge', emojiA: '🧩', emojiB: '🔌', emojiC: '🏗️' },
-      { a: 'prior', b: 'posterior', c: 'insight', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' },
-    ],
+      { a: 'prior', b: 'posterior', c: 'insight', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' }
+    ]
   },
   {
     id: 'interface',
@@ -311,8 +332,8 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'user', b: 'UI', c: 'experience', emojiA: '📡', emojiB: '💻', emojiC: '🧠' },
       { a: 'element', b: 'hierarchy', c: 'nav', emojiA: '👥', emojiB: '🧲', emojiC: '🏛️' },
       { a: 'component', b: 'framework', c: 'interface', emojiA: '🧩', emojiB: '🔌', emojiC: '🏗️' },
-      { a: 'edge', b: 'focus', c: 'modal', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' },
-    ],
+      { a: 'edge', b: 'focus', c: 'modal', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' }
+    ]
   },
   {
     id: 'rights',
@@ -332,8 +353,8 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'grievance', b: 'article', c: 'right', emojiA: '📡', emojiB: '💻', emojiC: '🧠' },
       { a: 'society', b: 'align', c: 'law', emojiA: '👥', emojiB: '🧲', emojiC: '🏛️' },
       { a: 'individual', b: 'treaty', c: 'rights', emojiA: '🧩', emojiB: '🔌', emojiC: '🏗️' },
-      { a: 'restrict', b: 'protected', c: 'free', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' },
-    ],
+      { a: 'restrict', b: 'protected', c: 'free', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' }
+    ]
   },
   {
     id: 'geopolitics',
@@ -353,8 +374,8 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'event', b: 'narrative', c: 'interest', emojiA: '📡', emojiB: '💻', emojiC: '🧠' },
       { a: 'state', b: 'bloc', c: 'security', emojiA: '👥', emojiB: '🧲', emojiC: '🏛️' },
       { a: 'nation', b: 'interop', c: 'geo', emojiA: '🧩', emojiB: '🔌', emojiC: '🏗️' },
-      { a: 'border', b: 'sovereign', c: 'shift', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' },
-    ],
+      { a: 'border', b: 'sovereign', c: 'shift', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' }
+    ]
   },
   {
     id: 'commons',
@@ -374,8 +395,8 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'create', b: 'format', c: 'share', emojiA: '📡', emojiB: '💻', emojiC: '🧠' },
       { a: 'member', b: 'norm', c: 'commons', emojiA: '👥', emojiB: '🧲', emojiC: '🏛️' },
       { a: 'user', b: 'protocol', c: 'digital', emojiA: '🧩', emojiB: '🔌', emojiC: '🏗️' },
-      { a: 'exclude', b: 'include', c: 'commons', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' },
-    ],
+      { a: 'exclude', b: 'include', c: 'commons', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' }
+    ]
   },
   {
     id: 'evolution',
@@ -395,9 +416,9 @@ export const TRIADIC_DOMAINS: TriadicDomain[] = [
       { a: 'cue', b: 'epigenetic', c: 'develop', emojiA: '📡', emojiB: '💻', emojiC: '🧠' },
       { a: 'species', b: 'coevolve', c: 'nature', emojiA: '👥', emojiB: '🧲', emojiC: '🏛️' },
       { a: 'trait', b: 'gene-flow', c: 'pool', emojiA: '🧩', emojiB: '🔌', emojiC: '🏗️' },
-      { a: 'reproduce', b: 'speciate', c: 'radiate', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' },
-    ],
-  },
+      { a: 'reproduce', b: 'speciate', c: 'radiate', emojiA: '🚧', emojiB: '📍', emojiC: '🔀' }
+    ]
+  }
 ];
 
 /**
@@ -409,8 +430,8 @@ export const TRIADIC_TABLE: TriadicTable = {
   metadata: {
     version: '1.0.0',
     description:
-      'Complete triadic operator table mapping domains to conceptual frameworks using NAND-based logic',
-  },
+      'Complete triadic operator table mapping domains to conceptual frameworks using NAND-based logic'
+  }
 };
 
 /**

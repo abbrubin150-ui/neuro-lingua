@@ -128,11 +128,7 @@ function computeNull(w: boolean): boolean {
  * // none: { weak: false, strong: false, tension: false, null: true }
  * ```
  */
-export function triadicOperator(
-  a: boolean,
-  b: boolean,
-  c: boolean
-): TriadicVector {
+export function triadicOperator(a: boolean, b: boolean, c: boolean): TriadicVector {
   const weak = computeWeak(a, b, c);
   const strong = computeStrong(a, b, c);
   const tension = computeTension(a, b, c);
@@ -142,7 +138,7 @@ export function triadicOperator(
     weak,
     strong,
     tension,
-    null: nullVal,
+    null: nullVal
   };
 }
 

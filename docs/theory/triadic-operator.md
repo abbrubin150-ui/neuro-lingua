@@ -22,14 +22,21 @@ Where:
 ### The Four States
 
 #### 1. W (Weak Link)
-At least one weak connection exists through B.
+At least one element is present in the triad.
 
 **Formula:**
 ```
-W = NAND(NAND(A,B), NAND(B,C))
+W = A OR B OR C
+# Using NAND:
+notA = NAND(A,A)
+notB = NAND(B,B)
+temp = NAND(notA, notB)  # A OR B
+notTemp = NAND(temp, temp)
+notC = NAND(C,C)
+W = NAND(notTemp, notC)  # (A OR B) OR C
 ```
 
-**Interpretation:** There is some path from A to C through the mediator B, even if incomplete.
+**Interpretation:** At least one of the three elements is present, indicating some potential for relationship formation.
 
 #### 2. S (Strong Link / Complete Triad)
 Both A→B and B→C connections are strong, forming a complete triad.

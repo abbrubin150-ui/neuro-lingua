@@ -42,13 +42,21 @@ function nand(a: boolean, b: boolean): boolean {
 }
 
 /**
- * Compute W (Weak): At least one weak link through B
- * W = NAND(NAND(A,B), NAND(B,C))
+ * Compute W (Weak): At least one element is present (A OR B OR C)
+ * W = (A OR B) OR C
+ * Using NAND: A OR B = NAND(NAND(A,A), NAND(B,B))
+ *             (A OR B) OR C = NAND(NAND(temp, temp), NAND(C,C))
  */
 function computeWeak(a: boolean, b: boolean, c: boolean): boolean {
-  const ab = nand(a, b);
-  const bc = nand(b, c);
-  return nand(ab, bc);
+  // A OR B
+  const notA = nand(a, a);
+  const notB = nand(b, b);
+  const temp = nand(notA, notB); // A OR B
+
+  // (A OR B) OR C
+  const notTemp = nand(temp, temp);
+  const notC = nand(c, c);
+  return nand(notTemp, notC); // (A OR B) OR C
 }
 
 /**

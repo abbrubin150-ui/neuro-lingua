@@ -137,7 +137,7 @@ const CellDetail: React.FC<CellDetailProps> = ({ cell, vector, onClose }) => {
         {vector.weak && !vector.strong && !vector.tension && (
           <p>
             <strong>Weak Connection:</strong> Some pathway exists through <em>{cell.b}</em> (
-            {cell.emojiB}), but it doesn't create stable organization.
+            {cell.emojiB}), but it doesn&apos;t create stable organization.
           </p>
         )}
         {vector.null && (

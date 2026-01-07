@@ -14,13 +14,11 @@ import type {
   KLWindow,
   KLThresholds,
   KLFailures,
-  KLFailureType,
   FreeEnergyDefinition,
   FreeEnergyEstimator,
   FreeEnergyWindow,
   FreeEnergyThresholds,
   FreeEnergyFailures,
-  FreeEnergyFailureType,
   TEDefinition,
   TEEstimator,
   TEWindow,
@@ -37,7 +35,6 @@ import type {
   PhiThresholds,
   PhiFailures,
   ModeCondition,
-  ModeType,
   NearMissFlag,
   EvidenceGapFlag,
   StateSpaceRHS,
@@ -560,7 +557,7 @@ export function computeGrangerCausality(
  * Fits an AR model and returns SSE
  */
 function fitAR(series: number[], lag: number): number {
-  const n = series.length - lag;
+  const _n = series.length - lag;
   let sse = 0;
 
   for (let t = lag; t < series.length; t++) {
@@ -579,7 +576,7 @@ function fitAR(series: number[], lag: number): number {
  * Fits a VAR model and returns SSE
  */
 function fitVAR(rSeries: number[], sSeries: number[], lag: number): number {
-  const n = Math.min(rSeries.length, sSeries.length) - lag;
+  const _n = Math.min(rSeries.length, sSeries.length) - lag;
   let sse = 0;
 
   for (let t = lag; t < Math.min(rSeries.length, sSeries.length); t++) {

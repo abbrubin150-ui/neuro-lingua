@@ -14,12 +14,6 @@ import {
   createConvolutionOperator,
   advanceConvolution,
   applyConvolution,
-  createNearMissDetector,
-  detectNearMiss,
-  createCanonicalTriadCatalog,
-  registerTriad,
-  createSourceCitation,
-  generateMappingReport,
   createMatrixGenerator,
   generateMatrix,
   createCellValidator,
@@ -27,11 +21,7 @@ import {
   createVersionLedger,
   recordVersion,
   validateVersionIncrement,
-  createExportPack,
   computeMatrixStatistics,
-  getCellByPosition,
-  getCellsByLevel,
-  getCellsByTriad,
 } from '../../src/lib/MatrixConvolution';
 import {
   // Governance
@@ -39,8 +29,6 @@ import {
   checkAnchorGate,
   createCanon5Bundle,
   validateCanon5,
-  createGate0NoveltyFalsifiable,
-  evaluateNoveltyGate,
   createMirrorSidecar,
   recordDowngrade,
   createMirrorLipschitzDrift,
@@ -51,25 +39,18 @@ import {
   createStop3Counter,
   recordViolation,
   resetViolationCounter,
-  createRollbackSnapshot,
   createWitnessANDGate,
   addWitness,
-  createDecisionLedgerRecord,
-  createAuditHash,
   createGovernanceState,
   // Telemetry
   createKPIDeltaDIADef,
-  createKPIDeltaDIAEstimator,
   createKPIEdgeBand,
   createSensorLiveSlope,
   createKPIBEIBreath,
-  createLPSFCandidateGen,
   createLPSFThresholds,
   createLPSFSelector,
-  createMilnerJournalEntry,
   createTelemetryStop3,
   createDashboardView,
-  createDriftAlert,
   createQuarantineList,
   addToQuarantine,
   createRecoveryLog,
@@ -78,7 +59,7 @@ import {
   updateTelemetryFromState,
 } from '../../src/lib/GovernanceAndTelemetry';
 import { createStateSpaceRHS } from '../../src/lib/KernelPrimitives';
-import { KNOWLEDGE_LEVELS, CANONICAL_TRIADS, generateCellId, parseCellId } from '../../src/types/kernel';
+import { generateCellId, parseCellId } from '../../src/types/kernel';
 
 describe('E01 - TargetTriadRecord', () => {
   it('should create target triad record', () => {

@@ -34,7 +34,7 @@ import type {
 } from '../types/kernel';
 import { KNOWLEDGE_LEVELS, CANONICAL_TRIADS, generateCellId } from '../types/kernel';
 import { createStateSpaceRHS, executeCycle, createCycleOperator } from './KernelPrimitives';
-import { runFullGenerativityTest, quickGenerativityCheck } from './GenerativityTests';
+import { runFullGenerativityTest } from './GenerativityTests';
 import { assignEvidenceTier, createEvidenceRecord } from './EvidenceAndMetrics';
 
 // ============================================================================
@@ -513,7 +513,7 @@ export function createMatrixGenerator(seed: number = 42): MatrixGenerator {
 /**
  * Generates the full 14×14 matrix
  */
-export function generateMatrix(generator: MatrixGenerator): MatrixCell[] {
+export function generateMatrix(_generator: MatrixGenerator): MatrixCell[] {
   const cells: MatrixCell[] = [];
   let operator = createConvolutionOperator(createStateSpaceRHS(8));
 

@@ -4,7 +4,7 @@
  * Tests for modules A01-A12 (Kernel Primitives)
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   // A01 - R/Noise
   createRNoise,

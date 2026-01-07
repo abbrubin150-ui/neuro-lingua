@@ -429,7 +429,7 @@ function correlation(a: number[], b: number[]): number {
  */
 export function testG2Mediation(state: StateSpaceRHS): G2Mediation {
   const tensionField = computeTensionField(state);
-  const initialTension = tensionField.totalEnergy;
+  const _initialTension = tensionField.totalEnergy;
 
   // Try to find a mediation path
   const mediationResult = findMediationPath(state, tensionField);
@@ -620,9 +620,9 @@ export function quickGenerativityCheck(state: StateSpaceRHS): {
   score: number;
 } {
   // Quick G1: check if R-H-S are sufficiently distinct
-  const rNorm = Math.sqrt(state.r.perturbation.reduce((s, v) => s + v * v, 0));
-  const hNorm = Math.sqrt(state.h.structure.reduce((s, v) => s + v * v, 0));
-  const sNorm = Math.sqrt(state.s.mediationCoefficients.reduce((s, v) => s + v * v, 0));
+  const _rNorm = Math.sqrt(state.r.perturbation.reduce((s, v) => s + v * v, 0));
+  const _hNorm = Math.sqrt(state.h.structure.reduce((s, v) => s + v * v, 0));
+  const _sNorm = Math.sqrt(state.s.mediationCoefficients.reduce((s, v) => s + v * v, 0));
 
   const rhCorr = correlation(state.r.perturbation, state.h.structure);
   const hsCorr = correlation(state.h.structure, state.s.mediationCoefficients);
@@ -631,7 +631,7 @@ export function quickGenerativityCheck(state: StateSpaceRHS): {
   const distinctiveness = 1 - (Math.abs(rhCorr) + Math.abs(hsCorr) + Math.abs(rsCorr)) / 3;
 
   // Quick G2: check tension level
-  const tensionProxy = Math.abs(rhCorr);
+  const _tensionProxy = Math.abs(rhCorr);
   const mediationProxy = state.s.clearanceLevel * (1 - Math.abs(rsCorr));
 
   // Quick G3: check history length (proxy for downward influence)

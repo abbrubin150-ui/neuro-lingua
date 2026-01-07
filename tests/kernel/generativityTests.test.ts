@@ -7,7 +7,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   createM0NonGenerativeModelClass,
-  testM0Membership,
   createAggConstructor,
   createLinCombConstructor,
   createMonotoneTransformConstructor,

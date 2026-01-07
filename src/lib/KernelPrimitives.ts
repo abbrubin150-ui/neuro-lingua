@@ -24,7 +24,7 @@ import type {
   StateSnapshot,
   TensionPeak,
   CoherenceComponent,
-  ClosureEvidence,
+  ClosureEvidence
 } from '../types/kernel';
 
 // ============================================================================
@@ -34,18 +34,14 @@ import type {
 /**
  * Creates an R/Noise primitive - source of perturbation/variation
  */
-export function createRNoise(
-  dimension: number,
-  variance: number = 1.0,
-  source?: string
-): RNoise {
+export function createRNoise(dimension: number, variance: number = 1.0, source?: string): RNoise {
   const perturbation = generateGaussianNoise(dimension, variance);
   return {
     type: 'R_NOISE',
     perturbation,
     variance,
     timestamp: Date.now(),
-    source,
+    source
   };
 }
 
@@ -83,7 +79,7 @@ export function perturbRNoise(r: RNoise, additionalVariance: number): RNoise {
     ...r,
     perturbation: newPerturbation,
     variance: newVariance,
-    timestamp: Date.now(),
+    timestamp: Date.now()
   };
 }
 
@@ -115,7 +111,7 @@ export function createHCoherence(
     constraints,
     structure,
     holdingStrength,
-    activeConstraints,
+    activeConstraints
   };
 }
 
@@ -232,10 +228,7 @@ export function computeCoherenceStrength(h: HCoherence, state: number[]): number
 /**
  * Creates an S/Soleket primitive - transformative mediation
  */
-export function createSSoleket(
-  dimension: number,
-  clearanceLevel: number = 0.5
-): SSoleket {
+export function createSSoleket(dimension: number, clearanceLevel: number = 0.5): SSoleket {
   const dofRemoved = Math.floor(dimension * clearanceLevel);
   const mediationCoefficients = computeMediationCoefficients(dimension, dofRemoved);
   const transformMatrix = computeTransformMatrix(dimension, dofRemoved);
@@ -245,7 +238,7 @@ export function createSSoleket(
     mediationCoefficients,
     dofRemoved,
     transformMatrix,
-    clearanceLevel,
+    clearanceLevel
   };
 }
 
@@ -335,7 +328,7 @@ export function createCycleOperator(
   const defaultTransition: TransitionConfig = {
     rate: 0.1,
     threshold: 0.5,
-    damping: 0.9,
+    damping: 0.9
   };
 
   return {
@@ -345,8 +338,8 @@ export function createCycleOperator(
     transitionParams: {
       rToH: transitionParams?.rToH ?? { ...defaultTransition },
       hToS: transitionParams?.hToS ?? { ...defaultTransition },
-      sToR: transitionParams?.sToR ?? { ...defaultTransition },
-    },
+      sToR: transitionParams?.sToR ?? { ...defaultTransition }
+    }
   };
 }
 
@@ -357,15 +350,16 @@ export function advanceCycle(operator: CycleOperator): CycleOperator {
   const nextPhase = {
     R: 'H' as const,
     H: 'S' as const,
-    S: 'R' as const,
+    S: 'R' as const
   };
 
-  const newCycleCount = operator.currentPhase === 'S' ? operator.cycleCount + 1 : operator.cycleCount;
+  const newCycleCount =
+    operator.currentPhase === 'S' ? operator.cycleCount + 1 : operator.cycleCount;
 
   return {
     ...operator,
     currentPhase: nextPhase[operator.currentPhase],
-    cycleCount: newCycleCount,
+    cycleCount: newCycleCount
   };
 }
 
@@ -406,7 +400,7 @@ function transitionRToH(state: StateSpaceRHS, config: TransitionConfig): StateSp
 
   const newH: HCoherence = {
     ...state.h,
-    structure: damped,
+    structure: damped
   };
 
   return {
@@ -418,9 +412,9 @@ function transitionRToH(state: StateSpaceRHS, config: TransitionConfig): StateSp
         timestamp: Date.now(),
         r: state.r.perturbation,
         h: damped,
-        s: state.s.mediationCoefficients,
-      },
-    ],
+        s: state.s.mediationCoefficients
+      }
+    ]
   };
 }
 
@@ -442,9 +436,9 @@ function transitionHToS(state: StateSpaceRHS, config: TransitionConfig): StateSp
         timestamp: Date.now(),
         r: state.r.perturbation,
         h: state.h.structure,
-        s: newS.mediationCoefficients,
-      },
-    ],
+        s: newS.mediationCoefficients
+      }
+    ]
   };
 }
 
@@ -453,13 +447,16 @@ function transitionHToS(state: StateSpaceRHS, config: TransitionConfig): StateSp
  */
 function transitionSToR(state: StateSpaceRHS, config: TransitionConfig): StateSpaceRHS {
   const cleared = applySoleket(state.s, state.r.perturbation);
-  const newNoise = generateGaussianNoise(state.dimension, state.r.variance * (1 - state.s.clearanceLevel));
+  const newNoise = generateGaussianNoise(
+    state.dimension,
+    state.r.variance * (1 - state.s.clearanceLevel)
+  );
   const combined = cleared.map((v, i) => v * config.damping + newNoise[i] * config.rate);
 
   const newR: RNoise = {
     ...state.r,
     perturbation: combined,
-    timestamp: Date.now(),
+    timestamp: Date.now()
   };
 
   return {
@@ -471,9 +468,9 @@ function transitionSToR(state: StateSpaceRHS, config: TransitionConfig): StateSp
         timestamp: Date.now(),
         r: combined,
         h: state.h.structure,
-        s: state.s.mediationCoefficients,
-      },
-    ],
+        s: state.s.mediationCoefficients
+      }
+    ]
   };
 }
 
@@ -505,9 +502,9 @@ export function createStateSpaceRHS(
         timestamp: Date.now(),
         r: r.perturbation,
         h: h.structure,
-        s: s.mediationCoefficients,
-      },
-    ],
+        s: s.mediationCoefficients
+      }
+    ]
   };
 }
 
@@ -581,7 +578,8 @@ function detectHAttractor(history: StateSnapshot[], minStability: number): Attra
     Math.sqrt(snapshot.h.reduce((sum, v, i) => sum + Math.pow(v - center[i], 2), 0))
   );
   const meanDist = distances.reduce((a, b) => a + b, 0) / distances.length;
-  const variance = distances.reduce((sum, d) => sum + Math.pow(d - meanDist, 2), 0) / distances.length;
+  const variance =
+    distances.reduce((sum, d) => sum + Math.pow(d - meanDist, 2), 0) / distances.length;
   const stability = 1 / (1 + variance);
 
   if (stability < minStability) return null;
@@ -595,7 +593,7 @@ function detectHAttractor(history: StateSnapshot[], minStability: number): Attra
     radius,
     stability,
     emergenceLevel: 'H',
-    attractorType,
+    attractorType
   };
 }
 
@@ -626,7 +624,8 @@ function detectSAttractor(history: StateSnapshot[], minStability: number): Attra
     Math.sqrt(snapshot.s.reduce((sum, v, i) => sum + Math.pow(v - center[i], 2), 0))
   );
   const meanDist = distances.reduce((a, b) => a + b, 0) / distances.length;
-  const variance = distances.reduce((sum, d) => sum + Math.pow(d - meanDist, 2), 0) / distances.length;
+  const variance =
+    distances.reduce((sum, d) => sum + Math.pow(d - meanDist, 2), 0) / distances.length;
   const stability = 1 / (1 + variance);
 
   if (stability < minStability) return null;
@@ -639,7 +638,7 @@ function detectSAttractor(history: StateSnapshot[], minStability: number): Attra
     radius,
     stability,
     emergenceLevel: 'S',
-    attractorType,
+    attractorType
   };
 }
 
@@ -659,7 +658,8 @@ function classifyAttractorType(trajectory: number[][]): 'point' | 'limit_cycle' 
   }
 
   const meanDist = distances.reduce((a, b) => a + b, 0) / distances.length;
-  const variance = distances.reduce((sum, d) => sum + Math.pow(d - meanDist, 2), 0) / distances.length;
+  const variance =
+    distances.reduce((sum, d) => sum + Math.pow(d - meanDist, 2), 0) / distances.length;
   const cv = Math.sqrt(variance) / (meanDist + 1e-10); // Coefficient of variation
 
   // Low movement = point attractor
@@ -688,7 +688,7 @@ export function createClearanceOperator(
     contractionFactor,
     incompatibleModes: [],
     threshold,
-    isClearing: false,
+    isClearing: false
   };
 }
 
@@ -708,12 +708,12 @@ export function executeClearance(
   const newOperator: ClearanceOperator = {
     ...operator,
     incompatibleModes,
-    isClearing: true,
+    isClearing: true
   };
 
   const newState: StateSpaceRHS = {
     ...state,
-    r: contractedR,
+    r: contractedR
   };
 
   return { operator: newOperator, state: newState };
@@ -753,7 +753,7 @@ function contractPhaseSpace(
   return {
     ...r,
     perturbation: newPerturbation,
-    timestamp: Date.now(),
+    timestamp: Date.now()
   };
 }
 
@@ -775,7 +775,7 @@ export function createDownwardConstraint(
     targetTimeIndex: sourceTimeIndex + 1,
     strength,
     affectedVariables,
-    constraintMatrix: [],
+    constraintMatrix: []
   };
 }
 
@@ -793,7 +793,7 @@ export function computeDownwardConstraintMatrix(
 
   return {
     ...constraint,
-    constraintMatrix,
+    constraintMatrix
   };
 }
 
@@ -813,7 +813,7 @@ export function applyDownwardConstraint(
     );
     newState = {
       ...newState,
-      r: { ...newState.r, perturbation: constrainedPerturbation },
+      r: { ...newState.r, perturbation: constrainedPerturbation }
     };
   }
 
@@ -824,7 +824,7 @@ export function applyDownwardConstraint(
     );
     newState = {
       ...newState,
-      h: { ...newState.h, structure: constrainedStructure },
+      h: { ...newState.h, structure: constrainedStructure }
     };
   }
 
@@ -875,7 +875,7 @@ export function evaluateClosureCondition(state: StateSpaceRHS): ClosureCondition
     type: 'CLOSURE_CONDITION',
     isSatisfied,
     influenceStrength,
-    evidence,
+    evidence
   };
 }
 
@@ -1001,7 +1001,7 @@ export function computeTensionField(state: StateSpaceRHS): TensionField {
     values,
     peaks: peaks.sort((a, b) => b.magnitude - a.magnitude).slice(0, 10),
     totalEnergy,
-    gradient,
+    gradient
   };
 }
 
@@ -1070,7 +1070,7 @@ export function computeCoherenceScore(state: StateSpaceRHS): CoherenceScore {
   components.push({
     name: 'structural',
     contribution: structuralCoherence,
-    weight: 0.4,
+    weight: 0.4
   });
 
   // Dynamic coherence: stability over time
@@ -1078,7 +1078,7 @@ export function computeCoherenceScore(state: StateSpaceRHS): CoherenceScore {
   components.push({
     name: 'dynamic',
     contribution: dynamicCoherence,
-    weight: 0.3,
+    weight: 0.3
   });
 
   // Integration coherence: R-H-S coupling
@@ -1086,7 +1086,7 @@ export function computeCoherenceScore(state: StateSpaceRHS): CoherenceScore {
   components.push({
     name: 'integration',
     contribution: integrationCoherence,
-    weight: 0.3,
+    weight: 0.3
   });
 
   // Weighted sum
@@ -1096,7 +1096,7 @@ export function computeCoherenceScore(state: StateSpaceRHS): CoherenceScore {
     type: 'COHERENCE_SCORE',
     value,
     components,
-    timestamp: Date.now(),
+    timestamp: Date.now()
   };
 }
 
@@ -1163,7 +1163,7 @@ export function checkResonance(state: StateSpaceRHS): ResonanceCheck {
       type: 'RESONANCE_CHECK',
       isResonant: false,
       stability: 0,
-      selectivity: 0,
+      selectivity: 0
     };
   }
 
@@ -1185,7 +1185,7 @@ export function checkResonance(state: StateSpaceRHS): ResonanceCheck {
     isResonant,
     stability: bestAttractor.stability,
     selectivity,
-    frequency,
+    frequency
   };
 }
 
@@ -1247,5 +1247,5 @@ export {
   computeStructureVector,
   identifyActiveConstraints,
   computeMediationCoefficients,
-  computeTransformMatrix,
+  computeTransformMatrix
 };

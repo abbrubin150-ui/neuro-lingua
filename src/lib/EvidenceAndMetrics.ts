@@ -41,7 +41,7 @@ import type {
   NearMissFlag,
   EvidenceGapFlag,
   StateSpaceRHS,
-  GStatus,
+  GStatus
 } from '../types/kernel';
 
 // ============================================================================
@@ -51,16 +51,13 @@ import type {
 /**
  * C05 - Assigns evidence tier based on method and evidence record
  */
-export function assignEvidenceTier(
-  evidenceRecord: EvidenceRecord[],
-  method: string
-): EAssignment {
+export function assignEvidenceTier(evidenceRecord: EvidenceRecord[], method: string): EAssignment {
   // Count evidence types
   const typeCounts: Record<string, number> = {
     measurement: 0,
     simulation: 0,
     theory: 0,
-    experiment: 0,
+    experiment: 0
   };
 
   for (const record of evidenceRecord) {
@@ -90,7 +87,7 @@ export function assignEvidenceTier(
     tier,
     method,
     evidenceRecord,
-    confidence,
+    confidence
   };
 }
 
@@ -106,7 +103,7 @@ export function createEvidenceRecord(
     source,
     type,
     value: Math.max(0, Math.min(1, value)),
-    timestamp: Date.now(),
+    timestamp: Date.now()
   };
 }
 
@@ -147,7 +144,7 @@ export function computeKLDivergence(r: number[], h: number[]): KLDefinition {
     type: 'KL_DEF',
     value: Math.max(0, kl),
     distributionR: pR,
-    distributionH: pH,
+    distributionH: pH
   };
 }
 
@@ -167,16 +164,13 @@ function normalizeToProbability(v: number[]): number[] {
 /**
  * D02 - Estimates KL divergence from samples
  */
-export function createKLEstimator(
-  rSamples: number[][],
-  hSamples: number[][]
-): KLEstimator {
+export function createKLEstimator(rSamples: number[][], hSamples: number[][]): KLEstimator {
   if (rSamples.length === 0 || hSamples.length === 0) {
     return {
       type: 'KL_ESTIMATOR',
       estimate: 0,
       sampleSize: 0,
-      confidenceInterval: [0, 0],
+      confidenceInterval: [0, 0]
     };
   }
 
@@ -195,13 +189,13 @@ export function createKLEstimator(
   );
 
   // 95% confidence interval
-  const margin = 1.96 * std / Math.sqrt(klValues.length);
+  const margin = (1.96 * std) / Math.sqrt(klValues.length);
 
   return {
     type: 'KL_ESTIMATOR',
     estimate: mean,
     sampleSize: minLen,
-    confidenceInterval: [Math.max(0, mean - margin), mean + margin],
+    confidenceInterval: [Math.max(0, mean - margin), mean + margin]
   };
 }
 
@@ -212,7 +206,7 @@ export function createKLWindow(size: number = 20): KLWindow {
   return {
     size,
     position: 0,
-    values: [],
+    values: []
   };
 }
 
@@ -228,7 +222,7 @@ export function updateKLWindow(window: KLWindow, value: number): KLWindow {
   return {
     ...window,
     position: window.position + 1,
-    values: newValues,
+    values: newValues
   };
 }
 
@@ -261,7 +255,7 @@ export function detectKLFailures(
       type: 'KL_FAILURES',
       failureType: 'sustained_high',
       duration: sustainedDuration,
-      severity: Math.min(1, (avgValue - thresholds.high) / thresholds.high),
+      severity: Math.min(1, (avgValue - thresholds.high) / thresholds.high)
     };
   }
 
@@ -273,7 +267,7 @@ export function detectKLFailures(
       type: 'KL_FAILURES',
       failureType: 'sustained_zero',
       duration: sustainedDuration,
-      severity: Math.min(1, (thresholds.low - avgValue) / thresholds.low),
+      severity: Math.min(1, (thresholds.low - avgValue) / thresholds.low)
     };
   }
 
@@ -307,7 +301,7 @@ export function computeFreeEnergy(
     type: 'FREE_E_DEF',
     value: Math.max(0, value),
     surprisal,
-    complexity: Math.max(0, complexity),
+    complexity: Math.max(0, complexity)
   };
 }
 
@@ -320,7 +314,7 @@ export function createFreeEnergyEstimator(residuals: number[]): FreeEnergyEstima
   return {
     type: 'FREE_E_ESTIMATOR',
     estimate: meanSquaredError,
-    residuals,
+    residuals
   };
 }
 
@@ -330,17 +324,14 @@ export function createFreeEnergyEstimator(residuals: number[]): FreeEnergyEstima
 export function createFreeEnergyWindow(epochSize: number = 100): FreeEnergyWindow {
   return {
     epochSize,
-    values: [],
+    values: []
   };
 }
 
 /**
  * Updates free energy window
  */
-export function updateFreeEnergyWindow(
-  window: FreeEnergyWindow,
-  value: number
-): FreeEnergyWindow {
+export function updateFreeEnergyWindow(window: FreeEnergyWindow, value: number): FreeEnergyWindow {
   const newValues = [...window.values, value];
   // Keep last 10 epochs worth of data
   if (newValues.length > window.epochSize * 10) {
@@ -349,7 +340,7 @@ export function updateFreeEnergyWindow(
 
   return {
     ...window,
-    values: newValues,
+    values: newValues
   };
 }
 
@@ -384,7 +375,7 @@ export function detectFreeEnergyFailures(
     return {
       type: 'FREE_E_FAILURES',
       failureType: 'collapse',
-      detectedAtEpoch: Math.floor(window.values.length / window.epochSize),
+      detectedAtEpoch: Math.floor(window.values.length / window.epochSize)
     };
   }
 
@@ -393,7 +384,7 @@ export function detectFreeEnergyFailures(
     return {
       type: 'FREE_E_FAILURES',
       failureType: 'over_constraint',
-      detectedAtEpoch: Math.floor(window.values.length / window.epochSize),
+      detectedAtEpoch: Math.floor(window.values.length / window.epochSize)
     };
   }
 
@@ -421,9 +412,15 @@ export function computeTransferEntropy(
   // We approximate this using partial correlation
 
   const n = Math.min(sSeries.length, rSeries.length) - lag;
-  let sumS = 0, sumR = 0, sumR1 = 0;
-  let sumSS = 0, sumRR = 0, sumR1R1 = 0;
-  let sumSR = 0, sumSR1 = 0, sumRR1 = 0;
+  let sumS = 0,
+    sumR = 0,
+    sumR1 = 0;
+  let sumSS = 0,
+    sumRR = 0,
+    sumR1R1 = 0;
+  let sumSR = 0,
+    sumSR1 = 0,
+    sumRR1 = 0;
 
   for (let t = 0; t < n; t++) {
     const s = sSeries[t].reduce((a, b) => a + b, 0) / sSeries[t].length;
@@ -442,15 +439,19 @@ export function computeTransferEntropy(
   }
 
   // Compute correlations
-  const corrSR1 = (n * sumSR1 - sumS * sumR1) /
+  const corrSR1 =
+    (n * sumSR1 - sumS * sumR1) /
     Math.sqrt((n * sumSS - sumS * sumS) * (n * sumR1R1 - sumR1 * sumR1) + 1e-10);
-  const corrRR1 = (n * sumRR1 - sumR * sumR1) /
+  const corrRR1 =
+    (n * sumRR1 - sumR * sumR1) /
     Math.sqrt((n * sumRR - sumR * sumR) * (n * sumR1R1 - sumR1 * sumR1) + 1e-10);
-  const corrSR = (n * sumSR - sumS * sumR) /
+  const corrSR =
+    (n * sumSR - sumS * sumR) /
     Math.sqrt((n * sumSS - sumS * sumS) * (n * sumRR - sumR * sumR) + 1e-10);
 
   // Partial correlation: ρ(S,R1|R)
-  const partialCorr = (corrSR1 - corrSR * corrRR1) /
+  const partialCorr =
+    (corrSR1 - corrSR * corrRR1) /
     Math.sqrt((1 - corrSR * corrSR) * (1 - corrRR1 * corrRR1) + 1e-10);
 
   // Convert to information (TE ≈ -0.5 * log(1 - ρ²))
@@ -481,7 +482,7 @@ export function createTEEstimator(
     type: 'TE_ESTIMATOR',
     estimate: totalTE / lagOrder,
     historyEmbedding,
-    lagOrder,
+    lagOrder
   };
 }
 
@@ -502,16 +503,13 @@ export function createTEThresholds(minTEForClosure: number = 0.05): TEThresholds
 /**
  * D15 - Detects TE failures (epiphenomenal S)
  */
-export function detectTEFailures(
-  teEstimator: TEEstimator,
-  thresholds: TEThresholds
-): TEFailures {
+export function detectTEFailures(teEstimator: TEEstimator, thresholds: TEThresholds): TEFailures {
   const isEpiphenomenal = teEstimator.estimate < thresholds.minTEForClosure;
 
   return {
     type: 'TE_FAILURES',
     isEpiphenomenal,
-    teValue: teEstimator.estimate,
+    teValue: teEstimator.estimate
   };
 }
 
@@ -532,7 +530,7 @@ export function computeGrangerCausality(
       type: 'GRANGER_DEF',
       fStatistic: 0,
       pValue: 1,
-      direction: 'S_to_R',
+      direction: 'S_to_R'
     };
   }
 
@@ -545,8 +543,7 @@ export function computeGrangerCausality(
   // F-statistic
   const n = rSeries.length - maxLag;
   const fStatistic =
-    ((restrictedSSE - unrestrictedSSE) / maxLag) /
-    (unrestrictedSSE / (n - 2 * maxLag - 1) + 1e-10);
+    (restrictedSSE - unrestrictedSSE) / maxLag / (unrestrictedSSE / (n - 2 * maxLag - 1) + 1e-10);
 
   // P-value approximation using F-distribution
   const pValue = computeFPValue(Math.max(0, fStatistic), maxLag, n - 2 * maxLag - 1);
@@ -555,7 +552,7 @@ export function computeGrangerCausality(
     type: 'GRANGER_DEF',
     fStatistic: Math.max(0, fStatistic),
     pValue,
-    direction: 'S_to_R',
+    direction: 'S_to_R'
   };
 }
 
@@ -620,15 +617,12 @@ function incompleteBeta(x: number, a: number, b: number): number {
   if (x === 1) return 1;
 
   // Continued fraction approximation
-  const bt = Math.exp(
-    a * Math.log(x) + b * Math.log(1 - x) -
-    Math.log(a) - logBeta(a, b)
-  );
+  const bt = Math.exp(a * Math.log(x) + b * Math.log(1 - x) - Math.log(a) - logBeta(a, b));
 
   if (x < (a + 1) / (a + b + 2)) {
-    return bt * betaCF(x, a, b) / a;
+    return (bt * betaCF(x, a, b)) / a;
   } else {
-    return 1 - bt * betaCF(1 - x, b, a) / b;
+    return 1 - (bt * betaCF(1 - x, b, a)) / b;
   }
 }
 
@@ -645,15 +639,9 @@ function logBeta(a: number, b: number): number {
 function logGamma(x: number): number {
   const g = 7;
   const coefficients = [
-    0.99999999999980993,
-    676.5203681218851,
-    -1259.1392167224028,
-    771.32342877765313,
-    -176.61502916214059,
-    12.507343278686905,
-    -0.13857109526572012,
-    9.9843695780195716e-6,
-    1.5056327351493116e-7,
+    0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
+    -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6,
+    1.5056327351493116e-7
   ];
 
   if (x < 0.5) {
@@ -678,11 +666,11 @@ function betaCF(x: number, a: number, b: number): number {
   const maxIterations = 100;
   const eps = 1e-10;
 
-  let qab = a + b;
-  let qap = a + 1;
-  let qam = a - 1;
+  const qab = a + b;
+  const qap = a + 1;
+  const qam = a - 1;
   let c = 1;
-  let d = 1 - qab * x / qap;
+  let d = 1 - (qab * x) / qap;
 
   if (Math.abs(d) < eps) d = eps;
   d = 1 / d;
@@ -690,7 +678,7 @@ function betaCF(x: number, a: number, b: number): number {
 
   for (let m = 1; m <= maxIterations; m++) {
     const m2 = 2 * m;
-    let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+    let aa = (m * (b - m) * x) / ((qam + m2) * (a + m2));
     d = 1 + aa * d;
     if (Math.abs(d) < eps) d = eps;
     c = 1 + aa / c;
@@ -698,7 +686,7 @@ function betaCF(x: number, a: number, b: number): number {
     d = 1 / d;
     h *= d * c;
 
-    aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+    aa = (-(a + m) * (qab + m) * x) / ((a + m2) * (qap + m2));
     d = 1 + aa * d;
     if (Math.abs(d) < eps) d = eps;
     c = 1 + aa / c;
@@ -727,7 +715,7 @@ export function createGrangerEstimator(
     type: 'GRANGER_ESTIMATOR',
     varCoefficients: [], // Simplified - would need full VAR implementation
     fStatistic: result.fStatistic,
-    isSignificant: result.pValue < 0.05,
+    isSignificant: result.pValue < 0.05
   };
 }
 
@@ -761,7 +749,7 @@ export function detectGrangerFailures(
   return {
     type: 'GRANGER_FAILURES',
     isNonCausal: pValue > thresholds.significanceLevel,
-    pValue,
+    pValue
   };
 }
 
@@ -799,7 +787,7 @@ export function computePhi(state: StateSpaceRHS): PhiDefinition {
   return {
     type: 'PHI_DEF',
     value: Math.min(1, phi),
-    excessEntropy,
+    excessEntropy
   };
 }
 
@@ -880,7 +868,7 @@ function computePartitionLoss(state: StateSpaceRHS): number {
   const combinedEntropy = computeVectorEntropy([
     ...state.r.perturbation,
     ...state.h.structure,
-    ...state.s.mediationCoefficients,
+    ...state.s.mediationCoefficients
   ]);
 
   const sumOfParts = rEntropy + hEntropy + sEntropy;
@@ -912,14 +900,17 @@ export function createPhiEstimator(state: StateSpaceRHS): PhiEstimator {
   // Simple partition: split state in half
   const partition = [
     Array.from({ length: Math.floor(state.dimension / 2) }, (_, i) => i),
-    Array.from({ length: Math.ceil(state.dimension / 2) }, (_, i) => i + Math.floor(state.dimension / 2)),
+    Array.from(
+      { length: Math.ceil(state.dimension / 2) },
+      (_, i) => i + Math.floor(state.dimension / 2)
+    )
   ];
 
   return {
     type: 'PHI_ESTIMATOR',
     estimate: phi.value,
     partition,
-    sharedExclusions: Math.floor(phi.value * state.dimension),
+    sharedExclusions: Math.floor(phi.value * state.dimension)
   };
 }
 
@@ -940,14 +931,11 @@ export function createPhiThresholds(minPhiForG1: number = 0.1): PhiThresholds {
 /**
  * D25 - Detects Phi failures
  */
-export function detectPhiFailures(
-  estimator: PhiEstimator,
-  thresholds: PhiThresholds
-): PhiFailures {
+export function detectPhiFailures(estimator: PhiEstimator, thresholds: PhiThresholds): PhiFailures {
   return {
     type: 'PHI_FAILURES',
     isReducible: estimator.estimate < thresholds.minPhiForG1,
-    phiValue: estimator.estimate,
+    phiValue: estimator.estimate
   };
 }
 
@@ -973,7 +961,7 @@ export function detectModeConditions(
       mode: 'collapse',
       isActive: true,
       description: 'Tension→0 via averaging (loss of R variance)',
-      severity: klFailures.severity,
+      severity: klFailures.severity
     });
   }
 
@@ -984,7 +972,7 @@ export function detectModeConditions(
       mode: 'conflict',
       isActive: true,
       description: 'Tension high and unmediated (H rejected)',
-      severity: klFailures.severity,
+      severity: klFailures.severity
     });
   }
 
@@ -995,7 +983,7 @@ export function detectModeConditions(
       mode: 'epiphenomenal',
       isActive: true,
       description: 'TE≈0; S has no downward influence',
-      severity: 1 - teFailures.teValue,
+      severity: 1 - teFailures.teValue
     });
   }
 
@@ -1006,7 +994,7 @@ export function detectModeConditions(
       mode: 'ossification',
       isActive: true,
       description: 'H dominates; R suppressed; novelty stalls',
-      severity: state.h.holdingStrength,
+      severity: state.h.holdingStrength
     });
   }
 
@@ -1017,7 +1005,7 @@ export function detectModeConditions(
       mode: 'explosion',
       isActive: true,
       description: 'R dominates; coherence cannot form',
-      severity: Math.min(1, state.r.variance / 5),
+      severity: Math.min(1, state.r.variance / 5)
     });
   }
 
@@ -1028,7 +1016,7 @@ export function detectModeConditions(
       mode: 'model_collapse',
       isActive: true,
       description: 'Self-training reduces variance (model collapse)',
-      severity: 0.8,
+      severity: 0.8
     });
   }
 
@@ -1082,7 +1070,7 @@ export function createNearMissFlag(gStatus: GStatus): NearMissFlag {
     failedTests,
     reviewNotes: isFlagged
       ? `Looks triadic but fails ${failedTests.join(', ')}; tag for review`
-      : '',
+      : ''
   };
 }
 
@@ -1105,7 +1093,7 @@ export function createEvidenceGapFlag(eAssignment: EAssignment): EvidenceGapFlag
     type: 'EVIDENCE_GAP_FLAG',
     isFlagged: needsUpgrade,
     currentTier: eAssignment.tier,
-    upgradePath,
+    upgradePath
   };
 }
 
@@ -1117,5 +1105,5 @@ export {
   normalizeToProbability,
   computeVectorEntropy,
   computeStateEntropy,
-  computeMutualInformation,
+  computeMutualInformation
 };

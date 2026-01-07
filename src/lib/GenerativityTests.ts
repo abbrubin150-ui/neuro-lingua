@@ -18,7 +18,7 @@ import type {
   GStatus,
   NonGenerativeMethod,
   StateSpaceRHS,
-  TensionField,
+  TensionField
 } from '../types/kernel';
 import { computeTensionField, evaluateClosureCondition } from './KernelPrimitives';
 
@@ -33,7 +33,7 @@ export function createM0NonGenerativeModelClass(): M0NonGenerativeModelClass {
   return {
     type: 'M0_NON_GENERATIVE',
     classId: 'M0',
-    methods: ['aggregation', 'linear_combination', 'monotone_transform'],
+    methods: ['aggregation', 'linear_combination', 'monotone_transform']
   };
 }
 
@@ -64,7 +64,11 @@ export function testM0Membership(
     return { isMember: true, method: 'monotone_transform', residual: monoResult.residual };
   }
 
-  return { isMember: false, method: null, residual: Math.min(aggResult.residual, linResult.residual, monoResult.residual) };
+  return {
+    isMember: false,
+    method: null,
+    residual: Math.min(aggResult.residual, linResult.residual, monoResult.residual)
+  };
 }
 
 // ============================================================================
@@ -82,7 +86,7 @@ export function createAggConstructor(x: number[], y: number[]): AggConstructor {
     type: 'AGG_CONSTRUCTOR',
     inputX: x,
     inputY: y,
-    outputZ: z,
+    outputZ: z
   };
 }
 
@@ -102,7 +106,7 @@ function testAggregation(
     // Sum
     x.map((xi, i) => xi + y[i]),
     // Concatenation similarity (average)
-    x.map((xi, i) => (xi + y[i]) / 2),
+    x.map((xi, i) => (xi + y[i]) / 2)
   ];
 
   let minResidual = Infinity;
@@ -138,7 +142,7 @@ export function createLinCombConstructor(
     coeffB: b,
     inputX: x,
     inputY: y,
-    outputZ: z,
+    outputZ: z
   };
 }
 
@@ -155,7 +159,11 @@ function testLinearCombination(
   // Using normal equations
 
   const n = x.length;
-  let xxSum = 0, yySum = 0, xySum = 0, xzSum = 0, yzSum = 0;
+  let xxSum = 0,
+    yySum = 0,
+    xySum = 0,
+    xzSum = 0,
+    yzSum = 0;
 
   for (let i = 0; i < n; i++) {
     xxSum += x[i] * x[i];
@@ -182,7 +190,7 @@ function testLinearCombination(
     fits: residual < tolerance,
     residual,
     coeffA: a,
-    coeffB: b,
+    coeffB: b
   };
 }
 
@@ -200,7 +208,7 @@ export function createMonotoneTransformConstructor(
   return {
     type: 'MONOTONE_TRANSFORM_CONSTRUCTOR',
     transformId,
-    preservesTopology,
+    preservesTopology
   };
 }
 
@@ -222,7 +230,7 @@ function testMonotoneTransform(
     // Polynomial (x^2 + y^2)
     x.map((xi, i) => xi * xi + y[i] * y[i]),
     // Min
-    x.map((xi, i) => Math.min(xi, y[i])),
+    x.map((xi, i) => Math.min(xi, y[i]))
   ];
 
   let minResidual = Infinity;
@@ -342,7 +350,7 @@ export function testG1Irreducibility(
     type: 'G1_IRREDUCIBILITY',
     passes: !m0Result.isMember,
     testedMethods: ['aggregation', 'linear_combination', 'monotone_transform'],
-    score,
+    score
   };
 }
 
@@ -364,7 +372,7 @@ export function testG1WithPhi(
     ...basicResult,
     passes: basicResult.passes && phi > minPhi,
     score: Math.min(basicResult.score, phi),
-    phi,
+    phi
   };
 }
 
@@ -397,7 +405,9 @@ function correlation(a: number[], b: number[]): number {
   const meanA = a.reduce((s, v) => s + v, 0) / n;
   const meanB = b.reduce((s, v) => s + v, 0) / n;
 
-  let num = 0, denA = 0, denB = 0;
+  let num = 0,
+    denA = 0,
+    denB = 0;
   for (let i = 0; i < n; i++) {
     const da = a[i] - meanA;
     const db = b[i] - meanB;
@@ -434,7 +444,7 @@ export function testG2Mediation(state: StateSpaceRHS): G2Mediation {
     passes,
     tensionReduction: mediationResult.tensionReduction,
     integrityPreserved,
-    mediationPath: mediationResult.path,
+    mediationPath: mediationResult.path
   };
 }
 
@@ -470,7 +480,8 @@ function findMediationPath(
     if (currentTension <= 0) break;
   }
 
-  const tensionReduction = tensionField.totalEnergy > 0 ? totalReduction / tensionField.totalEnergy : 0;
+  const tensionReduction =
+    tensionField.totalEnergy > 0 ? totalReduction / tensionField.totalEnergy : 0;
   return { tensionReduction: Math.min(1, tensionReduction), path };
 }
 
@@ -515,14 +526,16 @@ export function testG3DownwardClosure(state: StateSpaceRHS): G3DownwardClosure {
     type: 'G3_DOWNWARD_CLOSURE',
     passes,
     constraintStrength,
-    pValue,
+    pValue
   };
 }
 
 /**
  * Computes p-value proxy from closure evidence
  */
-function computePValueProxy(evidence: Array<{ method: string; value: number; confidence: number }>): number {
+function computePValueProxy(
+  evidence: Array<{ method: string; value: number; confidence: number }>
+): number {
   if (evidence.length === 0) return 1;
 
   // Combine evidence using Fisher's method approximation
@@ -579,7 +592,7 @@ export function classifyGStatus(
     g1,
     g2,
     g3,
-    isGenerative: g1.passes && g2.passes && g3.passes,
+    isGenerative: g1.passes && g2.passes && g3.passes
   };
 }
 
@@ -602,7 +615,10 @@ export function runFullGenerativityTest(
 /**
  * Quick generativity check (less thorough but faster)
  */
-export function quickGenerativityCheck(state: StateSpaceRHS): { isGenerative: boolean; score: number } {
+export function quickGenerativityCheck(state: StateSpaceRHS): {
+  isGenerative: boolean;
+  score: number;
+} {
   // Quick G1: check if R-H-S are sufficiently distinct
   const rNorm = Math.sqrt(state.r.perturbation.reduce((s, v) => s + v * v, 0));
   const hNorm = Math.sqrt(state.h.structure.reduce((s, v) => s + v * v, 0));
@@ -637,5 +653,5 @@ export {
   testAggregation,
   testLinearCombination,
   testMonotoneTransform,
-  computePhiProxy,
+  computePhiProxy
 };

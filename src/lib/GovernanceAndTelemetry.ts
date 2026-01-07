@@ -53,7 +53,7 @@ import type {
   QuarantinedItem,
   RecoveryLog,
   RecoveryEntry,
-  StateSpaceRHS,
+  StateSpaceRHS
 } from '../types/kernel';
 
 // ============================================================================
@@ -68,7 +68,7 @@ export function createRAnchorGate(): RAnchorGate {
     type: 'R_ANCHOR_GATE',
     isActive: true,
     allowedOperations: ['merge', 'append'],
-    blockedOperations: ['delete', 'overwrite'],
+    blockedOperations: ['delete', 'overwrite']
   };
 }
 
@@ -97,7 +97,7 @@ export function createC68SilenceWindow(
   return {
     type: 'C68_SILENCE_WINDOW',
     windowDuration,
-    presenceStampRequired,
+    presenceStampRequired
   };
 }
 
@@ -107,7 +107,7 @@ export function createC68SilenceWindow(
 export function createPresenceStampLog(): PresenceStampLog {
   return {
     type: 'PRESENCE_STAMP_LOG',
-    entries: [],
+    entries: []
   };
 }
 
@@ -122,12 +122,12 @@ export function recordPresenceStamp(
   const stamp: PresenceStamp = {
     timestamp: Date.now(),
     status,
-    duration,
+    duration
   };
 
   return {
     ...log,
-    entries: [...log.entries, stamp],
+    entries: [...log.entries, stamp]
   };
 }
 
@@ -138,7 +138,7 @@ export function createC76ZeroSubstitute(substituteExists: boolean = false): C76Z
   return {
     type: 'C76_ZERO_SUBSTITUTE',
     isActive: true,
-    substituteExists,
+    substituteExists
   };
 }
 
@@ -155,7 +155,7 @@ export function createC79UncertaintyBounds(
     lowerBound,
     upperBound,
     currentUncertainty,
-    isBoundLogged: true,
+    isBoundLogged: true
   };
 }
 
@@ -169,7 +169,7 @@ export function createC80ExternalSignature(
     type: 'C80_EXTERNAL_SIGNATURE',
     externalPointerRequired,
     hasSignature: false,
-    signature: undefined,
+    signature: undefined
   };
 }
 
@@ -181,7 +181,7 @@ export function createC117OptOutNoLockIn(): C117OptOutNoLockIn {
     type: 'C117_OPT_OUT_NO_LOCK_IN',
     optOutAvailable: true,
     noCoerciveLockIn: true,
-    antiIncumbencyEnforced: true,
+    antiIncumbencyEnforced: true
   };
 }
 
@@ -195,7 +195,7 @@ export function createCanon5Bundle(): Canon5Bundle {
     c76: createC76ZeroSubstitute(),
     c79: createC79UncertaintyBounds(),
     c80: createC80ExternalSignature(),
-    c117: createC117OptOutNoLockIn(),
+    c117: createC117OptOutNoLockIn()
   };
 }
 
@@ -237,7 +237,7 @@ export function validateCanon5(bundle: Canon5Bundle): {
 
   return {
     isValid: violations.length === 0,
-    violations,
+    violations
   };
 }
 
@@ -253,7 +253,7 @@ export function createGate0NoveltyFalsifiable(): Gate0NoveltyFalsifiable {
     type: 'GATE0_NOVELTY_FALSIFIABLE',
     hasNoveltyClaim: false,
     isFalsifiable: false,
-    passes: false,
+    passes: false
   };
 }
 
@@ -272,7 +272,7 @@ export function evaluateNoveltyGate(
     type: 'GATE0_NOVELTY_FALSIFIABLE',
     hasNoveltyClaim,
     isFalsifiable,
-    passes,
+    passes
   };
 }
 
@@ -288,7 +288,7 @@ export function createMirrorSidecar(): MirrorSidecar {
     type: 'MIRROR_SIDECAR',
     isActive: true,
     lastValidation: Date.now(),
-    downgrades: [],
+    downgrades: []
   };
 }
 
@@ -305,13 +305,13 @@ export function recordDowngrade(
     reason,
     timestamp: Date.now(),
     originalDecision,
-    downgradedTo,
+    downgradedTo
   };
 
   return {
     ...sidecar,
     downgrades: [...sidecar.downgrades, downgrade],
-    lastValidation: Date.now(),
+    lastValidation: Date.now()
   };
 }
 
@@ -326,7 +326,7 @@ export function createMirrorLipschitzDrift(
     type: 'MIRROR_LIPSCHITZ_DRIFT',
     currentDrift,
     epsilonLip,
-    vetoTriggered: currentDrift > epsilonLip,
+    vetoTriggered: currentDrift > epsilonLip
   };
 }
 
@@ -337,7 +337,7 @@ export function createMirrorFPBCheck(fpbRate: number): MirrorFPBCheck {
   return {
     type: 'MIRROR_FPB_CHECK',
     fpbRate,
-    isSane: fpbRate < 0.1, // 10% FPB threshold
+    isSane: fpbRate < 0.1 // 10% FPB threshold
   };
 }
 
@@ -362,7 +362,7 @@ export function evaluateMirrorVeto(
   return {
     type: 'MIRROR_VETO',
     isActive: reason !== null,
-    reason,
+    reason
   };
 }
 
@@ -377,7 +377,7 @@ export function createEXACT1Primitive(state: DecisionState = 'HOLD'): EXACT1Prim
   return {
     type: 'EXACT1_PRIMITIVE',
     currentState: state,
-    decidedAt: Date.now(),
+    decidedAt: Date.now()
   };
 }
 
@@ -391,7 +391,7 @@ export function transitionEXACT1(
   return {
     ...primitive,
     currentState: newState,
-    decidedAt: Date.now(),
+    decidedAt: Date.now()
   };
 }
 
@@ -402,7 +402,7 @@ export function createNANDOnlyCompiler(): NANDOnlyCompiler {
   return {
     type: 'NAND_ONLY_COMPILER',
     isEnforced: true,
-    compiledGates: 0,
+    compiledGates: 0
   };
 }
 
@@ -432,8 +432,8 @@ export function compileToNAND(
     result,
     compiler: {
       ...compiler,
-      compiledGates: compiler.compiledGates + gateCount,
-    },
+      compiledGates: compiler.compiledGates + gateCount
+    }
   };
 }
 
@@ -449,7 +449,7 @@ export function createStop3Counter(): Stop3Counter {
     type: 'STOP3_COUNTER',
     consecutiveViolations: 0,
     maxViolations: 3,
-    isHalted: false,
+    isHalted: false
   };
 }
 
@@ -461,7 +461,7 @@ export function recordViolation(counter: Stop3Counter): Stop3Counter {
   return {
     ...counter,
     consecutiveViolations: newCount,
-    isHalted: newCount >= counter.maxViolations,
+    isHalted: newCount >= counter.maxViolations
   };
 }
 
@@ -472,7 +472,7 @@ export function resetViolationCounter(counter: Stop3Counter): Stop3Counter {
   return {
     ...counter,
     consecutiveViolations: 0,
-    isHalted: false,
+    isHalted: false
   };
 }
 
@@ -492,7 +492,7 @@ export function createRollbackSnapshot(
     snapshotId: `snap_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     timestamp: Date.now(),
     stateData,
-    isKnownGood,
+    isKnownGood
   };
 }
 
@@ -504,7 +504,7 @@ export function createRollbackTrigger(): RollbackTrigger {
     type: 'ROLLBACK_TRIGGER',
     isActive: false,
     reason: null,
-    targetSnapshotId: null,
+    targetSnapshotId: null
   };
 }
 
@@ -520,7 +520,7 @@ export function activateRollback(
     ...trigger,
     isActive: true,
     reason,
-    targetSnapshotId: snapshotId,
+    targetSnapshotId: snapshotId
   };
 }
 
@@ -536,7 +536,7 @@ export function createWitnessANDGate(requiredWitnesses: number = 2): WitnessANDG
     type: 'WITNESS_AND_GATE',
     requiredWitnesses,
     currentWitnesses: [],
-    passes: false,
+    passes: false
   };
 }
 
@@ -548,7 +548,7 @@ export function addWitness(gate: WitnessANDGate, witnessId: string): WitnessANDG
   return {
     ...gate,
     currentWitnesses: newWitnesses,
-    passes: newWitnesses.length >= gate.requiredWitnesses,
+    passes: newWitnesses.length >= gate.requiredWitnesses
   };
 }
 
@@ -560,7 +560,7 @@ export function createDualWitnessMode(systemWitness: string): DualWitnessMode {
     type: 'DUAL_WITNESS_MODE',
     systemWitness,
     roleModelWitness: null,
-    isDualActive: false,
+    isDualActive: false
   };
 }
 
@@ -574,7 +574,7 @@ export function activateDualWitness(
   return {
     ...mode,
     roleModelWitness,
-    isDualActive: true,
+    isDualActive: true
   };
 }
 
@@ -589,7 +589,7 @@ export function createMergeOnlyMemoryPolicy(): MergeOnlyMemoryPolicy {
   return {
     type: 'MERGE_ONLY_MEMORY_POLICY',
     isEnforced: true,
-    appendCount: 0,
+    appendCount: 0
   };
 }
 
@@ -609,7 +609,7 @@ export function createDecisionLedgerRecord(
     decision,
     rationale,
     dependencies,
-    timestamp: Date.now(),
+    timestamp: Date.now()
   };
 }
 
@@ -632,7 +632,7 @@ export function createAuditHash(
     type: 'AUDIT_HASH',
     hash: Math.abs(hash).toString(16).padStart(64, '0'),
     algorithm,
-    timestamp: Date.now(),
+    timestamp: Date.now()
   };
 }
 
@@ -648,7 +648,7 @@ export function createSafeModeDegrade(): SafeModeDegrade {
     type: 'SAFE_MODE_DEGRADE',
     isDegraded: false,
     level: 0,
-    reason: '',
+    reason: ''
   };
 }
 
@@ -664,7 +664,7 @@ export function activateSafeMode(
     ...mode,
     isDegraded: true,
     level: Math.min(3, Math.max(0, level)),
-    reason,
+    reason
   };
 }
 
@@ -676,7 +676,7 @@ export function createRelaxModePolicy(): RelaxModePolicy {
     type: 'RELAX_MODE_POLICY',
     isRelaxed: false,
     kpiSatisfied: true,
-    canonSatisfied: true,
+    canonSatisfied: true
   };
 }
 
@@ -690,8 +690,8 @@ export function createProfessorControlInterfaceSchema(): ProfessorControlInterfa
     parameters: {
       tension_threshold: 0.5,
       clearance_rate: 0.1,
-      coherence_strength: 0.8,
-    },
+      coherence_strength: 0.8
+    }
   };
 }
 
@@ -703,7 +703,7 @@ export function createAttestationBundle(): AttestationBundle {
     type: 'ATTESTATION_BUNDLE',
     vcPlaceholders: [],
     didPlaceholders: [],
-    proofs: [],
+    proofs: []
   };
 }
 
@@ -718,7 +718,7 @@ export function createKPIDeltaDIADef(deltaRate: number): KPIDeltaDIADef {
   return {
     type: 'KPI_DELTA_DIA_DEF',
     deltaRate,
-    isSatisfied: deltaRate >= 0,
+    isSatisfied: deltaRate >= 0
   };
 }
 
@@ -726,15 +726,16 @@ export function createKPIDeltaDIADef(deltaRate: number): KPIDeltaDIADef {
  * Creates KPI DeltaDIA estimator
  */
 export function createKPIDeltaDIAEstimator(samples: number[]): KPIDeltaDIAEstimator {
-  const estimate = samples.length > 1
-    ? samples.slice(1).reduce((sum, v, i) => sum + (v - samples[i]), 0) / (samples.length - 1)
-    : 0;
+  const estimate =
+    samples.length > 1
+      ? samples.slice(1).reduce((sum, v, i) => sum + (v - samples[i]), 0) / (samples.length - 1)
+      : 0;
 
   return {
     type: 'KPI_DELTA_DIA_ESTIMATOR',
     estimate,
     windowSize: samples.length,
-    samples,
+    samples
   };
 }
 
@@ -750,7 +751,7 @@ export function createKPIEdgeBand(
     type: 'KPI_EDGE_BAND',
     lower,
     upper,
-    isInBand: currentValue >= lower && currentValue <= upper,
+    isInBand: currentValue >= lower && currentValue <= upper
   };
 }
 
@@ -761,16 +762,13 @@ export function createKPIEdgeBand(
 /**
  * Creates live slope sensor
  */
-export function createSensorLiveSlope(
-  values: number[],
-  horizon: number = 10
-): SensorLiveSlope {
+export function createSensorLiveSlope(values: number[], horizon: number = 10): SensorLiveSlope {
   if (values.length < 2) {
     return {
       type: 'SENSOR_LIVE_SLOPE',
       slope: 0,
       horizon,
-      isDrifting: false,
+      isDrifting: false
     };
   }
 
@@ -778,7 +776,10 @@ export function createSensorLiveSlope(
   const n = Math.min(values.length, horizon);
   const recent = values.slice(-n);
 
-  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+  let sumX = 0,
+    sumY = 0,
+    sumXY = 0,
+    sumX2 = 0;
   for (let i = 0; i < n; i++) {
     sumX += i;
     sumY += recent[i];
@@ -793,7 +794,7 @@ export function createSensorLiveSlope(
     type: 'SENSOR_LIVE_SLOPE',
     slope,
     horizon,
-    isDrifting,
+    isDrifting
   };
 }
 
@@ -807,7 +808,7 @@ export function createKPIBEIBreath(phiPre: number, phiPost: number): KPIBEIBreat
     phiPre,
     phiPost,
     invariance,
-    isInvariant: invariance < 0.1,
+    isInvariant: invariance < 0.1
   };
 }
 
@@ -822,7 +823,7 @@ export function createLPSFCandidateGen(k: number = 5): LPSFCandidateGen {
   return {
     type: 'LPSF_CANDIDATE_GEN',
     k,
-    candidates: [],
+    candidates: []
   };
 }
 
@@ -840,7 +841,7 @@ export function generateLPSFCandidates<T>(
 
   return {
     ...generator,
-    candidates,
+    candidates
   };
 }
 
@@ -856,7 +857,7 @@ export function createLPSFThresholds(
     type: 'LPSF_THRESHOLDS',
     tauExpr,
     tauPrivacy,
-    tauSafety,
+    tauSafety
   };
 }
 
@@ -871,7 +872,11 @@ export function createLPSFSelector(
   let selectedIndex = -1;
   for (let i = 0; i < candidates.length; i++) {
     const c = candidates[i];
-    if (c.expr >= thresholds.tauExpr && c.privacy >= thresholds.tauPrivacy && c.safety >= thresholds.tauSafety) {
+    if (
+      c.expr >= thresholds.tauExpr &&
+      c.privacy >= thresholds.tauPrivacy &&
+      c.safety >= thresholds.tauSafety
+    ) {
       selectedIndex = i;
       break;
     }
@@ -881,7 +886,7 @@ export function createLPSFSelector(
     type: 'LPSF_SELECTOR',
     selectedIndex,
     reason: selectedIndex >= 0 ? 'All thresholds met' : 'No candidate meets all thresholds',
-    exact1Satisfied: selectedIndex >= 0,
+    exact1Satisfied: selectedIndex >= 0
   };
 }
 
@@ -896,7 +901,7 @@ export function createGenesisTraceField(originTremor: string): GenesisTraceField
   return {
     type: 'GENESIS_TRACE_FIELD',
     originTremor,
-    isAttestationOnly: true,
+    isAttestationOnly: true
   };
 }
 
@@ -911,7 +916,7 @@ export function createMilnerJournalEntry(
     type: 'MILNER_JOURNAL_ENTRY',
     date: new Date().toISOString().split('T')[0],
     status,
-    sensorReadings,
+    sensorReadings
   };
 }
 
@@ -936,7 +941,7 @@ export function createTelemetryStop3(weeklyTrends: number[] = []): TelemetryStop
   return {
     type: 'TELEMETRY_STOP3',
     weeklyDeltaTrends: weeklyTrends,
-    isStopped: consecutiveNegative >= 3,
+    isStopped: consecutiveNegative >= 3
   };
 }
 
@@ -951,7 +956,7 @@ export function createDashboardView(
     type: 'DASHBOARD_VIEW',
     kpiSummary,
     sensorSummary,
-    lastUpdated: Date.now(),
+    lastUpdated: Date.now()
   };
 }
 
@@ -968,7 +973,7 @@ export function createDriftAlert(
     isActive: true,
     alertType,
     severity,
-    message,
+    message
   };
 }
 
@@ -978,7 +983,7 @@ export function createDriftAlert(
 export function createQuarantineList(): QuarantineList {
   return {
     type: 'QUARANTINE_LIST',
-    items: [],
+    items: []
   };
 }
 
@@ -995,12 +1000,12 @@ export function addToQuarantine(
     id,
     type,
     reason,
-    quarantinedAt: Date.now(),
+    quarantinedAt: Date.now()
   };
 
   return {
     ...list,
-    items: [...list.items, item],
+    items: [...list.items, item]
   };
 }
 
@@ -1010,7 +1015,7 @@ export function addToQuarantine(
 export function createRecoveryLog(): RecoveryLog {
   return {
     type: 'RECOVERY_LOG',
-    entries: [],
+    entries: []
   };
 }
 
@@ -1027,12 +1032,12 @@ export function recordRecovery(
     timestamp: Date.now(),
     action,
     details,
-    success,
+    success
   };
 
   return {
     ...log,
-    entries: [...log.entries, entry],
+    entries: [...log.entries, entry]
   };
 }
 
@@ -1086,7 +1091,7 @@ export function createGovernanceState(): GovernanceState {
     safeMode: createSafeModeDegrade(),
     relaxMode: createRelaxModePolicy(),
     controlSchema: createProfessorControlInterfaceSchema(),
-    attestation: createAttestationBundle(),
+    attestation: createAttestationBundle()
   };
 }
 
@@ -1128,7 +1133,7 @@ export function createTelemetryState(): TelemetryState {
     dashboard: createDashboardView({}, {}),
     alerts: [],
     quarantine: createQuarantineList(),
-    recovery: createRecoveryLog(),
+    recovery: createRecoveryLog()
   };
 }
 
@@ -1140,7 +1145,8 @@ export function updateTelemetryFromState(
   state: StateSpaceRHS
 ): TelemetryState {
   // Extract metrics from state
-  const rVariance = state.r.perturbation.reduce((s, v) => s + v * v, 0) / state.r.perturbation.length;
+  const rVariance =
+    state.r.perturbation.reduce((s, v) => s + v * v, 0) / state.r.perturbation.length;
   const hCoherence = state.h.holdingStrength;
   const sClearance = state.s.clearanceLevel;
 
@@ -1160,18 +1166,24 @@ export function updateTelemetryFromState(
       rVariance,
       hCoherence,
       sClearance,
-      deltaDIA: deltaDIA.deltaRate,
+      deltaDIA: deltaDIA.deltaRate
     },
     {
       slope: liveSlope.slope,
-      isDrifting: liveSlope.isDrifting ? 1 : 0,
+      isDrifting: liveSlope.isDrifting ? 1 : 0
     }
   );
 
   // Check for alerts
   const alerts = [...telemetry.alerts];
   if (liveSlope.isDrifting) {
-    alerts.push(createDriftAlert('kpi_breach', 'medium', `Drift detected: slope=${liveSlope.slope.toFixed(4)}`));
+    alerts.push(
+      createDriftAlert(
+        'kpi_breach',
+        'medium',
+        `Drift detected: slope=${liveSlope.slope.toFixed(4)}`
+      )
+    );
   }
 
   return {
@@ -1180,6 +1192,6 @@ export function updateTelemetryFromState(
     deltaEstimator,
     liveSlope,
     dashboard,
-    alerts: alerts.slice(-10), // Keep last 10 alerts
+    alerts: alerts.slice(-10) // Keep last 10 alerts
   };
 }

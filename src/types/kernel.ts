@@ -380,7 +380,7 @@ export const EVIDENCE_LABELS: Record<EvidenceTier, EvidenceLabel> = {
   E0: { tier: 'E0', description: 'Interpretive - Structural isomorphism only; no measurement' },
   E1: { tier: 'E1', description: 'Operational - Proxies defined; limited measurement' },
   E2: { tier: 'E2', description: 'Simulated - Computational/agent simulation validates dynamics' },
-  E3: { tier: 'E3', description: 'Experimental - Physical/experimental verification of closure' },
+  E3: { tier: 'E3', description: 'Experimental - Physical/experimental verification of closure' }
 };
 
 /**
@@ -668,7 +668,7 @@ export const MODE_DESCRIPTIONS: Record<ModeType, string> = {
   epiphenomenal: 'TE≈0; S has no downward influence',
   ossification: 'H dominates; R suppressed; novelty stalls',
   explosion: 'R dominates; coherence cannot form',
-  model_collapse: 'Self-training reduces variance',
+  model_collapse: 'Self-training reduces variance'
 };
 
 /**
@@ -933,20 +933,90 @@ export interface KnowledgeLevel {
 }
 
 export const KNOWLEDGE_LEVELS: Record<KnowledgeLevelId, KnowledgeLevel> = {
-  L01: { id: 'L01', name: 'Digital Foundation', description: 'Domain row #1 for convolution/matrix', rowIndex: 0 },
-  L02: { id: 'L02', name: 'Boolean Logic', description: 'Domain row #2 for convolution/matrix', rowIndex: 1 },
-  L03: { id: 'L03', name: 'Fundamental Questions', description: 'Domain row #3 for convolution/matrix', rowIndex: 2 },
-  L04: { id: 'L04', name: 'Governance & Organization', description: 'Domain row #4 for convolution/matrix', rowIndex: 3 },
-  L05: { id: 'L05', name: 'Standards & Regulation', description: 'Domain row #5 for convolution/matrix', rowIndex: 4 },
-  L06: { id: 'L06', name: 'Execution & Implementation', description: 'Domain row #6 for convolution/matrix', rowIndex: 5 },
-  L07: { id: 'L07', name: 'Measurement & Control', description: 'Domain row #7 for convolution/matrix', rowIndex: 6 },
-  L08: { id: 'L08', name: 'Monitoring & Response', description: 'Domain row #8 for convolution/matrix', rowIndex: 7 },
-  L09: { id: 'L09', name: 'Learning & Improvement', description: 'Domain row #9 for convolution/matrix', rowIndex: 8 },
-  L10: { id: 'L10', name: 'Interface & Experience (UX)', description: 'Domain row #10 for convolution/matrix', rowIndex: 9 },
-  L11: { id: 'L11', name: 'Human Rights', description: 'Domain row #11 for convolution/matrix', rowIndex: 10 },
-  L12: { id: 'L12', name: 'Geopolitics', description: 'Domain row #12 for convolution/matrix', rowIndex: 11 },
-  L13: { id: 'L13', name: 'Digital Commons', description: 'Domain row #13 for convolution/matrix', rowIndex: 12 },
-  L14: { id: 'L14', name: 'Existential Resilience', description: 'Domain row #14 for convolution/matrix', rowIndex: 13 },
+  L01: {
+    id: 'L01',
+    name: 'Digital Foundation',
+    description: 'Domain row #1 for convolution/matrix',
+    rowIndex: 0
+  },
+  L02: {
+    id: 'L02',
+    name: 'Boolean Logic',
+    description: 'Domain row #2 for convolution/matrix',
+    rowIndex: 1
+  },
+  L03: {
+    id: 'L03',
+    name: 'Fundamental Questions',
+    description: 'Domain row #3 for convolution/matrix',
+    rowIndex: 2
+  },
+  L04: {
+    id: 'L04',
+    name: 'Governance & Organization',
+    description: 'Domain row #4 for convolution/matrix',
+    rowIndex: 3
+  },
+  L05: {
+    id: 'L05',
+    name: 'Standards & Regulation',
+    description: 'Domain row #5 for convolution/matrix',
+    rowIndex: 4
+  },
+  L06: {
+    id: 'L06',
+    name: 'Execution & Implementation',
+    description: 'Domain row #6 for convolution/matrix',
+    rowIndex: 5
+  },
+  L07: {
+    id: 'L07',
+    name: 'Measurement & Control',
+    description: 'Domain row #7 for convolution/matrix',
+    rowIndex: 6
+  },
+  L08: {
+    id: 'L08',
+    name: 'Monitoring & Response',
+    description: 'Domain row #8 for convolution/matrix',
+    rowIndex: 7
+  },
+  L09: {
+    id: 'L09',
+    name: 'Learning & Improvement',
+    description: 'Domain row #9 for convolution/matrix',
+    rowIndex: 8
+  },
+  L10: {
+    id: 'L10',
+    name: 'Interface & Experience (UX)',
+    description: 'Domain row #10 for convolution/matrix',
+    rowIndex: 9
+  },
+  L11: {
+    id: 'L11',
+    name: 'Human Rights',
+    description: 'Domain row #11 for convolution/matrix',
+    rowIndex: 10
+  },
+  L12: {
+    id: 'L12',
+    name: 'Geopolitics',
+    description: 'Domain row #12 for convolution/matrix',
+    rowIndex: 11
+  },
+  L13: {
+    id: 'L13',
+    name: 'Digital Commons',
+    description: 'Domain row #13 for convolution/matrix',
+    rowIndex: 12
+  },
+  L14: {
+    id: 'L14',
+    name: 'Existential Resilience',
+    description: 'Domain row #14 for convolution/matrix',
+    rowIndex: 13
+  }
 };
 
 // ============================================================================
@@ -978,20 +1048,104 @@ export interface CanonicalTriad {
 }
 
 export const CANONICAL_TRIADS: Record<CanonicalTriadId, CanonicalTriad> = {
-  T01: { id: 'T01', name: 'Peirce', components: ['Firstness', 'Secondness', 'Thirdness'], description: 'Canonical triad column #1 used as mapping lens', colIndex: 0 },
-  T02: { id: 'T02', name: 'Haken', components: ['Fluctuation', 'Order', 'Slaving'], description: 'Canonical triad column #2 used as mapping lens', colIndex: 1 },
-  T03: { id: 'T03', name: 'Lacan', components: ['Real', 'Imaginary', 'Symbolic'], description: 'Canonical triad column #3 used as mapping lens', colIndex: 2 },
-  T04: { id: 'T04', name: 'Morin', components: ['Disorder', 'Interaction', 'Organization'], description: 'Canonical triad column #4 used as mapping lens', colIndex: 3 },
-  T05: { id: 'T05', name: 'Campbell', components: ['Variation', 'Selection', 'Retention'], description: 'Canonical triad column #5 used as mapping lens', colIndex: 4 },
-  T06: { id: 'T06', name: 'Hofkirchner', components: ['Cognition', 'Communication', 'Cooperation'], description: 'Canonical triad column #6 used as mapping lens', colIndex: 5 },
-  T07: { id: 'T07', name: 'Bruna', components: ['Oscillation', 'Interference', 'Attractor'], description: 'Canonical triad column #7 used as mapping lens', colIndex: 6 },
-  T08: { id: 'T08', name: 'Cacella', components: ['Rise', 'Permanence', 'Meta'], description: 'Canonical triad column #8 used as mapping lens', colIndex: 7 },
-  T09: { id: 'T09', name: 'Self-Coherence', components: ['Drive', 'Constraint', 'Mediation'], description: 'Canonical triad column #9 used as mapping lens', colIndex: 8 },
-  T10: { id: 'T10', name: 'Semiotic Closure', components: ['Signal', 'Code', 'Meaning'], description: 'Canonical triad column #10 used as mapping lens', colIndex: 9 },
-  T11: { id: 'T11', name: 'Cybernetic Closure', components: ['Noise', 'Regulation', 'Control-Law'], description: 'Canonical triad column #11 used as mapping lens', colIndex: 10 },
-  T12: { id: 'T12', name: 'Evolutionary Learning', components: ['Explore', 'Exploit', 'Policy'], description: 'Canonical triad column #12 used as mapping lens', colIndex: 11 },
-  T13: { id: 'T13', name: 'Music-Generative', components: ['Rhythm', 'Harmony', 'Emergence'], description: 'Canonical triad column #13 used as mapping lens', colIndex: 12 },
-  T14: { id: 'T14', name: 'RHS Kernel', components: ['R', 'H', 'S'], description: 'Canonical triad column #14 used as mapping lens', colIndex: 13 },
+  T01: {
+    id: 'T01',
+    name: 'Peirce',
+    components: ['Firstness', 'Secondness', 'Thirdness'],
+    description: 'Canonical triad column #1 used as mapping lens',
+    colIndex: 0
+  },
+  T02: {
+    id: 'T02',
+    name: 'Haken',
+    components: ['Fluctuation', 'Order', 'Slaving'],
+    description: 'Canonical triad column #2 used as mapping lens',
+    colIndex: 1
+  },
+  T03: {
+    id: 'T03',
+    name: 'Lacan',
+    components: ['Real', 'Imaginary', 'Symbolic'],
+    description: 'Canonical triad column #3 used as mapping lens',
+    colIndex: 2
+  },
+  T04: {
+    id: 'T04',
+    name: 'Morin',
+    components: ['Disorder', 'Interaction', 'Organization'],
+    description: 'Canonical triad column #4 used as mapping lens',
+    colIndex: 3
+  },
+  T05: {
+    id: 'T05',
+    name: 'Campbell',
+    components: ['Variation', 'Selection', 'Retention'],
+    description: 'Canonical triad column #5 used as mapping lens',
+    colIndex: 4
+  },
+  T06: {
+    id: 'T06',
+    name: 'Hofkirchner',
+    components: ['Cognition', 'Communication', 'Cooperation'],
+    description: 'Canonical triad column #6 used as mapping lens',
+    colIndex: 5
+  },
+  T07: {
+    id: 'T07',
+    name: 'Bruna',
+    components: ['Oscillation', 'Interference', 'Attractor'],
+    description: 'Canonical triad column #7 used as mapping lens',
+    colIndex: 6
+  },
+  T08: {
+    id: 'T08',
+    name: 'Cacella',
+    components: ['Rise', 'Permanence', 'Meta'],
+    description: 'Canonical triad column #8 used as mapping lens',
+    colIndex: 7
+  },
+  T09: {
+    id: 'T09',
+    name: 'Self-Coherence',
+    components: ['Drive', 'Constraint', 'Mediation'],
+    description: 'Canonical triad column #9 used as mapping lens',
+    colIndex: 8
+  },
+  T10: {
+    id: 'T10',
+    name: 'Semiotic Closure',
+    components: ['Signal', 'Code', 'Meaning'],
+    description: 'Canonical triad column #10 used as mapping lens',
+    colIndex: 9
+  },
+  T11: {
+    id: 'T11',
+    name: 'Cybernetic Closure',
+    components: ['Noise', 'Regulation', 'Control-Law'],
+    description: 'Canonical triad column #11 used as mapping lens',
+    colIndex: 10
+  },
+  T12: {
+    id: 'T12',
+    name: 'Evolutionary Learning',
+    components: ['Explore', 'Exploit', 'Policy'],
+    description: 'Canonical triad column #12 used as mapping lens',
+    colIndex: 11
+  },
+  T13: {
+    id: 'T13',
+    name: 'Music-Generative',
+    components: ['Rhythm', 'Harmony', 'Emergence'],
+    description: 'Canonical triad column #13 used as mapping lens',
+    colIndex: 12
+  },
+  T14: {
+    id: 'T14',
+    name: 'RHS Kernel',
+    components: ['R', 'H', 'S'],
+    description: 'Canonical triad column #14 used as mapping lens',
+    colIndex: 13
+  }
 };
 
 // ============================================================================
@@ -1039,7 +1193,7 @@ export function parseCellId(cellId: string): { row: number; col: number } | null
   if (!match) return null;
   return {
     row: parseInt(match[1], 10) - 1,
-    col: parseInt(match[2], 10) - 1,
+    col: parseInt(match[2], 10) - 1
   };
 }
 

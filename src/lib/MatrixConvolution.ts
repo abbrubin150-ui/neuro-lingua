@@ -30,13 +30,9 @@ import type {
   GStatus,
   EvidenceTier,
   KnowledgeLevelId,
-  CanonicalTriadId,
+  CanonicalTriadId
 } from '../types/kernel';
-import {
-  KNOWLEDGE_LEVELS,
-  CANONICAL_TRIADS,
-  generateCellId,
-} from '../types/kernel';
+import { KNOWLEDGE_LEVELS, CANONICAL_TRIADS, generateCellId } from '../types/kernel';
 import { createStateSpaceRHS, executeCycle, createCycleOperator } from './KernelPrimitives';
 import { runFullGenerativityTest, quickGenerativityCheck } from './GenerativityTests';
 import { assignEvidenceTier, createEvidenceRecord } from './EvidenceAndMetrics';
@@ -63,7 +59,7 @@ export function createTargetTriadRecord(
     y,
     z,
     context,
-    sourceRef,
+    sourceRef
   };
 }
 
@@ -91,7 +87,7 @@ export function createTriadFromCanonical(
     y,
     z,
     context: `${level.name} under ${triad.name}`,
-    sourceRef: `Cell ${generateCellId(level.rowIndex, triad.colIndex)}`,
+    sourceRef: `Cell ${generateCellId(level.rowIndex, triad.colIndex)}`
   };
 }
 
@@ -147,7 +143,7 @@ export function computeRoleAlignment(triad: TargetTriadRecord): RoleAlignment {
       entropy: xEntropy,
       noiseScore: xVariance * xEntropy,
       coherenceScore: (1 - xEntropy) * xVariance,
-      mediationScore: Math.abs(xVariance - (yVariance + zVariance) / 2),
+      mediationScore: Math.abs(xVariance - (yVariance + zVariance) / 2)
     },
     {
       name: 'Y',
@@ -155,7 +151,7 @@ export function computeRoleAlignment(triad: TargetTriadRecord): RoleAlignment {
       entropy: yEntropy,
       noiseScore: yVariance * yEntropy,
       coherenceScore: (1 - yEntropy) * yVariance,
-      mediationScore: Math.abs(yVariance - (xVariance + zVariance) / 2),
+      mediationScore: Math.abs(yVariance - (xVariance + zVariance) / 2)
     },
     {
       name: 'Z',
@@ -163,8 +159,8 @@ export function computeRoleAlignment(triad: TargetTriadRecord): RoleAlignment {
       entropy: zEntropy,
       noiseScore: zVariance * zEntropy,
       coherenceScore: (1 - zEntropy) * zVariance,
-      mediationScore: Math.abs(zVariance - (xVariance + yVariance) / 2),
-    },
+      mediationScore: Math.abs(zVariance - (xVariance + yVariance) / 2)
+    }
   ];
 
   // Sort by each score to determine mappings
@@ -191,7 +187,7 @@ export function computeRoleAlignment(triad: TargetTriadRecord): RoleAlignment {
     rMapping,
     hMapping,
     sMapping,
-    confidence,
+    confidence
   };
 }
 
@@ -258,7 +254,7 @@ export function computeKDepthScore(
   return {
     type: 'K_DEPTH_SCORE',
     depth,
-    justification,
+    justification
   };
 }
 
@@ -269,23 +265,19 @@ export function computeKDepthScore(
 /**
  * Creates a convolution operator for sliding RHS kernel over matrix
  */
-export function createConvolutionOperator(
-  initialState: StateSpaceRHS
-): ConvolutionOperator {
+export function createConvolutionOperator(initialState: StateSpaceRHS): ConvolutionOperator {
   return {
     type: 'CONVOLUTION_OPERATOR',
     kernel: initialState,
     position: { row: 0, col: 0 },
-    populatedCount: 0,
+    populatedCount: 0
   };
 }
 
 /**
  * Advances convolution operator to next position
  */
-export function advanceConvolution(
-  operator: ConvolutionOperator
-): ConvolutionOperator {
+export function advanceConvolution(operator: ConvolutionOperator): ConvolutionOperator {
   let { row, col } = operator.position;
 
   col++;
@@ -297,7 +289,7 @@ export function advanceConvolution(
   return {
     ...operator,
     position: { row, col },
-    populatedCount: operator.populatedCount + 1,
+    populatedCount: operator.populatedCount + 1
   };
 }
 
@@ -316,9 +308,12 @@ export function applyConvolution(
   const alignment = computeRoleAlignment(triad);
 
   // Create state space from mapped components
-  const mappedR = alignment.rMapping === 'X' ? triad.x : alignment.rMapping === 'Y' ? triad.y : triad.z;
-  const mappedH = alignment.hMapping === 'X' ? triad.x : alignment.hMapping === 'Y' ? triad.y : triad.z;
-  const mappedS = alignment.sMapping === 'X' ? triad.x : alignment.sMapping === 'Y' ? triad.y : triad.z;
+  const mappedR =
+    alignment.rMapping === 'X' ? triad.x : alignment.rMapping === 'Y' ? triad.y : triad.z;
+  const mappedH =
+    alignment.hMapping === 'X' ? triad.x : alignment.hMapping === 'Y' ? triad.y : triad.z;
+  const mappedS =
+    alignment.sMapping === 'X' ? triad.x : alignment.sMapping === 'Y' ? triad.y : triad.z;
 
   // Create and evolve state space
   const state = createStateSpaceRHS(mappedR.length);
@@ -330,7 +325,7 @@ export function applyConvolution(
 
   // Assign evidence tier
   const evidenceRecord = [
-    createEvidenceRecord('convolution_mapping', 'theory', alignment.confidence),
+    createEvidenceRecord('convolution_mapping', 'theory', alignment.confidence)
   ];
   const eAssignment = assignEvidenceTier(evidenceRecord, 'convolution');
 
@@ -349,7 +344,7 @@ export function applyConvolution(
     gStatus,
     eTier: eAssignment.tier,
     kDepth: kDepthScore.depth,
-    narrative: generateCellNarrative(levelId, triadId, gStatus, eAssignment.tier, kDepthScore),
+    narrative: generateCellNarrative(levelId, triadId, gStatus, eAssignment.tier, kDepthScore)
   };
 
   return { cell, operator: advanceConvolution(operator) };
@@ -388,17 +383,14 @@ function generateCellNarrative(
 export function createNearMissDetector(): NearMissDetector {
   return {
     type: 'NEAR_MISS_DETECTOR',
-    detections: [],
+    detections: []
   };
 }
 
 /**
  * Checks for near-miss in a cell
  */
-export function detectNearMiss(
-  detector: NearMissDetector,
-  cell: MatrixCell
-): NearMissDetector {
+export function detectNearMiss(detector: NearMissDetector, cell: MatrixCell): NearMissDetector {
   if (!cell.gStatus) return detector;
 
   const failedTests: ('G1' | 'G2' | 'G3')[] = [];
@@ -411,12 +403,12 @@ export function detectNearMiss(
     const detection: NearMissDetection = {
       triadId: cell.cellId,
       failedTests,
-      classification: failedTests.length === 1 ? 'near_generative' : 'taxonomy',
+      classification: failedTests.length === 1 ? 'near_generative' : 'taxonomy'
     };
 
     return {
       ...detector,
-      detections: [...detector.detections, detection],
+      detections: [...detector.detections, detection]
     };
   }
 
@@ -434,7 +426,7 @@ export function createCanonicalTriadCatalog(version: string = '1.0.0'): Canonica
   return {
     type: 'CANONICAL_TRIAD_CATALOG',
     triads: [],
-    version,
+    version
   };
 }
 
@@ -452,12 +444,12 @@ export function registerTriad(
     name,
     triad,
     source,
-    acceptedDate: Date.now(),
+    acceptedDate: Date.now()
   };
 
   return {
     ...catalog,
-    triads: [...catalog.triads, entry],
+    triads: [...catalog.triads, entry]
   };
 }
 
@@ -489,7 +481,7 @@ export function generateMappingReport(cell: MatrixCell): MappingReport {
     gStatus: cell.gStatus!,
     eTier: cell.eTier!,
     kDepth: cell.kDepth!,
-    generatedAt: Date.now(),
+    generatedAt: Date.now()
   };
 }
 
@@ -514,7 +506,7 @@ export function createMatrixGenerator(seed: number = 42): MatrixGenerator {
     type: 'MATRIX_GENERATOR',
     rows: 14,
     cols: 14,
-    seed,
+    seed
   };
 }
 
@@ -580,7 +572,7 @@ export function createCellValidator(): CellValidator {
   return {
     type: 'CELL_VALIDATOR',
     results: [],
-    isValid: true,
+    isValid: true
   };
 }
 
@@ -607,7 +599,7 @@ export function validateCell(cell: MatrixCell): CellValidationResult {
     hasETier,
     hasKDepth,
     isValid: errors.length === 0,
-    errors,
+    errors
   };
 }
 
@@ -621,7 +613,7 @@ export function validateMatrix(cells: MatrixCell[]): CellValidator {
   return {
     type: 'CELL_VALIDATOR',
     results,
-    isValid,
+    isValid
   };
 }
 
@@ -641,9 +633,9 @@ export function createVersionLedger(initialVersion: string = '0.0.1'): VersionLe
         version: initialVersion,
         timestamp: Date.now(),
         changes: ['Initial creation'],
-        author: 'system',
-      },
-    ],
+        author: 'system'
+      }
+    ]
   };
 }
 
@@ -660,13 +652,13 @@ export function recordVersion(
     version: newVersion,
     timestamp: Date.now(),
     changes,
-    author,
+    author
   };
 
   return {
     ...ledger,
     currentVersion: newVersion,
-    history: [...ledger.history, entry],
+    history: [...ledger.history, entry]
   };
 }
 
@@ -706,7 +698,7 @@ export function createExportPack(
     catalog,
     ledger,
     exportedAt: Date.now(),
-    formatVersion: '1.0.0',
+    formatVersion: '1.0.0'
   };
 }
 
@@ -747,7 +739,7 @@ export function computeMatrixStatistics(cells: MatrixCell[]): {
     nearMissCells: 0,
     byETier: { E0: 0, E1: 0, E2: 0, E3: 0 } as Record<EvidenceTier, number>,
     byKDepth: { 0: 0, 1: 0, 2: 0 } as Record<KDepth, number>,
-    generativeRate: 0,
+    generativeRate: 0
   };
 
   for (const cell of cells) {
@@ -761,7 +753,7 @@ export function computeMatrixStatistics(cells: MatrixCell[]): {
         const passCount = [
           cell.gStatus.g1.passes,
           cell.gStatus.g2.passes,
-          cell.gStatus.g3.passes,
+          cell.gStatus.g3.passes
         ].filter(Boolean).length;
         if (passCount > 0 && passCount < 3) {
           stats.nearMissCells++;
@@ -812,9 +804,4 @@ export function getCellsByTriad(cells: MatrixCell[], triadId: CanonicalTriadId):
 // Utility Exports
 // ============================================================================
 
-export {
-  generateDeterministicVector,
-  computeVariance,
-  computeEntropy,
-  generateCellNarrative,
-};
+export { generateDeterministicVector, computeVariance, computeEntropy, generateCellNarrative };

@@ -32,3 +32,14 @@ export type {
   DatasetProgressCallback,
   LabelSchema
 } from '../types/dataset';
+
+// 2D Convolution Matrix Data
+export {
+  TRIADS,
+  LAYERS,
+  CELL_CONTENTS,
+  DEPTH_MATRIX,
+  MAIN_DIAGONAL_MEANINGS,
+  ANTI_DIAGONAL_MEANINGS,
+  buildAllCells,
+} from './conv2dData';

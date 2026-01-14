@@ -41,5 +41,5 @@ export {
   DEPTH_MATRIX,
   MAIN_DIAGONAL_MEANINGS,
   ANTI_DIAGONAL_MEANINGS,
-  buildAllCells,
+  buildAllCells
 } from './conv2dData';

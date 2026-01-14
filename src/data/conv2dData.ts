@@ -7,14 +7,7 @@
  * X-axis: Digital Layers (N1-N14)
  */
 
-import type {
-  Triad,
-  TriadId,
-  DigitalLayer,
-  LayerId,
-  Conv2DCell,
-  ConvDepth,
-} from '../types/conv2d';
+import type { Triad, TriadId, DigitalLayer, LayerId, Conv2DCell, ConvDepth } from '../types/conv2d';
 
 // ============================================================================
 // Triad Definitions (T1-T14) - Y-axis
@@ -26,99 +19,99 @@ export const TRIADS: Record<TriadId, Triad> = {
     nameHe: 'רעש → רגולציה → שליטה',
     nameEn: 'Noise → Regulation → Control',
     components: ['Noise', 'Regulation', 'Control'],
-    rowIndex: 0,
+    rowIndex: 0
   },
   T2: {
     id: 'T2',
     nameHe: 'וריאציה → סלקציה → שימור',
     nameEn: 'Variation → Selection → Retention',
     components: ['Variation', 'Selection', 'Retention'],
-    rowIndex: 1,
+    rowIndex: 1
   },
   T3: {
     id: 'T3',
     nameHe: 'תנודה → פרמטר סדר → שעבוד',
     nameEn: 'Fluctuation → Order Parameter → Slaving',
     components: ['Fluctuation', 'Order Parameter', 'Slaving'],
-    rowIndex: 2,
+    rowIndex: 2
   },
   T4: {
     id: 'T4',
     nameHe: 'אי-סדר → אינטראקציה → ארגון',
     nameEn: 'Disorder → Interaction → Organization',
     components: ['Disorder', 'Interaction', 'Organization'],
-    rowIndex: 3,
+    rowIndex: 3
   },
   T5: {
     id: 'T5',
     nameHe: 'תנודה → הפרעה → אטרקטור תהודה',
     nameEn: 'Oscillation → Interference → Resonant Attractor',
     components: ['Oscillation', 'Interference', 'Resonant Attractor'],
-    rowIndex: 4,
+    rowIndex: 4
   },
   T6: {
     id: 'T6',
     nameHe: 'קצב → הרמוניה → צמיחה',
     nameEn: 'Rhythm → Harmony → Emergence',
     components: ['Rhythm', 'Harmony', 'Emergence'],
-    rowIndex: 5,
+    rowIndex: 5
   },
   T7: {
     id: 'T7',
     nameHe: 'דחף → אילוץ → תיווך',
     nameEn: 'Drive → Constraint → Mediation',
     components: ['Drive', 'Constraint', 'Mediation'],
-    rowIndex: 6,
+    rowIndex: 6
   },
   T8: {
     id: 'T8',
     nameHe: 'חקור → נצל → מדיניות',
     nameEn: 'Explore → Exploit → Policy',
     components: ['Explore', 'Exploit', 'Policy'],
-    rowIndex: 7,
+    rowIndex: 7
   },
   T9: {
     id: 'T9',
     nameHe: 'חיזוי → שגיאה → עדכון מודל',
     nameEn: 'Prediction → Error → Model Update',
     components: ['Prediction', 'Error', 'Model Update'],
-    rowIndex: 8,
+    rowIndex: 8
   },
   T10: {
     id: 'T10',
     nameHe: 'אות → קוד → פרשנות',
     nameEn: 'Signal → Code → Interpretation',
     components: ['Signal', 'Code', 'Interpretation'],
-    rowIndex: 9,
+    rowIndex: 9
   },
   T11: {
     id: 'T11',
     nameHe: 'תיאום → יישור → מנדט',
     nameEn: 'Coordination → Alignment → Mandate',
     components: ['Coordination', 'Alignment', 'Mandate'],
-    rowIndex: 10,
+    rowIndex: 10
   },
   T12: {
     id: 'T12',
     nameHe: 'תרומה → הדדיות → תשתית',
     nameEn: 'Contribution → Interoperability → Infrastructure',
     components: ['Contribution', 'Interoperability', 'Infrastructure'],
-    rowIndex: 11,
+    rowIndex: 11
   },
   T13: {
     id: 'T13',
     nameHe: 'גבול → מצב → מעבר',
     nameEn: 'Boundary → State → Transition',
     components: ['Boundary', 'State', 'Transition'],
-    rowIndex: 12,
+    rowIndex: 12
   },
   T14: {
     id: 'T14',
     nameHe: 'בראשית → התאמה → התעלות',
     nameEn: 'Genesis → Adaptation → Transcendence',
     components: ['Genesis', 'Adaptation', 'Transcendence'],
-    rowIndex: 13,
-  },
+    rowIndex: 13
+  }
 };
 
 // ============================================================================
@@ -131,99 +124,99 @@ export const LAYERS: Record<LayerId, DigitalLayer> = {
     nameHe: 'תשתית דיגיטלית',
     nameEn: 'Digital Foundation',
     keywords: ['data', 'network', 'compute', 'storage', 'identity', 'security'],
-    colIndex: 0,
+    colIndex: 0
   },
   N2: {
     id: 'N2',
     nameHe: 'לוגיקה בוליאנית',
     nameEn: 'Boolean Logic',
     keywords: ['and', 'or', 'not', 'xor', 'nand', 'nor'],
-    colIndex: 1,
+    colIndex: 1
   },
   N3: {
     id: 'N3',
     nameHe: 'שאלות יסוד',
     nameEn: 'Fundamental Questions',
     keywords: ['why', 'how', 'how-much'],
-    colIndex: 2,
+    colIndex: 2
   },
   N4: {
     id: 'N4',
     nameHe: 'ממשל וארגון',
     nameEn: 'Governance & Organization',
     keywords: ['govern', 'align', 'arbitrate', 'publish'],
-    colIndex: 3,
+    colIndex: 3
   },
   N5: {
     id: 'N5',
     nameHe: 'תקנים ורגולציה',
     nameEn: 'Standards & Regulation',
     keywords: ['standardize', 'certify', 'accredit', 'legislate'],
-    colIndex: 4,
+    colIndex: 4
   },
   N6: {
     id: 'N6',
     nameHe: 'ביצוע ויישום',
     nameEn: 'Execution & Implementation',
     keywords: ['plan', 'implement', 'configure', 'deploy'],
-    colIndex: 5,
+    colIndex: 5
   },
   N7: {
     id: 'N7',
     nameHe: 'מדידה ובקרה',
     nameEn: 'Measurement & Control',
     keywords: ['measure', 'verify', 'validate', 'audit', 'log'],
-    colIndex: 6,
+    colIndex: 6
   },
   N8: {
     id: 'N8',
     nameHe: 'ניטור ותגובה',
     nameEn: 'Monitoring & Response',
     keywords: ['monitor', 'detect', 'alert', 'escalate', 'rollback'],
-    colIndex: 7,
+    colIndex: 7
   },
   N9: {
     id: 'N9',
     nameHe: 'למידה ושיפור',
     nameEn: 'Learning & Improvement',
     keywords: ['postmortem', 'root-cause', 'refactor', 'benchmark'],
-    colIndex: 8,
+    colIndex: 8
   },
   N10: {
     id: 'N10',
     nameHe: 'ממשק וחוויה',
     nameEn: 'Interface & Experience',
     keywords: ['personas', 'wireframe', 'usability', 'accessibility'],
-    colIndex: 9,
+    colIndex: 9
   },
   N11: {
     id: 'N11',
     nameHe: 'זכויות אדם',
     nameEn: 'Human Rights',
     keywords: ['dignity', 'autonomy', 'privacy', 'consent', 'safety'],
-    colIndex: 10,
+    colIndex: 10
   },
   N12: {
     id: 'N12',
     nameHe: 'גיאופוליטיקה',
     nameEn: 'Geopolitics',
     keywords: ['sovereignty', 'treaties', 'sanctions', 'cyber-norms'],
-    colIndex: 11,
+    colIndex: 11
   },
   N13: {
     id: 'N13',
     nameHe: 'נכסים דיגיטליים משותפים',
     nameEn: 'Digital Commons',
     keywords: ['open-source', 'open-data', 'open-standards'],
-    colIndex: 12,
+    colIndex: 12
   },
   N14: {
     id: 'N14',
     nameHe: 'אבולוציה והתאמה',
     nameEn: 'Evolution & Adaptation',
     keywords: ['genetic', 'phenotypic', 'speciation', 'fitness'],
-    colIndex: 13,
-  },
+    colIndex: 13
+  }
 };
 
 // ============================================================================
@@ -249,7 +242,7 @@ const T1_CELLS: string[] = [
   'Violation noise → reporting regulation → justice control',
   'Intelligence noise → diplomacy regulation → influence control',
   'Access noise → moderation regulation → community control',
-  'Genetic noise → selection regulation → adaptation control',
+  'Genetic noise → selection regulation → adaptation control'
 ];
 
 /**
@@ -271,7 +264,7 @@ const T2_CELLS: string[] = [
   'Claim variation → adjudication selection → precedent retention',
   'Strategy variation → alliance selection → bloc retention',
   'Content variation → curation selection → repository retention',
-  'Phenotypic variation → environmental selection → trait retention',
+  'Phenotypic variation → environmental selection → trait retention'
 ];
 
 /**
@@ -293,7 +286,7 @@ const T3_CELLS: string[] = [
   'Demand fluctuation → principle parameter → enforcement slaving',
   'Power fluctuation → hegemon parameter → vassal slaving',
   'Usage fluctuation → governance parameter → contribution slaving',
-  'Population fluctuation → fitness parameter → adaptive dominance',
+  'Population fluctuation → fitness parameter → adaptive dominance'
 ];
 
 /**
@@ -315,7 +308,7 @@ const T4_CELLS: string[] = [
   'Oppression disorder → advocacy interaction → rights organization',
   'Conflict disorder → negotiation interaction → order organization',
   'Fragmentation disorder → collaboration interaction → commons organization',
-  'Ecological disorder → species interaction → ecosystem organization',
+  'Ecological disorder → species interaction → ecosystem organization'
 ];
 
 /**
@@ -337,7 +330,7 @@ const T5_CELLS: string[] = [
   'Protest oscillation → repression interference → protected attractor',
   'Crisis oscillation → deterrence interference → balance attractor',
   'Fork oscillation → merge interference → coherent project attractor',
-  'Predator-prey oscillation → competition interference → stable-cycle attractor',
+  'Predator-prey oscillation → competition interference → stable-cycle attractor'
 ];
 
 /**
@@ -359,7 +352,7 @@ const T6_CELLS: string[] = [
   'Struggle rhythm → solidarity harmony → dignity emergence',
   'Escalation rhythm → détente harmony → stability emergence',
   'Contribution rhythm → synergy harmony → collective emergence',
-  'Metabolic rhythm → symbiotic harmony → speciation emergence',
+  'Metabolic rhythm → symbiotic harmony → speciation emergence'
 ];
 
 /**
@@ -381,7 +374,7 @@ const T7_CELLS: string[] = [
   'Dignity drive → prohibition constraint → remedy mediation',
   'Ambition drive → treaty constraint → sphere mediation',
   'Sharing drive → license constraint → permission mediation',
-  'Survival drive → resource constraint → niche mediation',
+  'Survival drive → resource constraint → niche mediation'
 ];
 
 /**
@@ -403,7 +396,7 @@ const T8_CELLS: string[] = [
   'Explore freedoms → exploit protections → rights policy',
   'Explore options → exploit leverage → foreign policy',
   'Explore resources → exploit forks → commons policy',
-  'Explore mutations → exploit niches → evolutionary policy',
+  'Explore mutations → exploit niches → evolutionary policy'
 ];
 
 /**
@@ -425,7 +418,7 @@ const T9_CELLS: string[] = [
   'Predict abuse → violation error → norm update',
   'Predict moves → miscalculation error → strategy update',
   'Predict sustainability → tragedy error → governance update',
-  'Adaptive prediction → selection error → genetic-model update',
+  'Adaptive prediction → selection error → genetic-model update'
 ];
 
 /**
@@ -447,7 +440,7 @@ const T10_CELLS: string[] = [
   'Grievance signal → article code → entitlement interpretation',
   'Event signal → narrative code → interest interpretation',
   'Creation signal → format code → shared interpretation',
-  'Environmental cue → epigenetic code → developmental interpretation',
+  'Environmental cue → epigenetic code → developmental interpretation'
 ];
 
 /**
@@ -469,7 +462,7 @@ const T11_CELLS: string[] = [
   'Social coordination → rights alignment → legal mandate',
   'State coordination → bloc alignment → security mandate',
   'Member coordination → norm alignment → commons mandate',
-  'Species coordination → coevolutionary alignment → natural-selection mandate',
+  'Species coordination → coevolutionary alignment → natural-selection mandate'
 ];
 
 /**
@@ -491,7 +484,7 @@ const T12_CELLS: string[] = [
   'Individual contribution → treaty interoperability → rights infrastructure',
   'National contribution → treaty interoperability → geopolitical infrastructure',
   'User contribution → protocol interoperability → digital infrastructure',
-  'Trait contribution → gene-flow interoperability → gene-pool infrastructure',
+  'Trait contribution → gene-flow interoperability → gene-pool infrastructure'
 ];
 
 /**
@@ -513,7 +506,7 @@ const T13_CELLS: string[] = [
   'Restriction boundary → protected state → emancipation transition',
   'Border boundary → sovereignty state → geopolitical transition',
   'Exclusion boundary → inclusion state → commons transition',
-  'Reproductive boundary → speciation state → adaptive-radiation transition',
+  'Reproductive boundary → speciation state → adaptive-radiation transition'
 ];
 
 /**
@@ -535,7 +528,7 @@ const T14_CELLS: string[] = [
   'Rights genesis → legal adaptation → dignity transcendence',
   'Treaty genesis → diplomatic adaptation → peace transcendence',
   'Commons genesis → collaborative adaptation → collective transcendence',
-  'Species genesis → evolutionary adaptation → consciousness transcendence',
+  'Species genesis → evolutionary adaptation → consciousness transcendence'
 ];
 
 /**
@@ -555,7 +548,7 @@ export const CELL_CONTENTS: Record<TriadId, string[]> = {
   T11: T11_CELLS,
   T12: T12_CELLS,
   T13: T13_CELLS,
-  T14: T14_CELLS,
+  T14: T14_CELLS
 };
 
 // ============================================================================
@@ -600,7 +593,7 @@ export const DEPTH_MATRIX: ConvDepth[][] = [
   // T13:
   [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
   // T14:
-  [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+  [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
 ];
 
 // ============================================================================
@@ -613,60 +606,60 @@ export const MAIN_DIAGONAL_MEANINGS: {
 }[] = [
   {
     meaningHe: 'תשתית שולטת בעצמה',
-    meaningEn: 'Infrastructure controls itself',
+    meaningEn: 'Infrastructure controls itself'
   },
   {
     meaningHe: 'לוגיקה מפרשת את עצמה',
-    meaningEn: 'Logic interprets itself',
+    meaningEn: 'Logic interprets itself'
   },
   {
     meaningHe: 'שאלות משנות שאלות',
-    meaningEn: 'Questions change questions',
+    meaningEn: 'Questions change questions'
   },
   {
     meaningHe: 'ממשל מממשל',
-    meaningEn: 'Governance governs',
+    meaningEn: 'Governance governs'
   },
   {
     meaningHe: 'סטנדרט מסטנדרט',
-    meaningEn: 'Standard standardizes',
+    meaningEn: 'Standard standardizes'
   },
   {
     meaningHe: 'ביצוע מביא ביצוע',
-    meaningEn: 'Execution brings execution',
+    meaningEn: 'Execution brings execution'
   },
   {
     meaningHe: 'מדידה מולידה שליטה',
-    meaningEn: 'Measurement generates control',
+    meaningEn: 'Measurement generates control'
   },
   {
     meaningHe: 'תגובה מייצבת תגובה',
-    meaningEn: 'Response stabilizes response',
+    meaningEn: 'Response stabilizes response'
   },
   {
     meaningHe: 'למידה מולידה יכולת',
-    meaningEn: 'Learning generates capability',
+    meaningEn: 'Learning generates capability'
   },
   {
     meaningHe: 'UX מולידה חוויה',
-    meaningEn: 'UX generates experience',
+    meaningEn: 'UX generates experience'
   },
   {
     meaningHe: 'זכויות מולידות כבוד',
-    meaningEn: 'Rights generate dignity',
+    meaningEn: 'Rights generate dignity'
   },
   {
     meaningHe: 'גיאופוליטיקה מייצבת',
-    meaningEn: 'Geopolitics stabilizes',
+    meaningEn: 'Geopolitics stabilizes'
   },
   {
     meaningHe: 'קומונס מוליד קולקטיב',
-    meaningEn: 'Commons generates collective',
+    meaningEn: 'Commons generates collective'
   },
   {
     meaningHe: 'אבולוציה מתעלה',
-    meaningEn: 'Evolution transcends',
-  },
+    meaningEn: 'Evolution transcends'
+  }
 ];
 
 // ============================================================================
@@ -683,86 +676,86 @@ export const ANTI_DIAGONAL_MEANINGS: {
     triadIndex: 0,
     layerIndex: 13,
     meaningHe: 'תשתית↔אבולוציה',
-    meaningEn: 'Infrastructure ↔ Evolution',
+    meaningEn: 'Infrastructure ↔ Evolution'
   },
   {
     triadIndex: 1,
     layerIndex: 12,
     meaningHe: 'לוגיקה↔קומונס',
-    meaningEn: 'Logic ↔ Commons',
+    meaningEn: 'Logic ↔ Commons'
   },
   {
     triadIndex: 2,
     layerIndex: 11,
     meaningHe: 'שאלות↔גיאופוליטיקה',
-    meaningEn: 'Questions ↔ Geopolitics',
+    meaningEn: 'Questions ↔ Geopolitics'
   },
   {
     triadIndex: 3,
     layerIndex: 10,
     meaningHe: 'אי-סדר↔זכויות',
-    meaningEn: 'Disorder ↔ Rights',
+    meaningEn: 'Disorder ↔ Rights'
   },
   {
     triadIndex: 4,
     layerIndex: 9,
     meaningHe: 'תנודה↔ממשק',
-    meaningEn: 'Oscillation ↔ Interface',
+    meaningEn: 'Oscillation ↔ Interface'
   },
   {
     triadIndex: 5,
     layerIndex: 8,
     meaningHe: 'קצב↔למידה',
-    meaningEn: 'Rhythm ↔ Learning',
+    meaningEn: 'Rhythm ↔ Learning'
   },
   {
     triadIndex: 6,
     layerIndex: 7,
     meaningHe: 'מדידה↔תגובה',
-    meaningEn: 'Measurement ↔ Response',
+    meaningEn: 'Measurement ↔ Response'
   },
   {
     triadIndex: 7,
     layerIndex: 6,
     meaningHe: 'חקירה↔בקרה',
-    meaningEn: 'Exploration ↔ Control',
+    meaningEn: 'Exploration ↔ Control'
   },
   {
     triadIndex: 8,
     layerIndex: 5,
     meaningHe: 'חיזוי↔ביצוע',
-    meaningEn: 'Prediction ↔ Execution',
+    meaningEn: 'Prediction ↔ Execution'
   },
   {
     triadIndex: 9,
     layerIndex: 4,
     meaningHe: 'אות↔תקינה',
-    meaningEn: 'Signal ↔ Standards',
+    meaningEn: 'Signal ↔ Standards'
   },
   {
     triadIndex: 10,
     layerIndex: 3,
     meaningHe: 'תיאום↔ממשל',
-    meaningEn: 'Coordination ↔ Governance',
+    meaningEn: 'Coordination ↔ Governance'
   },
   {
     triadIndex: 11,
     layerIndex: 2,
     meaningHe: 'תרומה↔שאלות',
-    meaningEn: 'Contribution ↔ Questions',
+    meaningEn: 'Contribution ↔ Questions'
   },
   {
     triadIndex: 12,
     layerIndex: 1,
     meaningHe: 'גבול↔לוגיקה',
-    meaningEn: 'Boundary ↔ Logic',
+    meaningEn: 'Boundary ↔ Logic'
   },
   {
     triadIndex: 13,
     layerIndex: 0,
     meaningHe: 'אבולוציה↔תשתית',
-    meaningEn: 'Evolution ↔ Infrastructure',
-  },
+    meaningEn: 'Evolution ↔ Infrastructure'
+  }
 ];
 
 // ============================================================================
@@ -788,7 +781,7 @@ export function buildAllCells(): Conv2DCell[] {
         rowIndex: row,
         colIndex: col,
         content: contents[col],
-        depth: DEPTH_MATRIX[row][col],
+        depth: DEPTH_MATRIX[row][col]
       });
     }
   }

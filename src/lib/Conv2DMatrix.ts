@@ -16,8 +16,6 @@
 import type {
   TriadId,
   LayerId,
-  Triad,
-  DigitalLayer,
   Conv2DCell,
   Conv2DMatrix,
   Conv2DStatistics,
@@ -29,20 +27,16 @@ import type {
   ConvolutionProperties,
   AtomicParagraph,
   WhyHowAssessment,
-  AuditorSummary,
-  generateConv2DCellId,
-  getTriadIdFromRow,
-  getLayerIdFromCol,
+  AuditorSummary
 } from '../types/conv2d';
 
 import {
   TRIADS,
   LAYERS,
-  CELL_CONTENTS,
   DEPTH_MATRIX,
   MAIN_DIAGONAL_MEANINGS,
   ANTI_DIAGONAL_MEANINGS,
-  buildAllCells,
+  buildAllCells
 } from '../data/conv2dData';
 
 // ============================================================================
@@ -63,7 +57,7 @@ export function createConv2DMatrix(): Conv2DMatrix {
     cells,
     depthMatrix: DEPTH_MATRIX,
     statistics,
-    version: '1.0.0',
+    version: '1.0.0'
   };
 }
 
@@ -98,7 +92,7 @@ export function computeStatistics(cells: Conv2DCell[]): Conv2DStatistics {
     emptyCells,
     corePercentage: (coreCells / totalCells) * 100,
     relevantPercentage: (relevantCells / totalCells) * 100,
-    emptyPercentage: (emptyCells / totalCells) * 100,
+    emptyPercentage: (emptyCells / totalCells) * 100
   };
 }
 
@@ -119,9 +113,7 @@ export function getCell(
   if (!triad || !layer) return null;
 
   return (
-    matrix.cells.find(
-      (c) => c.rowIndex === triad.rowIndex && c.colIndex === layer.colIndex
-    ) || null
+    matrix.cells.find((c) => c.rowIndex === triad.rowIndex && c.colIndex === layer.colIndex) || null
   );
 }
 
@@ -192,7 +184,7 @@ export function getMainDiagonal(matrix: Conv2DMatrix): MainDiagonalEntry[] {
       layerId: cell.layerId,
       cell,
       meaningHe: meaning.meaningHe,
-      meaningEn: meaning.meaningEn,
+      meaningEn: meaning.meaningEn
     });
   }
 
@@ -216,7 +208,7 @@ export function getAntiDiagonal(matrix: Conv2DMatrix): AntiDiagonalEntry[] {
       layerId: cell.layerId,
       cell,
       meaningHe: meaning.meaningHe,
-      meaningEn: meaning.meaningEn,
+      meaningEn: meaning.meaningEn
     });
   }
 
@@ -230,7 +222,7 @@ export function analyzeDiagonals(matrix: Conv2DMatrix): DiagonalAnalysis {
   return {
     type: 'DIAGONAL_ANALYSIS',
     mainDiagonal: getMainDiagonal(matrix),
-    antiDiagonal: getAntiDiagonal(matrix),
+    antiDiagonal: getAntiDiagonal(matrix)
   };
 }
 
@@ -244,8 +236,9 @@ export function analyzeDiagonals(matrix: Conv2DMatrix): DiagonalAnalysis {
 export function getConvolutionFormula(): ConvolutionFormula {
   return {
     type: 'CONVOLUTION_FORMULA',
-    latex: '\\text{Conv}_{2D}(T, N) = \\sum_{i=1}^{14} \\sum_{j=1}^{14} K(T_i, N_j) \\cdot (T_i \\otimes S_j)',
-    properties: getConvolutionProperties(),
+    latex:
+      '\\text{Conv}_{2D}(T, N) = \\sum_{i=1}^{14} \\sum_{j=1}^{14} K(T_i, N_j) \\cdot (T_i \\otimes S_j)',
+    properties: getConvolutionProperties()
   };
 }
 
@@ -258,7 +251,7 @@ export function getConvolutionProperties(): ConvolutionProperties {
     universalTriad: 'T7', // Drive → Constraint → Mediation
     density: 90.8,
     mainDiagonalReflexivity: true,
-    antiDiagonalTransitions: true,
+    antiDiagonalTransitions: true
   };
 }
 
@@ -327,9 +320,7 @@ export function getCellsByKeyword(matrix: Conv2DMatrix, keyword: string): Conv2D
     layer.keywords.some((k) => k.toLowerCase().includes(lowerKeyword))
   );
 
-  return matrix.cells.filter((c) =>
-    matchingLayers.some((layer) => layer.colIndex === c.colIndex)
-  );
+  return matrix.cells.filter((c) => matchingLayers.some((layer) => layer.colIndex === c.colIndex));
 }
 
 // ============================================================================
@@ -348,10 +339,7 @@ export function getSubmatrix(
 ): Conv2DCell[] {
   return matrix.cells.filter(
     (c) =>
-      c.rowIndex >= rowStart &&
-      c.rowIndex < rowEnd &&
-      c.colIndex >= colStart &&
-      c.colIndex < colEnd
+      c.rowIndex >= rowStart && c.rowIndex < rowEnd && c.colIndex >= colStart && c.colIndex < colEnd
   );
 }
 
@@ -456,9 +444,9 @@ export function generateAtomicParagraph(): AtomicParagraph {
   return {
     type: 'ATOMIC_PARAGRAPH',
     contentHe:
-      'הקונבולוציה הדו-מימדית מייצרת מטריצה 14×14 = 196 תאים, כאשר כל תא מכיל טרנספורמציה ייחודית של טריאדה (Noise→Regulation→Control וכו\') על שכבה דיגיטלית (Foundation עד Evolution). האלכסון הראשי מייצג רפלקסיביות עצמית (מערכת שולטת בעצמה), האלכסון המשני מייצג מעברים קריטיים בין קצוות. 90.8% מהתאים הם ליבה (K=2), ללא תאים ריקים. הטריאדה ה-14 (Genesis→Adaptation→Transcendence) נוספה לסגירת המטריצה הריבועית ומייצגת את הציר האבולוציוני של כל מערכת.',
+      "הקונבולוציה הדו-מימדית מייצרת מטריצה 14×14 = 196 תאים, כאשר כל תא מכיל טרנספורמציה ייחודית של טריאדה (Noise→Regulation→Control וכו') על שכבה דיגיטלית (Foundation עד Evolution). האלכסון הראשי מייצג רפלקסיביות עצמית (מערכת שולטת בעצמה), האלכסון המשני מייצג מעברים קריטיים בין קצוות. 90.8% מהתאים הם ליבה (K=2), ללא תאים ריקים. הטריאדה ה-14 (Genesis→Adaptation→Transcendence) נוספה לסגירת המטריצה הריבועית ומייצגת את הציר האבולוציוני של כל מערכת.",
     contentEn:
-      'The 2D convolution generates a 14×14 = 196 cell matrix, where each cell contains a unique transformation of a triad (Noise→Regulation→Control etc.) on a digital layer (Foundation to Evolution). The main diagonal represents self-reflexivity (system controls itself), the anti-diagonal represents critical transitions between extremes. 90.8% of cells are core (K=2), with no empty cells. Triad 14 (Genesis→Adaptation→Transcendence) was added to close the square matrix and represents the evolutionary axis of every system.',
+      'The 2D convolution generates a 14×14 = 196 cell matrix, where each cell contains a unique transformation of a triad (Noise→Regulation→Control etc.) on a digital layer (Foundation to Evolution). The main diagonal represents self-reflexivity (system controls itself), the anti-diagonal represents critical transitions between extremes. 90.8% of cells are core (K=2), with no empty cells. Triad 14 (Genesis→Adaptation→Transcendence) was added to close the square matrix and represents the evolutionary axis of every system.'
   };
 }
 
@@ -469,14 +457,13 @@ export function generateWhyHowAssessment(): WhyHowAssessment {
   return {
     type: 'WHY_HOW_ASSESSMENT',
     whyRhythm: 3,
-    whyJustification:
-      '2D convolution unifies two orthogonal systems into a shared space',
+    whyJustification: '2D convolution unifies two orthogonal systems into a shared space',
     how: 3,
     howSteps: [
       'Define 14 triads × 14 layers',
       'Fill 196 cells with unique transformations',
-      'Analyze diagonals and patterns',
-    ],
+      'Analyze diagonals and patterns'
+    ]
   };
 }
 
@@ -489,7 +476,7 @@ export function generateAuditorSummary(): AuditorSummary {
     intent: '2D convolution between triads and digital layers',
     execution: 'Full 14×14 matrix with depth scores',
     outcome: '196 unique transformations + diagonal analysis',
-    delta: 'Could generate network graph or heatmap',
+    delta: 'Could generate network graph or heatmap'
   };
 }
 
@@ -534,11 +521,21 @@ export function exportContentAsMarkdown(matrix: Conv2DMatrix, triadId: TriadId):
   lines.push('');
   lines.push('| N1 | N2 | N3 | N4 | N5 | N6 | N7 |');
   lines.push('|----|----|----|----|----|----|----| ');
-  lines.push(`| ${cells.slice(0, 7).map((c) => c.content).join(' | ')} |`);
+  lines.push(
+    `| ${cells
+      .slice(0, 7)
+      .map((c) => c.content)
+      .join(' | ')} |`
+  );
   lines.push('');
   lines.push('| N8 | N9 | N10 | N11 | N12 | N13 | N14 |');
   lines.push('|----|----|----|-----|-----|-----|-----|');
-  lines.push(`| ${cells.slice(7).map((c) => c.content).join(' | ')} |`);
+  lines.push(
+    `| ${cells
+      .slice(7)
+      .map((c) => c.content)
+      .join(' | ')} |`
+  );
 
   return lines.join('\n');
 }
@@ -598,7 +595,7 @@ export function generateHeatmapData(
   return matrix.cells.map((c) => ({
     row: c.rowIndex,
     col: c.colIndex,
-    value: c.depth,
+    value: c.depth
   }));
 }
 
@@ -615,7 +612,7 @@ export function generateNetworkEdges(
       edges.push({
         source: cell.triadId,
         target: cell.layerId,
-        weight: cell.depth,
+        weight: cell.depth
       });
     }
   }

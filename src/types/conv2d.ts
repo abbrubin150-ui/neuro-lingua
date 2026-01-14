@@ -256,14 +256,12 @@ export function generateConv2DCellId(row: number, col: number): string {
 /**
  * Parse cell ID to coordinates
  */
-export function parseConv2DCellId(
-  cellId: string
-): CellCoordinates | null {
+export function parseConv2DCellId(cellId: string): CellCoordinates | null {
   const match = cellId.match(/^C(\d{2})(\d{2})$/);
   if (!match) return null;
   return {
     row: parseInt(match[1], 10) - 1,
-    col: parseInt(match[2], 10) - 1,
+    col: parseInt(match[2], 10) - 1
   };
 }
 

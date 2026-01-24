@@ -38,8 +38,16 @@ const DEFAULT_CONFIG: WebSocketConfig = {
 };
 
 const USER_COLORS = [
-  '#6366f1', '#22d3ee', '#f472b6', '#a78bfa', '#34d399',
-  '#fbbf24', '#fb7185', '#818cf8', '#2dd4bf', '#f97316'
+  '#6366f1',
+  '#22d3ee',
+  '#f472b6',
+  '#a78bfa',
+  '#34d399',
+  '#fbbf24',
+  '#fb7185',
+  '#818cf8',
+  '#2dd4bf',
+  '#f97316'
 ];
 
 // ============================================================================
@@ -113,7 +121,9 @@ export class WebSocketService {
 
       console.log(`[WebSocketService] Connected with ID: ${this.state.connectionId}`);
     } catch (error) {
-      console.warn('[WebSocketService] BroadcastChannel not available, falling back to local-only mode');
+      console.warn(
+        '[WebSocketService] BroadcastChannel not available, falling back to local-only mode'
+      );
       this.state.connected = true; // Still mark as connected for local operations
     }
   }
@@ -156,7 +166,11 @@ export class WebSocketService {
   /**
    * Subscribe to a channel
    */
-  subscribe(channelId: string, type: WebSocketChannel['type'] = 'global', entityId?: string): boolean {
+  subscribe(
+    channelId: string,
+    type: WebSocketChannel['type'] = 'global',
+    entityId?: string
+  ): boolean {
     if (this.state.subscribedChannels.includes(channelId)) return true;
 
     // Create or get channel
@@ -194,7 +208,7 @@ export class WebSocketService {
     if (!channel) return false;
 
     channel.subscribers.delete(this.state.userId);
-    this.state.subscribedChannels = this.state.subscribedChannels.filter(c => c !== channelId);
+    this.state.subscribedChannels = this.state.subscribedChannels.filter((c) => c !== channelId);
 
     // Notify others
     this.send('user_presence', channelId, {
@@ -454,7 +468,7 @@ export class WebSocketService {
     let messages = [...this.state.messageBuffer];
 
     if (channel) {
-      messages = messages.filter(m => m.channel === channel);
+      messages = messages.filter((m) => m.channel === channel);
     }
 
     if (limit) {

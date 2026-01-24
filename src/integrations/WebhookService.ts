@@ -191,33 +191,50 @@ export class WebhookService {
    */
   async dispatchAlert(alert: BoardAlert, projectId?: string): Promise<WebhookDelivery[]> {
     const eventType: WebhookEventType =
-      alert.severity === 'critical' ? 'alert_critical' :
-      alert.severity === 'warning' ? 'alert_warning' : 'alert_info';
+      alert.severity === 'critical'
+        ? 'alert_critical'
+        : alert.severity === 'warning'
+          ? 'alert_warning'
+          : 'alert_info';
 
-    return this.dispatch(eventType, {
-      alertId: alert.id,
-      type: alert.type,
-      message: alert.message,
-      metric: alert.metric,
-      value: alert.value
-    }, { projectId });
+    return this.dispatch(
+      eventType,
+      {
+        alertId: alert.id,
+        type: alert.type,
+        message: alert.message,
+        metric: alert.metric,
+        value: alert.value
+      },
+      { projectId }
+    );
   }
 
   /**
    * Dispatch brain state change
    */
-  async dispatchBrainState(brain: BrainStats, event: 'burnout' | 'recovery' | 'mood_change'): Promise<WebhookDelivery[]> {
+  async dispatchBrainState(
+    brain: BrainStats,
+    event: 'burnout' | 'recovery' | 'mood_change'
+  ): Promise<WebhookDelivery[]> {
     const eventType: WebhookEventType =
-      event === 'burnout' ? 'brain_burnout' :
-      event === 'recovery' ? 'brain_recovery' : 'brain_mood_change';
+      event === 'burnout'
+        ? 'brain_burnout'
+        : event === 'recovery'
+          ? 'brain_recovery'
+          : 'brain_mood_change';
 
-    return this.dispatch(eventType, {
-      brainId: brain.id,
-      mood: brain.mood,
-      creativity: brain.creativity,
-      stability: brain.stability,
-      label: brain.label
-    }, { brainId: brain.id });
+    return this.dispatch(
+      eventType,
+      {
+        brainId: brain.id,
+        mood: brain.mood,
+        creativity: brain.creativity,
+        stability: brain.stability,
+        label: brain.label
+      },
+      { brainId: brain.id }
+    );
   }
 
   /**
@@ -236,7 +253,10 @@ export class WebhookService {
   // Webhook Delivery
   // ==========================================================================
 
-  private async sendToWebhook(webhook: WebhookConfig, payload: WebhookPayload): Promise<WebhookDelivery> {
+  private async sendToWebhook(
+    webhook: WebhookConfig,
+    payload: WebhookPayload
+  ): Promise<WebhookDelivery> {
     const delivery: WebhookDelivery = {
       id: `delivery_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       webhookId: webhook.id,
@@ -300,19 +320,23 @@ export class WebhookService {
   private generateMessage(event: WebhookEventType, data: Record<string, unknown>): string {
     const messages: Record<WebhookEventType, (data: Record<string, unknown>) => string> = {
       training_started: (d) => `Training started for run ${d.runId || 'unknown'}`,
-      training_completed: (d) => `Training completed! Final loss: ${d.loss || 'N/A'}, Accuracy: ${d.accuracy || 'N/A'}`,
+      training_completed: (d) =>
+        `Training completed! Final loss: ${d.loss || 'N/A'}, Accuracy: ${d.accuracy || 'N/A'}`,
       training_failed: (d) => `Training failed: ${d.error || 'Unknown error'}`,
-      training_progress: (d) => `Training progress: Epoch ${d.epoch}/${d.totalEpochs}, Loss: ${d.loss}`,
+      training_progress: (d) =>
+        `Training progress: Epoch ${d.epoch}/${d.totalEpochs}, Loss: ${d.loss}`,
       alert_critical: (d) => `CRITICAL ALERT: ${d.message || d.type}`,
       alert_warning: (d) => `Warning: ${d.message || d.type}`,
       alert_info: (d) => `Info: ${d.message || d.type}`,
-      brain_burnout: (d) => `Brain "${d.label || d.brainId}" is burnt out! Creativity: ${d.creativity}, Stability: ${d.stability}`,
+      brain_burnout: (d) =>
+        `Brain "${d.label || d.brainId}" is burnt out! Creativity: ${d.creativity}, Stability: ${d.stability}`,
       brain_recovery: (d) => `Brain "${d.label || d.brainId}" has recovered. Mood: ${d.mood}`,
       brain_mood_change: (d) => `Brain mood changed to ${d.mood}`,
       model_saved: (d) => `Model saved: ${d.name || d.modelId}`,
       model_loaded: (d) => `Model loaded: ${d.name || d.modelId}`,
       governance_action: (d) => `Governance action: ${d.action || d.type}`,
-      calibration_applied: (d) => `Calibration applied: ${d.parameter} changed from ${d.previousValue} to ${d.newValue}`
+      calibration_applied: (d) =>
+        `Calibration applied: ${d.parameter} changed from ${d.previousValue} to ${d.newValue}`
     };
 
     return messages[event]?.(data) || `Event: ${event}`;
@@ -328,7 +352,10 @@ export class WebhookService {
     const blocks: SlackBlock[] = [
       {
         type: 'header',
-        text: { type: 'plain_text', text: `Neuro-Lingua: ${payload.event.replace(/_/g, ' ').toUpperCase()}` }
+        text: {
+          type: 'plain_text',
+          text: `Neuro-Lingua: ${payload.event.replace(/_/g, ' ').toUpperCase()}`
+        }
       },
       {
         type: 'section',
@@ -357,11 +384,13 @@ export class WebhookService {
       elements: [{ type: 'mrkdwn', text: `_${new Date(payload.timestamp).toISOString()}_` }]
     });
 
-    const attachments: SlackAttachment[] = [{
-      color,
-      footer: 'Neuro-Lingua Integration',
-      ts: Math.floor(payload.timestamp / 1000)
-    }];
+    const attachments: SlackAttachment[] = [
+      {
+        color,
+        footer: 'Neuro-Lingua Integration',
+        ts: Math.floor(payload.timestamp / 1000)
+      }
+    ];
 
     return { blocks, attachments };
   }
@@ -413,16 +442,16 @@ export class WebhookService {
     let deliveries = [...this.deliveries];
 
     if (filter?.webhookId) {
-      deliveries = deliveries.filter(d => d.webhookId === filter.webhookId);
+      deliveries = deliveries.filter((d) => d.webhookId === filter.webhookId);
     }
     if (filter?.event) {
-      deliveries = deliveries.filter(d => d.event === filter.event);
+      deliveries = deliveries.filter((d) => d.event === filter.event);
     }
     if (filter?.status) {
-      deliveries = deliveries.filter(d => d.status === filter.status);
+      deliveries = deliveries.filter((d) => d.status === filter.status);
     }
     if (filter?.since) {
-      deliveries = deliveries.filter(d => d.timestamp >= filter.since!);
+      deliveries = deliveries.filter((d) => d.timestamp >= filter.since!);
     }
 
     return deliveries.sort((a, b) => b.timestamp - a.timestamp);
@@ -440,10 +469,10 @@ export class WebhookService {
   } {
     return {
       total: this.deliveries.length,
-      pending: this.deliveries.filter(d => d.status === 'pending').length,
-      sent: this.deliveries.filter(d => d.status === 'sent').length,
-      failed: this.deliveries.filter(d => d.status === 'failed').length,
-      retrying: this.deliveries.filter(d => d.status === 'retrying').length
+      pending: this.deliveries.filter((d) => d.status === 'pending').length,
+      sent: this.deliveries.filter((d) => d.status === 'sent').length,
+      failed: this.deliveries.filter((d) => d.status === 'failed').length,
+      retrying: this.deliveries.filter((d) => d.status === 'retrying').length
     };
   }
 
@@ -451,7 +480,7 @@ export class WebhookService {
    * Retry a failed delivery
    */
   async retryDelivery(deliveryId: string): Promise<boolean> {
-    const delivery = this.deliveries.find(d => d.id === deliveryId);
+    const delivery = this.deliveries.find((d) => d.id === deliveryId);
     if (!delivery || delivery.status !== 'failed') return false;
 
     const webhook = this.configs.get(delivery.webhookId);
@@ -469,9 +498,9 @@ export class WebhookService {
     const initialCount = this.deliveries.length;
 
     if (filter?.status) {
-      this.deliveries = this.deliveries.filter(d => d.status !== filter.status);
+      this.deliveries = this.deliveries.filter((d) => d.status !== filter.status);
     } else if (filter?.before) {
-      this.deliveries = this.deliveries.filter(d => d.timestamp >= filter.before!);
+      this.deliveries = this.deliveries.filter((d) => d.timestamp >= filter.before!);
     } else {
       this.deliveries = [];
     }
@@ -524,7 +553,7 @@ export class WebhookService {
 
   private simulateDelay(min: number, max: number): Promise<void> {
     const delay = min + Math.random() * (max - min);
-    return new Promise(resolve => setTimeout(resolve, delay));
+    return new Promise((resolve) => setTimeout(resolve, delay));
   }
 
   // ==========================================================================

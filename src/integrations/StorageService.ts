@@ -127,7 +127,7 @@ export class StorageService {
       this.saveModelLocally(modelId, modelData, metadata);
 
       this.state.models.push(metadata);
-      this.state.uploading = this.state.uploading.filter(id => id !== modelId);
+      this.state.uploading = this.state.uploading.filter((id) => id !== modelId);
       this.state.lastSync = Date.now();
       this.persistState();
       this.notifyListeners();
@@ -135,7 +135,7 @@ export class StorageService {
       console.log(`[StorageService] Uploaded model to HuggingFace: ${modelId} (mock)`);
       return metadata;
     } catch (error) {
-      this.state.uploading = this.state.uploading.filter(id => id !== modelId);
+      this.state.uploading = this.state.uploading.filter((id) => id !== modelId);
       this.notifyListeners();
       throw error;
     }
@@ -190,7 +190,7 @@ export class StorageService {
       }
 
       this.state.models.push(metadata);
-      this.state.uploading = this.state.uploading.filter(id => id !== modelId);
+      this.state.uploading = this.state.uploading.filter((id) => id !== modelId);
       this.state.lastSync = Date.now();
       this.persistState();
       this.notifyListeners();
@@ -198,7 +198,7 @@ export class StorageService {
       console.log(`[StorageService] Saved model to ModelZoo: ${modelId}`);
       return metadata;
     } catch (error) {
-      this.state.uploading = this.state.uploading.filter(id => id !== modelId);
+      this.state.uploading = this.state.uploading.filter((id) => id !== modelId);
       this.notifyListeners();
       throw error;
     }
@@ -232,7 +232,7 @@ export class StorageService {
       // Check if model exists locally (mock remote lookup)
       const localData = this.loadModelLocally(modelId);
       if (localData) {
-        this.state.downloading = this.state.downloading.filter(id => id !== modelId);
+        this.state.downloading = this.state.downloading.filter((id) => id !== modelId);
         this.notifyListeners();
         return localData;
       }
@@ -256,21 +256,21 @@ export class StorageService {
       const mockModelData = this.generateMockModelData();
 
       // Update download count
-      const existing = this.state.models.find(m => m.id === modelId);
+      const existing = this.state.models.find((m) => m.id === modelId);
       if (existing) {
         existing.downloads++;
       } else {
         this.state.models.push(mockMetadata);
       }
 
-      this.state.downloading = this.state.downloading.filter(id => id !== modelId);
+      this.state.downloading = this.state.downloading.filter((id) => id !== modelId);
       this.persistState();
       this.notifyListeners();
 
       console.log(`[StorageService] Downloaded model from HuggingFace: ${modelId} (mock)`);
       return { modelData: mockModelData, metadata: mockMetadata };
     } catch (error) {
-      this.state.downloading = this.state.downloading.filter(id => id !== modelId);
+      this.state.downloading = this.state.downloading.filter((id) => id !== modelId);
       this.notifyListeners();
       throw error;
     }
@@ -295,7 +295,7 @@ export class StorageService {
 
       const result = this.loadModelLocally(modelId);
 
-      this.state.downloading = this.state.downloading.filter(id => id !== modelId);
+      this.state.downloading = this.state.downloading.filter((id) => id !== modelId);
       this.notifyListeners();
 
       if (result) {
@@ -304,7 +304,7 @@ export class StorageService {
 
       return result;
     } catch (error) {
-      this.state.downloading = this.state.downloading.filter(id => id !== modelId);
+      this.state.downloading = this.state.downloading.filter((id) => id !== modelId);
       this.notifyListeners();
       throw error;
     }
@@ -321,20 +321,17 @@ export class StorageService {
     let models = [...this.state.models];
 
     if (filter?.tags && filter.tags.length > 0) {
-      models = models.filter(m =>
-        filter.tags!.some(tag => m.tags.includes(tag))
-      );
+      models = models.filter((m) => filter.tags!.some((tag) => m.tags.includes(tag)));
     }
 
     if (filter?.author) {
-      models = models.filter(m => m.author === filter.author);
+      models = models.filter((m) => m.author === filter.author);
     }
 
     if (filter?.search) {
       const search = filter.search.toLowerCase();
-      models = models.filter(m =>
-        m.name.toLowerCase().includes(search) ||
-        m.description.toLowerCase().includes(search)
+      models = models.filter(
+        (m) => m.name.toLowerCase().includes(search) || m.description.toLowerCase().includes(search)
       );
     }
 
@@ -345,14 +342,14 @@ export class StorageService {
    * Get model by ID
    */
   getModel(modelId: string): ModelMetadata | undefined {
-    return this.state.models.find(m => m.id === modelId);
+    return this.state.models.find((m) => m.id === modelId);
   }
 
   /**
    * Update model metadata
    */
   updateModelMetadata(modelId: string, updates: Partial<ModelUploadOptions>): boolean {
-    const model = this.state.models.find(m => m.id === modelId);
+    const model = this.state.models.find((m) => m.id === modelId);
     if (!model) return false;
 
     if (updates.name) model.name = updates.name;
@@ -369,7 +366,7 @@ export class StorageService {
    * Delete model
    */
   deleteModel(modelId: string): boolean {
-    const index = this.state.models.findIndex(m => m.id === modelId);
+    const index = this.state.models.findIndex((m) => m.id === modelId);
     if (index === -1) return false;
 
     this.state.models.splice(index, 1);
@@ -385,7 +382,7 @@ export class StorageService {
    * Like a model
    */
   likeModel(modelId: string): boolean {
-    const model = this.state.models.find(m => m.id === modelId);
+    const model = this.state.models.find((m) => m.id === modelId);
     if (!model) return false;
 
     model.likes++;
@@ -403,7 +400,7 @@ export class StorageService {
    * Get model versions (mock)
    */
   getModelVersions(modelId: string): ModelVersion[] {
-    const model = this.state.models.find(m => m.id === modelId);
+    const model = this.state.models.find((m) => m.id === modelId);
     if (!model) return [];
 
     // Generate mock versions
@@ -441,7 +438,7 @@ export class StorageService {
     message?: string,
     onProgress?: (progress: number) => void
   ): Promise<ModelVersion | null> {
-    const model = this.state.models.find(m => m.id === modelId);
+    const model = this.state.models.find((m) => m.id === modelId);
     if (!model) return null;
 
     // Simulate upload
@@ -508,8 +505,8 @@ export class StorageService {
     return {
       totalModels: models.length,
       totalSize: models.reduce((sum, _m) => sum + Math.floor(Math.random() * 10000000), 0),
-      oldestModel: models.length > 0 ? Math.min(...models.map(m => m.createdAt)) : 0,
-      newestModel: models.length > 0 ? Math.max(...models.map(m => m.createdAt)) : 0
+      oldestModel: models.length > 0 ? Math.min(...models.map((m) => m.createdAt)) : 0,
+      newestModel: models.length > 0 ? Math.max(...models.map((m) => m.createdAt)) : 0
     };
   }
 
@@ -531,7 +528,9 @@ export class StorageService {
     StorageManager.set(key, { modelData, metadata });
   }
 
-  private loadModelLocally(modelId: string): { modelData: unknown; metadata: ModelMetadata } | null {
+  private loadModelLocally(
+    modelId: string
+  ): { modelData: unknown; metadata: ModelMetadata } | null {
     const key = `neuro-lingua-model-${modelId}`;
     return StorageManager.get(key, null);
   }
@@ -554,9 +553,7 @@ export class StorageService {
   }
 
   private generateCommitHash(): string {
-    return Array.from({ length: 40 }, () =>
-      Math.floor(Math.random() * 16).toString(16)
-    ).join('');
+    return Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
   }
 
   private generateMockModelData(): object {
@@ -584,7 +581,7 @@ export class StorageService {
 
   private simulateDelay(min: number, max: number): Promise<void> {
     const delay = min + Math.random() * (max - min);
-    return new Promise(resolve => setTimeout(resolve, delay));
+    return new Promise((resolve) => setTimeout(resolve, delay));
   }
 
   // ==========================================================================

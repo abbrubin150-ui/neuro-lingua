@@ -19,26 +19,11 @@ import React, {
   useRef
 } from 'react';
 
-import {
-  MonitoringService,
-  getMonitoringService
-} from './MonitoringService';
-import {
-  StorageService,
-  getStorageService
-} from './StorageService';
-import {
-  VisualizationService,
-  getVisualizationService
-} from './VisualizationService';
-import {
-  WebhookService,
-  getWebhookService
-} from './WebhookService';
-import {
-  WebSocketService,
-  getWebSocketService
-} from './WebSocketService';
+import { MonitoringService, getMonitoringService } from './MonitoringService';
+import { StorageService, getStorageService } from './StorageService';
+import { VisualizationService, getVisualizationService } from './VisualizationService';
+import { WebhookService, getWebhookService } from './WebhookService';
+import { WebSocketService, getWebSocketService } from './WebSocketService';
 
 import type {
   MonitoringState,
@@ -52,8 +37,7 @@ import type {
   HuggingFaceConfig,
   ModelZooConfig,
   PlotlyConfig,
-  WebhookConfig,
-  WebSocketConfig
+  WebhookConfig
 } from './types';
 import type { BrainStats } from '../lib/BrainEngine';
 import type { MetricSnapshot, BoardAlert } from '../types/governance';
@@ -82,17 +66,29 @@ interface IntegrationContextValue {
   recordMetrics: (snapshot: MetricSnapshot) => void;
   recordBrainMetrics: (brain: BrainStats) => void;
   dispatchAlert: (alert: BoardAlert, projectId?: string) => Promise<void>;
-  dispatchBrainEvent: (brain: BrainStats, event: 'burnout' | 'recovery' | 'mood_change') => Promise<void>;
-  sendTrainingProgress: (runId: string, progress: {
-    epoch: number;
-    totalEpochs: number;
-    loss: number;
-    accuracy: number;
-  }) => void;
+  dispatchBrainEvent: (
+    brain: BrainStats,
+    event: 'burnout' | 'recovery' | 'mood_change'
+  ) => Promise<void>;
+  sendTrainingProgress: (
+    runId: string,
+    progress: {
+      epoch: number;
+      totalEpochs: number;
+      loss: number;
+      accuracy: number;
+    }
+  ) => void;
 
   // Configuration
-  updateMonitoringConfig: (prometheus?: Partial<PrometheusConfig>, datadog?: Partial<DatadogConfig>) => void;
-  updateStorageConfig: (huggingface?: Partial<HuggingFaceConfig>, modelzoo?: Partial<ModelZooConfig>) => void;
+  updateMonitoringConfig: (
+    prometheus?: Partial<PrometheusConfig>,
+    datadog?: Partial<DatadogConfig>
+  ) => void;
+  updateStorageConfig: (
+    huggingface?: Partial<HuggingFaceConfig>,
+    modelzoo?: Partial<ModelZooConfig>
+  ) => void;
   updateVisualizationConfig: (plotly: Partial<PlotlyConfig>) => void;
   addWebhook: (name: string, config: Partial<WebhookConfig>) => WebhookConfig;
 }
@@ -178,61 +174,64 @@ export function IntegrationProvider({ children, userName }: IntegrationProviderP
     await webhooksRef.current.dispatchAlert(alert, projectId);
   }, []);
 
-  const dispatchBrainEvent = useCallback(async (
-    brain: BrainStats,
-    event: 'burnout' | 'recovery' | 'mood_change'
-  ) => {
-    await webhooksRef.current.dispatchBrainState(brain, event);
-    websocketRef.current.sendBrainState(brain);
-  }, []);
+  const dispatchBrainEvent = useCallback(
+    async (brain: BrainStats, event: 'burnout' | 'recovery' | 'mood_change') => {
+      await webhooksRef.current.dispatchBrainState(brain, event);
+      websocketRef.current.sendBrainState(brain);
+    },
+    []
+  );
 
-  const sendTrainingProgress = useCallback((
-    runId: string,
-    progress: {
-      epoch: number;
-      totalEpochs: number;
-      loss: number;
-      accuracy: number;
-    }
-  ) => {
-    websocketRef.current.sendTrainingProgress(runId, {
-      ...progress,
-      step: 0,
-      totalSteps: 0,
-      perplexity: Math.exp(progress.loss),
-      learningRate: 0,
-      throughput: 0,
-      eta: 0
-    });
-  }, []);
+  const sendTrainingProgress = useCallback(
+    (
+      runId: string,
+      progress: {
+        epoch: number;
+        totalEpochs: number;
+        loss: number;
+        accuracy: number;
+      }
+    ) => {
+      websocketRef.current.sendTrainingProgress(runId, {
+        ...progress,
+        step: 0,
+        totalSteps: 0,
+        perplexity: Math.exp(progress.loss),
+        learningRate: 0,
+        throughput: 0,
+        eta: 0
+      });
+    },
+    []
+  );
 
   // ==========================================================================
   // Configuration Updates
   // ==========================================================================
 
-  const updateMonitoringConfig = useCallback((
-    prometheus?: Partial<PrometheusConfig>,
-    datadog?: Partial<DatadogConfig>
-  ) => {
-    if (prometheus) {
-      monitoringRef.current.updatePrometheusConfig(prometheus);
-    }
-    if (datadog) {
-      monitoringRef.current.updateDatadogConfig(datadog);
-    }
-  }, []);
+  const updateMonitoringConfig = useCallback(
+    (prometheus?: Partial<PrometheusConfig>, datadog?: Partial<DatadogConfig>) => {
+      if (prometheus) {
+        monitoringRef.current.updatePrometheusConfig(prometheus);
+      }
+      if (datadog) {
+        monitoringRef.current.updateDatadogConfig(datadog);
+      }
+    },
+    []
+  );
 
-  const updateStorageConfig = useCallback((
-    huggingface?: Partial<HuggingFaceConfig>,
-    modelzoo?: Partial<ModelZooConfig>
-  ) => {
-    if (huggingface) {
-      storageRef.current.updateHuggingFaceConfig(huggingface);
-    }
-    if (modelzoo) {
-      storageRef.current.updateModelZooConfig(modelzoo);
-    }
-  }, []);
+  const updateStorageConfig = useCallback(
+    (huggingface?: Partial<HuggingFaceConfig>, modelzoo?: Partial<ModelZooConfig>) => {
+      if (huggingface) {
+        storageRef.current.updateHuggingFaceConfig(huggingface);
+      }
+      if (modelzoo) {
+        storageRef.current.updateModelZooConfig(modelzoo);
+      }
+    },
+    []
+  );
 
   const updateVisualizationConfig = useCallback((plotly: Partial<PlotlyConfig>) => {
     visualizationRef.current.updateConfig(plotly);
@@ -246,57 +245,56 @@ export function IntegrationProvider({ children, userName }: IntegrationProviderP
   // Context Value
   // ==========================================================================
 
-  const value = useMemo<IntegrationContextValue>(() => ({
-    // Services
-    monitoring: monitoringRef.current,
-    storage: storageRef.current,
-    visualization: visualizationRef.current,
-    webhooks: webhooksRef.current,
-    websocket: websocketRef.current,
+  const value = useMemo<IntegrationContextValue>(
+    () => ({
+      // Services
+      monitoring: monitoringRef.current,
+      storage: storageRef.current,
+      visualization: visualizationRef.current,
+      webhooks: webhooksRef.current,
+      websocket: websocketRef.current,
 
-    // State
-    monitoringState,
-    storageState,
-    charts,
-    webhookDeliveries,
-    onlineUsers,
-    isWebSocketConnected,
+      // State
+      monitoringState,
+      storageState,
+      charts,
+      webhookDeliveries,
+      onlineUsers,
+      isWebSocketConnected,
 
-    // Quick Actions
-    recordMetrics,
-    recordBrainMetrics,
-    dispatchAlert,
-    dispatchBrainEvent,
-    sendTrainingProgress,
+      // Quick Actions
+      recordMetrics,
+      recordBrainMetrics,
+      dispatchAlert,
+      dispatchBrainEvent,
+      sendTrainingProgress,
 
-    // Configuration
-    updateMonitoringConfig,
-    updateStorageConfig,
-    updateVisualizationConfig,
-    addWebhook
-  }), [
-    monitoringState,
-    storageState,
-    charts,
-    webhookDeliveries,
-    onlineUsers,
-    isWebSocketConnected,
-    recordMetrics,
-    recordBrainMetrics,
-    dispatchAlert,
-    dispatchBrainEvent,
-    sendTrainingProgress,
-    updateMonitoringConfig,
-    updateStorageConfig,
-    updateVisualizationConfig,
-    addWebhook
-  ]);
-
-  return (
-    <IntegrationContext.Provider value={value}>
-      {children}
-    </IntegrationContext.Provider>
+      // Configuration
+      updateMonitoringConfig,
+      updateStorageConfig,
+      updateVisualizationConfig,
+      addWebhook
+    }),
+    [
+      monitoringState,
+      storageState,
+      charts,
+      webhookDeliveries,
+      onlineUsers,
+      isWebSocketConnected,
+      recordMetrics,
+      recordBrainMetrics,
+      dispatchAlert,
+      dispatchBrainEvent,
+      sendTrainingProgress,
+      updateMonitoringConfig,
+      updateStorageConfig,
+      updateVisualizationConfig,
+      addWebhook
+    ]
   );
+
+  return <IntegrationContext.Provider value={value}>{children}</IntegrationContext.Provider>;
 }
 
 // ============================================================================
@@ -322,7 +320,8 @@ export function useIntegrations() {
  * Hook for monitoring (Prometheus/Datadog)
  */
 export function useMonitoring() {
-  const { monitoring, monitoringState, updateMonitoringConfig, recordMetrics, recordBrainMetrics } = useIntegrations();
+  const { monitoring, monitoringState, updateMonitoringConfig, recordMetrics, recordBrainMetrics } =
+    useIntegrations();
 
   return {
     service: monitoring,
@@ -342,28 +341,34 @@ export function useMonitoring() {
 export function useModelStorage() {
   const { storage, storageState, updateStorageConfig } = useIntegrations();
 
-  const uploadModel = useCallback(async (
-    modelData: unknown,
-    options: { name: string; description: string; tags: string[]; isPublic: boolean },
-    destination: 'huggingface' | 'modelzoo' = 'modelzoo',
-    onProgress?: (progress: number) => void
-  ) => {
-    if (destination === 'huggingface') {
-      return storage.uploadToHuggingFace(modelData, options, onProgress);
-    }
-    return storage.saveToModelZoo(modelData, options, onProgress);
-  }, [storage]);
+  const uploadModel = useCallback(
+    async (
+      modelData: unknown,
+      options: { name: string; description: string; tags: string[]; isPublic: boolean },
+      destination: 'huggingface' | 'modelzoo' = 'modelzoo',
+      onProgress?: (progress: number) => void
+    ) => {
+      if (destination === 'huggingface') {
+        return storage.uploadToHuggingFace(modelData, options, onProgress);
+      }
+      return storage.saveToModelZoo(modelData, options, onProgress);
+    },
+    [storage]
+  );
 
-  const downloadModel = useCallback(async (
-    modelId: string,
-    source: 'huggingface' | 'modelzoo' = 'modelzoo',
-    onProgress?: (progress: number) => void
-  ) => {
-    if (source === 'huggingface') {
-      return storage.downloadFromHuggingFace(modelId, onProgress);
-    }
-    return storage.loadFromModelZoo(modelId, onProgress);
-  }, [storage]);
+  const downloadModel = useCallback(
+    async (
+      modelId: string,
+      source: 'huggingface' | 'modelzoo' = 'modelzoo',
+      onProgress?: (progress: number) => void
+    ) => {
+      if (source === 'huggingface') {
+        return storage.downloadFromHuggingFace(modelId, onProgress);
+      }
+      return storage.loadFromModelZoo(modelId, onProgress);
+    },
+    [storage]
+  );
 
   return {
     service: storage,
@@ -407,7 +412,8 @@ export function useVisualization() {
  * Hook for webhooks (Slack/Discord)
  */
 export function useWebhooks() {
-  const { webhooks, webhookDeliveries, addWebhook, dispatchAlert, dispatchBrainEvent } = useIntegrations();
+  const { webhooks, webhookDeliveries, addWebhook, dispatchAlert, dispatchBrainEvent } =
+    useIntegrations();
 
   return {
     service: webhooks,
@@ -439,7 +445,7 @@ export function useRealtime() {
   // Subscribe to messages
   useEffect(() => {
     const unsubscribe = websocket.onAny((message) => {
-      setMessages(prev => [...prev.slice(-99), message]);
+      setMessages((prev) => [...prev.slice(-99), message]);
     });
     return unsubscribe;
   }, [websocket]);

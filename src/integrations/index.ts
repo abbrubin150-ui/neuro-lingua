@@ -19,11 +19,7 @@ export {
   resetMonitoringService
 } from './MonitoringService';
 
-export {
-  StorageService,
-  getStorageService,
-  resetStorageService
-} from './StorageService';
+export { StorageService, getStorageService, resetStorageService } from './StorageService';
 
 export {
   VisualizationService,
@@ -32,17 +28,9 @@ export {
   COLOR_PALETTES
 } from './VisualizationService';
 
-export {
-  WebhookService,
-  getWebhookService,
-  resetWebhookService
-} from './WebhookService';
+export { WebhookService, getWebhookService, resetWebhookService } from './WebhookService';
 
-export {
-  WebSocketService,
-  getWebSocketService,
-  resetWebSocketService
-} from './WebSocketService';
+export { WebSocketService, getWebSocketService, resetWebSocketService } from './WebSocketService';
 
 // React Context & Hooks
 export {

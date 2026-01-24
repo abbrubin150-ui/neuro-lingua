@@ -4,7 +4,6 @@
  */
 
 import type { BrainStats } from '../lib/BrainEngine';
-import type { BoardAlert } from '../types/governance';
 
 // ============================================================================
 // Monitoring Integration Types (Prometheus/Datadog)

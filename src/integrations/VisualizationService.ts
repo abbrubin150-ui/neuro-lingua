@@ -5,14 +5,7 @@
  * All operations are local without actual Plotly API calls
  */
 
-import type {
-  PlotlyTrace,
-  PlotlyLayout,
-  PlotlyConfig,
-  PlotlyChart,
-  PlotlyMarker,
-  PlotlyAxis
-} from './types';
+import type { PlotlyTrace, PlotlyLayout, PlotlyConfig, PlotlyChart } from './types';
 
 // ============================================================================
 // Default Configuration
@@ -49,10 +42,52 @@ const DEFAULT_LAYOUT: PlotlyLayout = {
 
 export const COLOR_PALETTES = {
   default: ['#6366f1', '#22d3ee', '#f472b6', '#a78bfa', '#34d399', '#fbbf24', '#fb7185'],
-  viridis: ['#440154', '#482878', '#3e4a89', '#31688e', '#26838f', '#1f9e89', '#35b779', '#6ece58', '#b5de2b', '#fde725'],
-  plasma: ['#0d0887', '#46039f', '#7201a8', '#9c179e', '#bd3786', '#d8576b', '#ed7953', '#fb9f3a', '#fdca26', '#f0f921'],
-  coolwarm: ['#3b4cc0', '#688aef', '#99b7f5', '#c8d4eb', '#edd1c2', '#f7a889', '#e26952', '#b40426'],
-  spectral: ['#9e0142', '#d53e4f', '#f46d43', '#fdae61', '#fee08b', '#e6f598', '#abdda4', '#66c2a5', '#3288bd', '#5e4fa2']
+  viridis: [
+    '#440154',
+    '#482878',
+    '#3e4a89',
+    '#31688e',
+    '#26838f',
+    '#1f9e89',
+    '#35b779',
+    '#6ece58',
+    '#b5de2b',
+    '#fde725'
+  ],
+  plasma: [
+    '#0d0887',
+    '#46039f',
+    '#7201a8',
+    '#9c179e',
+    '#bd3786',
+    '#d8576b',
+    '#ed7953',
+    '#fb9f3a',
+    '#fdca26',
+    '#f0f921'
+  ],
+  coolwarm: [
+    '#3b4cc0',
+    '#688aef',
+    '#99b7f5',
+    '#c8d4eb',
+    '#edd1c2',
+    '#f7a889',
+    '#e26952',
+    '#b40426'
+  ],
+  spectral: [
+    '#9e0142',
+    '#d53e4f',
+    '#f46d43',
+    '#fdae61',
+    '#fee08b',
+    '#e6f598',
+    '#abdda4',
+    '#66c2a5',
+    '#3288bd',
+    '#5e4fa2'
+  ]
 };
 
 // ============================================================================
@@ -96,7 +131,12 @@ export class VisualizationService {
       markerSize?: number;
     } = {}
   ): PlotlyChart {
-    const { title = 'Embedding Visualization', colorByGroup = true, showLabels = false, markerSize = 8 } = options;
+    const {
+      title = 'Embedding Visualization',
+      colorByGroup = true,
+      showLabels = false,
+      markerSize = 8
+    } = options;
 
     // Group points if needed
     const groups = new Map<string, typeof points>();
@@ -115,9 +155,9 @@ export class VisualizationService {
         type: 'scatter',
         mode: showLabels ? 'markers+text' : 'markers',
         name: group,
-        x: groupPoints.map(p => p.x),
-        y: groupPoints.map(p => p.y),
-        text: groupPoints.map(p => p.label || ''),
+        x: groupPoints.map((p) => p.x),
+        y: groupPoints.map((p) => p.y),
+        text: groupPoints.map((p) => p.label || ''),
         marker: {
           color: colorByGroup ? colors[colorIndex % colors.length] : undefined,
           size: markerSize,
@@ -184,10 +224,10 @@ export class VisualizationService {
         type: 'scatter3d',
         mode: 'markers',
         name: group,
-        x: groupPoints.map(p => p.x),
-        y: groupPoints.map(p => p.y),
-        z: groupPoints.map(p => p.z),
-        text: groupPoints.map(p => p.label || ''),
+        x: groupPoints.map((p) => p.x),
+        y: groupPoints.map((p) => p.y),
+        z: groupPoints.map((p) => p.z),
+        text: groupPoints.map((p) => p.label || ''),
         marker: {
           color: colorByGroup ? colors[colorIndex % colors.length] : groupPoints.map((_, i) => i),
           size: markerSize,
@@ -323,12 +363,7 @@ export class VisualizationService {
       colorscale?: string;
     } = {}
   ): PlotlyChart {
-    const {
-      title = 'Heatmap',
-      xLabels,
-      yLabels,
-      colorscale = 'Viridis'
-    } = options;
+    const { title = 'Heatmap', xLabels, yLabels, colorscale = 'Viridis' } = options;
 
     const trace: PlotlyTrace = {
       type: 'heatmap',
@@ -429,18 +464,20 @@ export class VisualizationService {
       critical: 3
     };
 
-    const traces: PlotlyTrace[] = [{
-      type: 'scatter',
-      mode: 'markers+text',
-      x: events.map(e => new Date(e.timestamp)),
-      y: events.map(e => severityY[e.severity] || 1),
-      text: events.map(e => e.type),
-      marker: {
-        color: events.map(e => severityColors[e.severity] || '#6366f1'),
-        size: 12,
-        symbol: 'circle'
+    const traces: PlotlyTrace[] = [
+      {
+        type: 'scatter',
+        mode: 'markers+text',
+        x: events.map((e) => new Date(e.timestamp)),
+        y: events.map((e) => severityY[e.severity] || 1),
+        text: events.map((e) => e.type),
+        marker: {
+          color: events.map((e) => severityColors[e.severity] || '#6366f1'),
+          size: 12,
+          symbol: 'circle'
+        }
       }
-    }];
+    ];
 
     const layout: PlotlyLayout = {
       ...DEFAULT_LAYOUT,
@@ -484,7 +521,7 @@ export class VisualizationService {
       color?: string;
     } = {}
   ): PlotlyChart {
-    const { title = 'Distribution', bins = 30, xLabel = 'Value', color = '#6366f1' } = options;
+    const { title = 'Distribution', bins: _bins = 30, xLabel = 'Value', color = '#6366f1' } = options;
 
     const trace: PlotlyTrace = {
       type: 'histogram',
@@ -564,7 +601,9 @@ export class VisualizationService {
   /**
    * Export chart for Plotly.js rendering
    */
-  exportForPlotly(chartId: string): { data: PlotlyTrace[]; layout: PlotlyLayout; config: Partial<PlotlyConfig> } | null {
+  exportForPlotly(
+    chartId: string
+  ): { data: PlotlyTrace[]; layout: PlotlyLayout; config: Partial<PlotlyConfig> } | null {
     const chart = this.charts.get(chartId);
     if (!chart) return null;
 

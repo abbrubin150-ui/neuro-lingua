@@ -5,12 +5,7 @@
  * All operations are simulated locally without actual API calls
  */
 
-import type {
-  MetricPoint,
-  PrometheusConfig,
-  DatadogConfig,
-  MonitoringState
-} from './types';
+import type { MetricPoint, PrometheusConfig, DatadogConfig, MonitoringState } from './types';
 import type { BrainStats } from '../lib/BrainEngine';
 import type { MetricSnapshot, BoardAlert } from '../types/governance';
 
@@ -251,7 +246,7 @@ export class MonitoringService {
    * Export metrics in Datadog JSON format
    */
   exportDatadogFormat(): object {
-    const series = this.state.metrics.map(metric => ({
+    const series = this.state.metrics.map((metric) => ({
       metric: this.datadogConfig.prefix + metric.name,
       type: metric.type === 'counter' ? 'count' : 'gauge',
       points: [[Math.floor(metric.timestamp / 1000), metric.value]],
@@ -268,17 +263,21 @@ export class MonitoringService {
    * Export metrics as JSON
    */
   exportJSON(): string {
-    return JSON.stringify({
-      timestamp: Date.now(),
-      prometheus: this.prometheusConfig,
-      datadog: this.datadogConfig,
-      metrics: this.state.metrics,
-      state: {
-        lastPush: this.state.lastPush,
-        pushCount: this.state.pushCount,
-        errors: this.state.errors
-      }
-    }, null, 2);
+    return JSON.stringify(
+      {
+        timestamp: Date.now(),
+        prometheus: this.prometheusConfig,
+        datadog: this.datadogConfig,
+        metrics: this.state.metrics,
+        state: {
+          lastPush: this.state.lastPush,
+          pushCount: this.state.pushCount,
+          errors: this.state.errors
+        }
+      },
+      null,
+      2
+    );
   }
 
   // ==========================================================================
@@ -308,7 +307,9 @@ export class MonitoringService {
     this.state.pushCount++;
     this.notifyListeners();
 
-    console.log(`[MonitoringService] Pushed ${this.state.metrics.length} metrics to Prometheus (mock)`);
+    console.log(
+      `[MonitoringService] Pushed ${this.state.metrics.length} metrics to Prometheus (mock)`
+    );
     return true;
   }
 
@@ -335,7 +336,9 @@ export class MonitoringService {
     this.state.pushCount++;
     this.notifyListeners();
 
-    console.log(`[MonitoringService] Pushed ${this.state.metrics.length} metrics to Datadog (mock)`);
+    console.log(
+      `[MonitoringService] Pushed ${this.state.metrics.length} metrics to Datadog (mock)`
+    );
     return true;
   }
 
@@ -364,7 +367,9 @@ export class MonitoringService {
       this.pushAll();
     }, this.prometheusConfig.pushInterval);
 
-    console.log(`[MonitoringService] Started auto-push every ${this.prometheusConfig.pushInterval}ms`);
+    console.log(
+      `[MonitoringService] Started auto-push every ${this.prometheusConfig.pushInterval}ms`
+    );
   }
 
   stopPushInterval(): void {
@@ -387,11 +392,11 @@ export class MonitoringService {
     let metrics = [...this.state.metrics];
 
     if (filter?.name) {
-      metrics = metrics.filter(m => m.name.includes(filter.name!));
+      metrics = metrics.filter((m) => m.name.includes(filter.name!));
     }
 
     if (filter?.since) {
-      metrics = metrics.filter(m => m.timestamp >= filter.since!);
+      metrics = metrics.filter((m) => m.timestamp >= filter.since!);
     }
 
     return metrics;
@@ -399,16 +404,12 @@ export class MonitoringService {
 
   getLatestMetric(name: string): MetricPoint | undefined {
     const formattedName = this.formatMetricName(name);
-    return [...this.state.metrics]
-      .reverse()
-      .find(m => m.name === formattedName);
+    return [...this.state.metrics].reverse().find((m) => m.name === formattedName);
   }
 
   getMetricHistory(name: string, limit: number = 100): MetricPoint[] {
     const formattedName = this.formatMetricName(name);
-    return this.state.metrics
-      .filter(m => m.name === formattedName)
-      .slice(-limit);
+    return this.state.metrics.filter((m) => m.name === formattedName).slice(-limit);
   }
 
   clearMetrics(): void {
@@ -460,7 +461,7 @@ export class MonitoringService {
 
   private simulateDelay(min: number, max: number): Promise<void> {
     const delay = min + Math.random() * (max - min);
-    return new Promise(resolve => setTimeout(resolve, delay));
+    return new Promise((resolve) => setTimeout(resolve, delay));
   }
 
   // ==========================================================================

@@ -61,7 +61,9 @@ import {
   EmbeddingVisualizationPanel,
   CompressionPanel,
   BrainPanel,
-  CerebroPanel
+  CerebroPanel,
+  CausalAnalysisPanel,
+  TriadicOperatorPanel
 } from './components';
 import {
   createProNeuralLMAdapter,
@@ -526,6 +528,8 @@ export default function NeuroLinguaDomesticaV324() {
   const [showCompressionPanel, setShowCompressionPanel] = useState(false);
   const [showExportPanel, setShowExportPanel] = useState(false);
   const [showDecisionPanel, setShowDecisionPanel] = useState(false);
+  const [showCausalPanel, setShowCausalPanel] = useState(false);
+  const [showTriadicPanel, setShowTriadicPanel] = useState(false);
 
   // Cerebro mode (neuron injection)
   const [cerebroEnabled, setCerebroEnabled] = useState(false);
@@ -1926,6 +1930,62 @@ export default function NeuroLinguaDomesticaV324() {
       {showDecisionPanel && (
         <DecisionEntry2Panel direction={direction} onClose={() => setShowDecisionPanel(false)} />
       )}
+      {showCausalPanel && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)'
+          }}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: 12,
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              position: 'relative'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setShowCausalPanel(false)}
+              aria-label="Close Causal Analysis Panel"
+              style={{
+                position: 'absolute',
+                top: 12,
+                right: 12,
+                padding: '8px 12px',
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                zIndex: 10
+              }}
+            >
+              Close
+            </button>
+            <CausalAnalysisPanel
+              language={locale}
+              onAnalysisComplete={(result) => {
+                addSystemMessage(
+                  `Causal analysis complete: ATE=${result.ate.toFixed(4)}, p=${result.pValue.toFixed(4)}, ${result.significant ? 'significant' : 'not significant'}`
+                );
+              }}
+            />
+          </div>
+        </div>
+      )}
       <div
         dir={direction}
         style={{
@@ -2002,6 +2062,40 @@ export default function NeuroLinguaDomesticaV324() {
                 }}
               >
                 📦 Export
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCausalPanel(true)}
+                aria-label="Open Causal Analysis"
+                style={{
+                  padding: '8px 16px',
+                  background: 'linear-gradient(90deg, #8b5cf6, #06b6d4)',
+                  border: 'none',
+                  borderRadius: 999,
+                  color: 'white',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                🔬 Causal
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowTriadicPanel((prev) => !prev)}
+                aria-label={showTriadicPanel ? 'Hide Triadic Panel' : 'Show Triadic Panel'}
+                style={{
+                  padding: '8px 16px',
+                  background: showTriadicPanel
+                    ? 'linear-gradient(90deg, #ec4899, #f43f5e)'
+                    : 'linear-gradient(90deg, #6366f1, #ec4899)',
+                  border: 'none',
+                  borderRadius: 999,
+                  color: 'white',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                {showTriadicPanel ? '𝕋 Triadic ON' : '𝕋 Triadic'}
               </button>
               <button
                 type="button"
@@ -2432,6 +2526,19 @@ export default function NeuroLinguaDomesticaV324() {
                 }
                 bubbles={extractBubblesFromModel(modelRef.current, { maxBubbles: 24 })}
               />
+            </div>
+          )}
+
+          {showTriadicPanel && (
+            <div
+              style={{
+                marginTop: 20,
+                background: 'rgba(30,41,59,0.9)',
+                border: '1px solid #ec4899',
+                borderRadius: 12
+              }}
+            >
+              <TriadicOperatorPanel language={locale} />
             </div>
           )}
 

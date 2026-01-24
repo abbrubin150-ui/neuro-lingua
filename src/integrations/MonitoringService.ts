@@ -156,7 +156,7 @@ export class MonitoringService {
     this.recordMetric('brain_stability', brain.stability, labels, 'gauge');
     this.recordMetric('brain_train_steps_total', brain.totalTrainSteps, labels, 'counter');
     this.recordMetric('brain_tokens_seen_total', brain.totalTokensSeen, labels, 'counter');
-    this.recordMetric('brain_last_loss', brain.lastLoss, labels, 'gauge');
+    this.recordMetric('brain_vocab_size', brain.vocabSize, labels, 'gauge');
 
     // Calculate health score
     const healthScore = (brain.creativity + brain.stability) / 2;

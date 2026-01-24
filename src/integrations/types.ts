@@ -100,11 +100,11 @@ export interface StorageState {
 // ============================================================================
 
 export interface PlotlyTrace {
-  x?: number[];
-  y?: number[];
-  z?: number[];
+  x?: (number | string | Date)[];
+  y?: (number | string)[];
+  z?: number[] | number[][];
   type: 'scatter' | 'scatter3d' | 'line' | 'bar' | 'heatmap' | 'surface' | 'histogram';
-  mode?: 'lines' | 'markers' | 'lines+markers' | 'text';
+  mode?: 'lines' | 'markers' | 'lines+markers' | 'text' | 'markers+text';
   name?: string;
   text?: string[];
   marker?: PlotlyMarker;
@@ -114,7 +114,7 @@ export interface PlotlyTrace {
 }
 
 export interface PlotlyMarker {
-  color?: string | number[];
+  color?: string | number[] | string[];
   size?: number | number[];
   symbol?: string;
   colorscale?: string;
@@ -156,6 +156,8 @@ export interface PlotlyAxis {
   zeroline?: boolean;
   showticklabels?: boolean;
   tickformat?: string;
+  ticktext?: string[];
+  tickvals?: number[];
 }
 
 export interface PlotlyAnnotation {

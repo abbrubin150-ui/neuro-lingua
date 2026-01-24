@@ -512,7 +512,7 @@ export class WebSocketService {
     this.notifyListeners(message.channel, message);
   }
 
-  private handlePresenceMessage(message: WebSocketMessage<UserPresencePayload>): void {
+  private handlePresenceMessage(message: WebSocketMessage): void {
     const payload = message.payload as UserPresencePayload;
 
     switch (payload.action) {

@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Neuro-Lingua
 
-> **Last Updated**: 2025-12-10
-> **Version**: 4.2.0
+> **Last Updated**: 2026-01-24
+> **Version**: 4.4.0
 > **Purpose**: Comprehensive guide for AI assistants working on the Neuro-Lingua codebase
 
 ---
@@ -46,7 +46,7 @@
 - **3 Neural Architectures**: ProNeuralLM (baseline), AdvancedNeuralLM (enhanced), TransformerLM (attention-based)
 - **Architecture Presets**: Automatic configuration when switching between architectures
 - **WebGPU Acceleration**: Automatic GPU detection with graceful CPU fallback
-- **5 Optimizers**: SGD with momentum, Adam, Lion (v4.0), Damped Newton, L-BFGS
+- **6 Optimizers**: SGD with momentum, Adam, Lion (v4.0), Sophia (v4.2), Damped Newton, L-BFGS
 - **7+ Generation Methods**: Greedy, Top-k, Top-p (nucleus), Typical, Mirostat v2, Beam Search, Contrastive Search
 - **Grouped-Query Attention (GQA)**: Efficient attention mechanism with configurable KV heads
 - **Model Compression**: Int8 quantization, knowledge distillation, low-rank approximation (SVD)
@@ -207,6 +207,8 @@
 │   │   ├── exportUtils.ts            # Model export utilities
 │   │   ├── experimentComparison.ts   # Run comparison utilities
 │   │   ├── traceExport.ts            # Σ-SIG compliant experiment tracing
+│   │   ├── CausalInferenceEngine.ts  # Causal inference with DAG modeling (v4.3)
+│   │   ├── triadicOperator.ts        # Triadic logic operator (v4.3)
 │   │   └── expandable/               # Cerebro injection system
 │   │       ├── InjectionEngine.ts    # Core injection logic (169 lines)
 │   │       ├── InjectableLayer.ts    # Layer interface (19 lines)
@@ -287,7 +289,7 @@
 - Character-level language modeling
 - Embedding layer → Hidden layer → Output layer
 - ReLU activation
-- 5 optimizers: Momentum SGD, Adam, Lion (v4.0), Damped Newton, L-BFGS
+- 6 optimizers: Momentum SGD, Adam, Lion (v4.0), Sophia (v4.2), Damped Newton, L-BFGS
 - Dropout during training (disabled during inference)
 - Training history tracking
 - Import/export with optimizer state serialization
@@ -800,6 +802,101 @@ import { InjectionEngine } from './lib/expandable/InjectionEngine';
 - Model loading UI
 - Checkpoint visualization
 
+#### **CausalAnalysisPanel.tsx** - Causal Inference System (v4.3)
+
+**Location**: `/home/user/neuro-lingua/src/components/CausalAnalysisPanel.tsx`
+
+**Purpose**: Interactive UI for causal inference analysis with DAG-based causal modeling
+
+**Features**:
+
+- DAG-based causal model specification
+- Three-phase causal analysis workflow (configure → offline → online → testing → complete)
+- AIPW (Augmented Inverse Probability Weighting) estimation with bias verification
+- Sensitivity analysis with Rosenbaum bounds and E-values
+- Temporal dependencies visualization
+- Σ-SIG compliance ledger integration
+- Power analysis for sample size estimation
+
+**Key Types**:
+
+```typescript
+interface AnalysisResult {
+  ate: number;                     // Average Treatment Effect
+  standardError: number;
+  confidenceInterval: [number, number];
+  pValue: number;
+  significant: boolean;
+  biasVerification: BiasVerificationResult;
+  identifiability: IdentifiabilityResult;
+  powerAnalysis: PowerAnalysisResult;
+  ledger: CausalAnalysisLedger;
+}
+
+type AnalysisPhase = 'configure' | 'offline' | 'online' | 'testing' | 'complete';
+```
+
+**When to Use**:
+
+- Causal inference research and experiments
+- Understanding treatment effects in training interventions
+- Compliance with rigorous statistical methods
+- Educational demonstrations of causal inference
+
+**Example Usage**:
+
+```typescript
+import { CausalAnalysisPanel } from './components/CausalAnalysisPanel';
+
+<CausalAnalysisPanel
+  onAnalysisComplete={(result) => console.log('ATE:', result.ate)}
+  initialConfig={{
+    numStudents: 100,
+    numTimeSteps: 30,
+    featureDimension: 3,
+    seed: 42
+  }}
+  language="en"
+/>
+```
+
+#### **TriadicOperatorPanel.tsx** - Triadic Operator Visualization (v4.3)
+
+**Location**: `/home/user/neuro-lingua/src/components/TriadicOperatorPanel.tsx`
+
+**Purpose**: Visualization component for the triadic operator table, displaying domains and their triadic relationships across different conceptual frameworks
+
+**Features**:
+
+- Triadic table display with all domains
+- Interactive cell selection
+- Triadic vector computation and visualization
+- Color-coded cells based on triadic properties (strong, tension, balanced)
+- Emoji-based relationship representation
+- Detailed cell view with vector analysis
+- Bilingual support (en/he)
+
+**Key Concepts**:
+
+- **Triadic Operator**: Maps three boolean inputs (a, b, c) to a triadic vector
+- **Triadic Vector**: Contains properties like `strong`, `tension`, and modal values
+- **Domains**: Conceptual frameworks (mind, body, spirit, etc.) with triadic relationships
+
+**When to Use**:
+
+- Exploring triadic relationships in conceptual models
+- Research on triadic logic and ternary systems
+- Educational demonstrations
+- Philosophical framework visualization
+
+**Example Usage**:
+
+```typescript
+import { TriadicOperatorPanel } from './components/TriadicOperatorPanel';
+
+<TriadicOperatorPanel language="en" />
+```
+
 ### 4. Model Compression System (`src/compression/`)
 
 #### **compress.ts** - Unified Compression Interface
@@ -1017,6 +1114,87 @@ for (let i = 0; i < 100; i++) {
 | **Contrastive** | Avoids repetition | Requires embeddings | Open-ended |
 
 ### 6. Context Providers (`src/contexts/`)
+
+#### **BrainContext.tsx** - Brain History State Management (v4.3 Enhanced)
+
+**Location**: `/home/user/neuro-lingua/src/contexts/BrainContext.tsx`
+
+**Purpose**: Comprehensive brain state access with autonomous features and governance integration
+
+**v4.3 Features**:
+
+- Auto-pilot integration with BrainGovernanceBridge
+- Priority-scored need assessment
+- Recovery plan management
+- Autonomous action queue with bounded execution
+
+**Auto-Pilot Levels**:
+
+```typescript
+type AutoPilotLevel =
+  | 'off'          // Manual control only
+  | 'suggestions'  // Provides suggestions, user executes
+  | 'adaptive'     // Executes low-risk actions automatically
+  | 'full';        // Full autonomous operation (bounded)
+```
+
+**Key State and Methods**:
+
+```typescript
+interface BrainContextValue {
+  // Core state
+  brain: BrainStats;
+  suggestions: BrainSuggestion[];
+  statusMessage: string;
+
+  // v4.3: Enhanced state
+  needs: BrainNeed[];
+  healthScore: number;
+  isHealthy: boolean;
+  recoveryPlan: RecoveryPlan | null;
+  pendingActions: AutonomousAction[];
+  autoPilotLevel: AutoPilotLevel;
+
+  // Actions
+  dispatch: (event: BrainEvent) => void;
+  dismissSuggestion: (id: string) => void;
+  setAutoPilotLevel: (level: AutoPilotLevel) => void;
+  executeRecoveryPlan: () => void;
+}
+```
+
+**Safety Guarantees**:
+
+1. No heavy operations run autonomously (only suggestions)
+2. All autonomous actions are visible in the diary
+3. Everything is localStorage-scoped (no network/disk access)
+4. Auto-pilot actions are bounded and reversible
+
+**Usage**:
+
+```typescript
+import { useBrain } from '../contexts/BrainContext';
+
+function MyComponent() {
+  const {
+    brain,
+    suggestions,
+    needs,
+    healthScore,
+    autoPilotLevel,
+    setAutoPilotLevel,
+    dispatch
+  } = useBrain();
+
+  // Check brain health
+  if (!isHealthy) {
+    console.log('Brain needs attention:', needs);
+  }
+
+  // Set auto-pilot level
+  setAutoPilotLevel('adaptive');
+}
+```
 
 #### **ProjectContext.tsx** - State Management
 
@@ -1553,7 +1731,121 @@ optimizer.updateVector(biases, biasGradients, 'bias1');
 - Existing Adam pipelines work well
 - Second-order methods (Newton, L-BFGS) provide better results
 
-### 13. Cerebro Injection System (`src/lib/expandable/`)
+### 13. Sophia Optimizer - v4.2 Feature
+
+#### **Overview**
+
+**Location**: `/home/user/neuro-lingua/src/training/SophiaOptimizer.ts`
+
+**Purpose**: Second-order stochastic optimizer using diagonal Hessian estimates for adaptive per-parameter learning rate scaling
+
+**Key Advantages**:
+- **2× faster convergence**: Fewer epochs to reach target loss vs Adam/Lion
+- **Better generalization**: Curvature-aware updates
+- **Automatic learning rate adaptation**: Per-dimension scaling
+- **Memory**: ~2× parameters (momentum + Hessian diagonal)
+
+#### **Algorithm (Sophia-G variant)**
+
+```
+m_t = β₁ × m_{t-1} + (1 - β₁) × g_t                  (momentum)
+h_t = β₂ × h_{t-1} + (1 - β₂) × (g_t)²              (Gauss-Newton Hessian diagonal)
+θ_{t+1} = θ_t - η × clip(m_t / max(h_t, ε), -ρ, ρ)  (clipped update)
+θ_{t+1} -= η × λ × θ_t                               (weight decay)
+```
+
+**Configuration**:
+
+```typescript
+interface SophiaConfig {
+  lr?: number;              // Learning rate (default: 1e-4, lower than Adam)
+  beta1?: number;           // Momentum decay (default: 0.965)
+  beta2?: number;           // Hessian diagonal EMA decay (default: 0.99)
+  weightDecay?: number;     // L2 regularization (default: 0.01)
+  epsilon?: number;         // Numerical stability (default: 1e-12)
+  rho?: number;             // Update clipping bound (default: 1.0)
+  hessianUpdateFreq?: number; // Update every k steps (default: 10)
+  useHutchinson?: boolean;  // Use Hutchinson estimator (default: false)
+}
+```
+
+**Comparison: Sophia vs Adam vs Lion**
+
+| Feature | Adam | Lion | Sophia |
+|---------|------|------|--------|
+| Memory | 2× params | 1× params | 2× params |
+| Convergence | baseline | 1.5× faster | **2× faster** |
+| Learning rate | ~1e-3 | ~3e-4 | ~1e-4 |
+| Second-order info | No | No | **Yes** |
+| Best for | General | Memory-constrained | Quality-critical |
+
+**Reference**: Liu et al. (2023) "Sophia: A Scalable Stochastic Second-order Optimizer for Language Model Pre-training"
+
+**When to Use Sophia**:
+- Quality-critical training where convergence speed matters
+- Large models where second-order info helps
+- When willing to trade memory for faster convergence
+
+### 14. Causal Inference Engine - v4.3 Feature
+
+#### **Overview**
+
+**Location**: `/home/user/neuro-lingua/src/lib/CausalInferenceEngine.ts`
+
+**Purpose**: Probabilistic dynamic causal inference system with DAG-based modeling
+
+**Three-Phase Operation**:
+
+1. **Offline Learning**: Learn from historical data (propensity, outcome models)
+2. **Online Selection**: Adaptive policy selection with exploration
+3. **Statistical Testing**: Formal hypothesis testing with bias verification
+
+**Mathematical Foundation**:
+- X_{it}: Measured features
+- Y_{it}: Continuous outcome
+- Ỹ_{it} = Q_{θt}(Y_{it}): Quantized outcome
+- Z_{it} ∈ {A, B}: Policy selection
+- U_i: Unmeasured confounders
+
+**Key Features**:
+
+- Temporal dependencies modeling
+- Unmeasured confounder handling
+- Selection mechanism analysis
+- Adaptive quantization
+- AIPW estimation
+- Bootstrap confidence intervals
+- Power analysis
+
+**Usage**:
+
+```typescript
+import { createCausalEngine, CausalInferenceEngine } from '../lib/CausalInferenceEngine';
+
+// Create engine with configuration
+const engine = createCausalEngine({
+  numStudents: 100,
+  numTimeSteps: 30,
+  featureDimension: 3,
+  seed: 42
+});
+
+// Run offline learning phase
+const offlineResult = await engine.runOfflinePhase(historicalData);
+
+// Run online selection
+const onlineResult = await engine.runOnlinePhase(newData, offlineResult);
+
+// Perform hypothesis testing
+const testResult = engine.runHypothesisTesting(onlineResult);
+
+console.log(`ATE: ${testResult.ate} ± ${testResult.standardError}`);
+console.log(`Significant: ${testResult.significant}`);
+```
+
+**References**: Rubin (1974), Pearl (2009), Robins et al. (1994)
+
+### 15. Cerebro Injection System (`src/lib/expandable/`)
 
 The Cerebro system enables dynamic concept injection into neural network layers using mathematical projections and residual analysis.
 
@@ -1722,7 +2014,7 @@ if (event.accepted) {
 - Research on neural network plasticity
 - Controllable generation via concept steering
 
-### 14. Advanced Loss Functions (`src/losses/`)
+### 16. Advanced Loss Functions (`src/losses/`)
 
 #### **advanced.ts** - Specialized Loss Functions
 
@@ -1912,7 +2204,7 @@ console.log(`IB Loss = ${metrics.ibLoss.toFixed(4)}`);
 
 **Reference**: Tishby et al. (1999) "The Information Bottleneck Method"
 
-### 15. Mathematical Analysis (`src/math/`)
+### 17. Mathematical Analysis (`src/math/`)
 
 #### **analysis.ts** - Spectral and Lyapunov Analysis
 
@@ -2025,7 +2317,7 @@ function fisherQuadraticForm(fisher: Matrix, vector: Vector): number;
 
 Evaluates v^T F v for trust region analysis.
 
-### 16. Regularizers (`src/models/regularizers.ts`)
+### 18. Regularizers (`src/models/regularizers.ts`)
 
 **Location**: `/home/user/neuro-lingua/src/models/regularizers.ts` (97 lines)
 
@@ -2095,7 +2387,7 @@ interface BatchRenormResult {
 
 **Reference**: Ioffe (2017) "Batch Renormalization"
 
-### 17. Autodiff System (`src/autodiff/graph.ts`)
+### 19. Autodiff System (`src/autodiff/graph.ts`)
 
 **Location**: `/home/user/neuro-lingua/src/autodiff/graph.ts` (188 lines)
 
@@ -2173,7 +2465,7 @@ function meanSquaredError(predictions: number[], targets: number[]): Variable;
 - Educational demonstrations
 - Experimental layer implementations
 
-### 18. Edge Learning Diagnostics (`src/backend/edgeLearning.ts`)
+### 20. Edge Learning Diagnostics (`src/backend/edgeLearning.ts`)
 
 **Location**: `/home/user/neuro-lingua/src/backend/edgeLearning.ts` (146 lines)
 
@@ -3383,6 +3675,8 @@ where headᵢ = Attention(QWqᵢ, KWkᵢ, VWvᵢ)
 | `src/components/CerebroBubbleGraph.tsx`    | 86    | Cerebro bubble visualization   | Bubble graph rendering       |
 | `src/components/OnboardingTooltip.tsx`     | 78    | Interactive onboarding tips    | Tooltips and hints           |
 | `src/components/ModelSnapshot.tsx`         | 77    | Model metadata snapshot        | Snapshot display             |
+| `src/components/CausalAnalysisPanel.tsx`   | ~400  | Causal inference analysis      | DAG-based causal modeling    |
+| `src/components/TriadicOperatorPanel.tsx`  | ~200  | Triadic operator visualization | Triadic logic display        |
 
 ### Compression Module Files
 
@@ -3507,7 +3801,7 @@ console.log('Average time:', metrics.averageTimeMs);
 - Chrome 113+ (enabled by default)
 - Edge 113+
 - Firefox (experimental, behind flag)
-- Safari (not yet supported as of 2025-01)
+- Safari (not yet supported as of 2026-01)
 
 ### 3. Project Context (Σ-SIG Compliance)
 
@@ -4134,7 +4428,7 @@ gh workflow run train-model.yml \
 - **Minor (Y)**: New features (new optimizer, generation method, new UI panels)
 - **Patch (Z)**: Bug fixes, performance improvements
 
-**Current Version**: v3.2.4 (runtime), v0.0.0 (package.json - not published to npm)
+**Current Version**: v4.4.0 (runtime), v0.0.0 (package.json - not published to npm)
 
 **Creating a Release**:
 

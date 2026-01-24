@@ -17,6 +17,7 @@ import type { AttentionWeights, Matrix } from '../models/attention';
 import { stableSoftmax } from './MathUtils';
 import { type RMSNormState } from './RMSNorm';
 import { GPUNeuralOps } from '../backend/gpu_neural_ops';
+import type { LossMaskConfig } from '../types/project';
 
 export type TransformerConfig = {
   numLayers?: number;
@@ -375,7 +376,8 @@ export class TransformerLM extends ProNeuralLM {
    */
   async train(
     text: string,
-    epochs = 10
+    epochs = 10,
+    lossMaskConfig?: LossMaskConfig
   ): Promise<{
     readonly loss: number;
     readonly accuracy: number;
@@ -383,6 +385,7 @@ export class TransformerLM extends ProNeuralLM {
   }> {
     // Create training sequences (reuse parent method via any cast)
     const createTrainingSequences = (this as any).createTrainingSequences.bind(this);
+    const buildTrainingLossMask = (this as any).buildTrainingLossMask.bind(this);
     const shuffleInPlace = (this as any).shuffleInPlace.bind(this);
     const trainingHistory = (this as any).trainingHistory as Array<{
       loss: number;
@@ -393,34 +396,56 @@ export class TransformerLM extends ProNeuralLM {
     const seqs = createTrainingSequences(text);
     if (seqs.length === 0) return { loss: 0, accuracy: 0, history: trainingHistory };
 
+    // Build loss mask if config provided
+    const lossMask = lossMaskConfig
+      ? buildTrainingLossMask(text, lossMaskConfig)
+      : new Array(seqs.length).fill(1);
+
+    // Pair sequences with their mask values for shuffling
+    const seqsWithMask: [number[], number, number][] = seqs.map(
+      (seq: [number[], number], i: number) => [seq[0], seq[1], lossMask[i] ?? 1]
+    );
+
     let totalLoss = 0;
     let correct = 0;
     let count = 0;
+    let maskedCount = 0;
 
     for (let e = 0; e < epochs; e++) {
-      shuffleInPlace(seqs);
+      shuffleInPlace(seqsWithMask);
       let epochLoss = 0;
       let epochCorrect = 0;
-      for (const [ctx, tgt] of seqs) {
+      let epochMaskedCount = 0;
+
+      for (const [ctx, tgt, maskValue] of seqsWithMask) {
         const cache = await this.transformerForwardPass(ctx, true);
-        const loss = -Math.log(cache.probs[tgt] + 1e-8);
-        epochLoss += loss;
-        totalLoss += loss;
         const pred = cache.probs.indexOf(Math.max(...cache.probs));
+
+        // Only compute loss and backprop for unmasked positions
+        if (maskValue === 1) {
+          const loss = -Math.log(cache.probs[tgt] + 1e-8);
+          epochLoss += loss;
+          totalLoss += loss;
+          epochMaskedCount++;
+          maskedCount++;
+          await this.transformerBackwardPass(ctx, tgt, cache);
+        }
+
+        // Still track accuracy for all positions
         if (pred === tgt) {
           epochCorrect++;
           correct++;
         }
         count++;
-        await this.transformerBackwardPass(ctx, tgt, cache);
       }
-      const avgLoss = epochLoss / seqs.length;
+
+      const avgLoss = epochMaskedCount > 0 ? epochLoss / epochMaskedCount : 0;
       const accuracy = epochCorrect / seqs.length;
       trainingHistory.push({ loss: avgLoss, accuracy, timestamp: Date.now() });
     }
 
     const payload = {
-      loss: totalLoss / Math.max(1, count),
+      loss: maskedCount > 0 ? totalLoss / maskedCount : 0,
       accuracy: correct / Math.max(1, count),
       history: trainingHistory
     } as const;

@@ -72,6 +72,10 @@ interface TrainingPanelProps {
   labelSmoothingEpsilon: number;
   sceBeta: number;
 
+  // Loss Mask (Answer-Only Training)
+  lossMaskMode: 'none' | 'afterEquals' | 'afterAnswerTag';
+  lossMaskAnswerTag: string;
+
   // Optimizer-specific parameters (Lion v4.0)
   lionBeta1: number;
   lionBeta2: number;
@@ -155,6 +159,10 @@ interface TrainingPanelProps {
   onFocalAlphaChange: (value: number) => void;
   onLabelSmoothingEpsilonChange: (value: number) => void;
   onSceBetaChange: (value: number) => void;
+
+  // Loss Mask callbacks
+  onLossMaskModeChange: (value: 'none' | 'afterEquals' | 'afterAnswerTag') => void;
+  onLossMaskAnswerTagChange: (value: string) => void;
 
   // Lion optimizer callbacks
   onLionBeta1Change: (value: number) => void;
@@ -1225,6 +1233,106 @@ export function TrainingPanel(props: TrainingPanelProps) {
               'Prevents overconfident predictions (ε=0.1 typical)'}
             {props.lossFunction === 'symmetric_ce' && 'Robust to noisy labels via bidirectional KL'}
           </div>
+        </div>
+      )}
+
+      {/* Loss Mask (Answer-Only Training) */}
+      {props.useAdvanced && (
+        <div
+          style={{
+            background: 'rgba(16, 185, 129, 0.1)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#6ee7b7', marginBottom: 8 }}>
+            🎭 Loss Mask (Answer-Only Training)
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>Mask Mode</div>
+              <select
+                aria-label="Loss mask mode"
+                value={props.lossMaskMode}
+                onChange={(e) =>
+                  props.onLossMaskModeChange(
+                    e.target.value as 'none' | 'afterEquals' | 'afterAnswerTag'
+                  )
+                }
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white',
+                  fontSize: 12
+                }}
+              >
+                <option value="none">None (Full Sequence)</option>
+                <option value="afterEquals">After &quot;=&quot; (Math Tasks)</option>
+                <option value="afterAnswerTag">After Answer Tag (Q&A)</option>
+              </select>
+            </div>
+            {props.lossMaskMode === 'afterAnswerTag' && (
+              <div>
+                <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>Answer Tag</div>
+                <input
+                  aria-label="Answer tag delimiter"
+                  type="text"
+                  value={props.lossMaskAnswerTag}
+                  onChange={(e) => props.onLossMaskAnswerTagChange(e.target.value)}
+                  placeholder="A:"
+                  style={{
+                    width: '100%',
+                    background: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: 6,
+                    padding: 8,
+                    color: 'white',
+                    fontSize: 12,
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            )}
+          </div>
+          <div style={{ fontSize: 9, color: '#64748b', marginTop: 8 }}>
+            {props.lossMaskMode === 'none' && 'Compute loss on all tokens (standard training)'}
+            {props.lossMaskMode === 'afterEquals' &&
+              'Only compute loss after "=" - ideal for "20+7=27" format'}
+            {props.lossMaskMode === 'afterAnswerTag' &&
+              `Only compute loss after "${props.lossMaskAnswerTag}" - ideal for "Q:...\\nA:..." format`}
+          </div>
+          {props.lossMaskMode !== 'none' && (
+            <div
+              style={{
+                marginTop: 8,
+                padding: 8,
+                background: 'rgba(16, 185, 129, 0.15)',
+                borderRadius: 6,
+                fontSize: 10,
+                color: '#a7f3d0'
+              }}
+            >
+              <strong>Tip:</strong> Format your corpus as:
+              {props.lossMaskMode === 'afterEquals' ? (
+                <code style={{ display: 'block', marginTop: 4, fontFamily: 'monospace' }}>
+                  20+7=27
+                  <br />
+                  15-3=12
+                </code>
+              ) : (
+                <code style={{ display: 'block', marginTop: 4, fontFamily: 'monospace' }}>
+                  Q: What is 20+7?
+                  <br />
+                  {props.lossMaskAnswerTag} 27
+                </code>
+              )}
+            </div>
+          )}
         </div>
       )}
 

@@ -34,6 +34,7 @@ import {
   DEFAULT_ADVANCED_CONFIG,
   DEFAULT_IB_CONFIG,
   DEFAULT_LOSS_CONFIG,
+  DEFAULT_LOSS_MASK_CONFIG,
   DEFAULT_LION_CONFIG,
   DEFAULT_SOPHIA_CONFIG,
   DEFAULT_TOKENIZER_CONFIG,
@@ -489,6 +490,12 @@ export default function NeuroLinguaDomesticaV324() {
     DEFAULT_LOSS_CONFIG.labelSmoothingEpsilon
   );
   const [sceBeta, setSceBeta] = useState(DEFAULT_LOSS_CONFIG.sceBeta);
+
+  // Loss Mask parameters (v4.5) - Answer-only training
+  const [lossMaskMode, setLossMaskMode] = useState<'none' | 'afterEquals' | 'afterAnswerTag'>(
+    DEFAULT_LOSS_MASK_CONFIG.mode
+  );
+  const [lossMaskAnswerTag, setLossMaskAnswerTag] = useState(DEFAULT_LOSS_MASK_CONFIG.answerTag);
 
   // Lion optimizer parameters (v4.0)
   const [lionBeta1, setLionBeta1] = useState(DEFAULT_LION_CONFIG.lionBeta1);
@@ -1399,7 +1406,10 @@ export default function NeuroLinguaDomesticaV324() {
       trainingRef.current.currentEpoch = e;
 
       const epochStartTime = Date.now();
-      const res = await modelRef.current!.train(trainingText, 1);
+      // Build loss mask config if enabled
+      const currentLossMaskConfig =
+        lossMaskMode !== 'none' ? { mode: lossMaskMode, answerTag: lossMaskAnswerTag } : undefined;
+      const res = await modelRef.current!.train(trainingText, 1, currentLossMaskConfig);
       const epochEndTime = Date.now();
 
       aggLoss += res.loss;
@@ -2269,6 +2279,11 @@ export default function NeuroLinguaDomesticaV324() {
               onFocalAlphaChange={setFocalAlpha}
               onLabelSmoothingEpsilonChange={setLabelSmoothingEpsilon}
               onSceBetaChange={setSceBeta}
+              // Loss Mask (Answer-Only Training)
+              lossMaskMode={lossMaskMode}
+              lossMaskAnswerTag={lossMaskAnswerTag}
+              onLossMaskModeChange={setLossMaskMode}
+              onLossMaskAnswerTagChange={setLossMaskAnswerTag}
               // Lion optimizer parameters (v4.0)
               lionBeta1={lionBeta1}
               lionBeta2={lionBeta2}

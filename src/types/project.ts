@@ -9,6 +9,24 @@ import type { Architecture } from '../components/TrainingPanel';
 import type { InjectionEvent } from './injection';
 
 /**
+ * Loss mask mode for answer-only training
+ * - 'none': No masking, compute loss on all tokens (default)
+ * - 'afterEquals': Mask prompt tokens, compute loss only after '=' delimiter
+ * - 'afterAnswerTag': Mask prompt tokens, compute loss only after answer tag (e.g., 'A:')
+ */
+export type LossMaskMode = 'none' | 'afterEquals' | 'afterAnswerTag';
+
+/**
+ * Configuration for loss masking during training
+ */
+export interface LossMaskConfig {
+  /** Loss mask mode */
+  mode: LossMaskMode;
+  /** Custom answer tag for 'afterAnswerTag' mode (default: 'A:') */
+  answerTag: string;
+}
+
+/**
  * Decision Ledger - Tracks rationale and governance for each run
  * Based on Σ-SIG / EXACT1 framework
  */
@@ -99,6 +117,9 @@ export interface TrainingConfig {
   ffHiddenDim?: number;
   attentionDropout?: number;
   dropConnectRate?: number;
+
+  // Loss mask configuration (answer-only training)
+  lossMaskConfig?: LossMaskConfig;
 }
 
 /**

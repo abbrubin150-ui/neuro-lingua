@@ -35,6 +35,7 @@ import {
   nucleusSampling
 } from './MathUtils';
 import { greedySample } from '../generation/sampling';
+import type { LossMaskConfig } from '../types/project';
 
 export type ActivationFunction = 'relu' | 'leaky_relu' | 'elu' | 'gelu';
 export type LRSchedule = 'constant' | 'cosine' | 'exponential' | 'warmup_cosine';
@@ -317,7 +318,8 @@ export class AdvancedNeuralLM extends ProNeuralLM {
     epochs = 10,
     callbacks?: {
       onEpochEnd?: (epoch: number, metrics: { loss: number; accuracy: number; lr: number }) => void;
-    }
+    },
+    lossMaskConfig?: LossMaskConfig
   ): Promise<{ loss: number; accuracy: number; history: any[] }> {
     this.totalEpochs = epochs;
     const seqs = (this as any).createTrainingSequences(text);
@@ -326,9 +328,20 @@ export class AdvancedNeuralLM extends ProNeuralLM {
       return { loss: 0, accuracy: 0, history: this.getTrainingHistory() };
     }
 
+    // Build loss mask if config provided
+    const lossMask = lossMaskConfig
+      ? (this as any).buildTrainingLossMask(text, lossMaskConfig)
+      : new Array(seqs.length).fill(1);
+
+    // Pair sequences with their mask values for shuffling
+    const seqsWithMask: [number[], number, number][] = seqs.map(
+      (seq: [number[], number], i: number) => [seq[0], seq[1], lossMask[i] ?? 1]
+    );
+
     let totalLoss = 0;
     let correct = 0;
     let count = 0;
+    let maskedCount = 0;
 
     for (let e = 0; e < epochs; e++) {
       this.currentEpoch = e;
@@ -337,13 +350,14 @@ export class AdvancedNeuralLM extends ProNeuralLM {
       const currentLR = this.getCurrentLearningRate();
       (this as any).learningRate = currentLR;
 
-      // Shuffle sequences
-      (this as any).shuffleInPlace(seqs);
+      // Shuffle sequences with mask
+      (this as any).shuffleInPlace(seqsWithMask);
 
       let epochLoss = 0;
       let epochCorrect = 0;
+      let epochMaskedCount = 0;
 
-      for (const [ctx, tgt] of seqs) {
+      for (const [ctx, tgt, maskValue] of seqsWithMask) {
         // Forward pass (use parent's forward with modifications)
         const cache = await (this as any).forward(ctx, true);
 
@@ -352,29 +366,35 @@ export class AdvancedNeuralLM extends ProNeuralLM {
 
         // Calculate loss with numerical stability
         const probs = stableSoftmax(cache.logits, 1.0);
-        const loss = -Math.log(probs[tgt] + 1e-10);
-
-        epochLoss += loss;
-        totalLoss += loss;
-
         const pred = probs.indexOf(Math.max(...probs));
+
+        // Only compute loss and backprop for unmasked positions
+        if (maskValue === 1) {
+          const loss = -Math.log(probs[tgt] + 1e-10);
+          epochLoss += loss;
+          totalLoss += loss;
+          epochMaskedCount++;
+          maskedCount++;
+
+          // Backward pass with regularization
+          await (this as any).backward(ctx, tgt, { ...cache, probs });
+
+          // Apply L2 regularization
+          if (this.advancedConfig.weightDecay > 0) {
+            this.applyL2Regularization((this as any).wHidden, currentLR);
+            this.applyL2Regularization((this as any).wOutput, currentLR);
+          }
+        }
+
+        // Still track accuracy for all positions
         if (pred === tgt) {
           epochCorrect++;
           correct++;
         }
         count++;
-
-        // Backward pass with regularization
-        await (this as any).backward(ctx, tgt, { ...cache, probs });
-
-        // Apply L2 regularization
-        if (this.advancedConfig.weightDecay > 0) {
-          this.applyL2Regularization((this as any).wHidden, currentLR);
-          this.applyL2Regularization((this as any).wOutput, currentLR);
-        }
       }
 
-      const avgLoss = epochLoss / seqs.length;
+      const avgLoss = epochMaskedCount > 0 ? epochLoss / epochMaskedCount : 0;
       const accuracy = epochCorrect / seqs.length;
 
       // Store history
@@ -388,7 +408,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
     }
 
     return {
-      loss: totalLoss / Math.max(1, count),
+      loss: maskedCount > 0 ? totalLoss / maskedCount : 0,
       accuracy: correct / Math.max(1, count),
       history: this.getTrainingHistory()
     };

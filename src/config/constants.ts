@@ -207,6 +207,28 @@ export const DEFAULT_LOSS_CONFIG = {
 };
 
 /**
+ * Default Loss Mask configuration (v4.5)
+ *
+ * Loss masking for answer-only training:
+ * - Computes loss only on answer tokens (after delimiter)
+ * - Prevents model from memorizing prompts
+ * - Useful for Q&A, math, and instruction-following tasks
+ *
+ * Corpus format for best results:
+ *   Q:20+7=
+ *   A:27<EOS>
+ *
+ * Or with equals delimiter:
+ *   20+7=27
+ */
+export const DEFAULT_LOSS_MASK_CONFIG = {
+  /** Loss mask mode: 'none' | 'afterEquals' | 'afterAnswerTag' */
+  mode: 'none' as 'none' | 'afterEquals' | 'afterAnswerTag',
+  /** Custom answer tag (used when mode='afterAnswerTag') */
+  answerTag: 'A:'
+};
+
+/**
  * Default tokenizer configuration
  */
 export const DEFAULT_TOKENIZER_CONFIG: TokenizerConfig = {

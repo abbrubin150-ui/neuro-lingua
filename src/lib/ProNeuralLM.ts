@@ -18,6 +18,7 @@ import {
 } from '../generation/sampling';
 import { GPUNeuralOps } from '../backend/gpu_neural_ops';
 import { SophiaOptimizer } from '../training/SophiaOptimizer';
+import type { LossMaskConfig } from '../types/project';
 
 export type Optimizer = 'momentum' | 'adam' | 'newton' | 'bfgs' | 'lion' | 'sophia';
 export type TokenizerMode = 'unicode' | 'ascii' | 'custom';
@@ -746,6 +747,66 @@ export class ProNeuralLM {
     return seqs;
   }
 
+  /**
+   * Build a loss mask array for training sequences.
+   * Returns an array where mask[i] = 1 means compute loss for sequence i.
+   *
+   * @param text - Training text
+   * @param lossMaskConfig - Loss mask configuration
+   * @returns Array of 0s and 1s, same length as training sequences
+   */
+  private buildTrainingLossMask(text: string, lossMaskConfig: LossMaskConfig): number[] {
+    const mode = lossMaskConfig.mode;
+    const answerTag = lossMaskConfig.answerTag || 'A:';
+
+    if (mode === 'none') {
+      // All positions contribute to loss
+      const toks = this.tokenize(text);
+      // Number of sequences = length - contextSize (since we start at contextSize)
+      // Plus 1 for EOS token
+      return new Array(toks.length + 1).fill(1);
+    }
+
+    // Find delimiter in the original text
+    const delimiter = mode === 'afterEquals' ? '=' : answerTag;
+    const delimPos = text.indexOf(delimiter);
+
+    if (delimPos < 0) {
+      // No delimiter found - return all zeros (no loss computed)
+      // This prevents training on malformed examples
+      const toks = this.tokenize(text);
+      return new Array(toks.length + 1).fill(0);
+    }
+
+    // Count tokens before the delimiter (in the original text, not including BOS)
+    const textBeforeDelim = text.slice(0, delimPos + delimiter.length);
+    const tokensBeforeDelim = this.tokenize(textBeforeDelim).length;
+
+    // Training sequences start at position contextSize in the token array
+    // Position i in toks corresponds to sequence index (i - contextSize)
+    // We add contextSize BOS tokens at the start
+    // So the first token of the actual text is at position contextSize in toks
+    // And the delimiter ends at position (contextSize + tokensBeforeDelim)
+    // We want to compute loss AFTER the delimiter
+
+    const toks = this.tokenize(text);
+    const numSeqs = toks.length + 1; // +1 for EOS
+    const mask = new Array(numSeqs).fill(0);
+
+    // Sequences correspond to positions contextSize...(contextSize + numSeqs - 1) in toks
+    // Sequence i corresponds to predicting token at position (contextSize + i) in toks
+    // We want loss only for tokens after the delimiter
+    // The first token after delimiter is at position tokensBeforeDelim in the text tokens (0-indexed)
+    // Which is at position (contextSize + tokensBeforeDelim) in the full toks array
+    // Which corresponds to sequence index tokensBeforeDelim
+
+    for (let i = tokensBeforeDelim; i < numSeqs; i++) {
+      mask[i] = 1;
+    }
+
+    return mask;
+  }
+
   private shuffleInPlace<T>(arr: T[]) {
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(this.nextRandom() * (i + 1));
@@ -753,38 +814,63 @@ export class ProNeuralLM {
     }
   }
 
-  async train(text: string, epochs = 10) {
+  async train(text: string, epochs = 10, lossMaskConfig?: LossMaskConfig) {
     const seqs = this.createTrainingSequences(text);
     if (seqs.length === 0) return { loss: 0, accuracy: 0, history: this.trainingHistory };
+
+    // Build loss mask if config provided
+    const lossMask = lossMaskConfig
+      ? this.buildTrainingLossMask(text, lossMaskConfig)
+      : new Array(seqs.length).fill(1);
+
+    // Pair sequences with their mask values for shuffling
+    const seqsWithMask: [number[], number, number][] = seqs.map((seq, i) => [
+      seq[0],
+      seq[1],
+      lossMask[i] ?? 1
+    ]);
 
     let totalLoss = 0;
     let correct = 0;
     let count = 0;
+    let maskedCount = 0; // Track how many were actually trained
 
     for (let e = 0; e < epochs; e++) {
-      this.shuffleInPlace(seqs);
+      this.shuffleInPlace(seqsWithMask);
       let epochLoss = 0;
       let epochCorrect = 0;
-      for (const [ctx, tgt] of seqs) {
+      let epochMaskedCount = 0;
+
+      for (const [ctx, tgt, maskValue] of seqsWithMask) {
         const cache = await this.forward(ctx, true);
-        const loss = -Math.log(cache.probs[tgt] + 1e-8);
-        epochLoss += loss;
-        totalLoss += loss;
         const pred = cache.probs.indexOf(Math.max(...cache.probs));
+
+        // Only compute loss and backprop for unmasked positions
+        if (maskValue === 1) {
+          const loss = -Math.log(cache.probs[tgt] + 1e-8);
+          epochLoss += loss;
+          totalLoss += loss;
+          epochMaskedCount++;
+          maskedCount++;
+          await this.backward(ctx, tgt, cache);
+        }
+
+        // Still track accuracy for all positions
         if (pred === tgt) {
           epochCorrect++;
           correct++;
         }
         count++;
-        await this.backward(ctx, tgt, cache);
       }
-      const avgLoss = epochLoss / seqs.length;
+
+      // Average loss over masked positions only
+      const avgLoss = epochMaskedCount > 0 ? epochLoss / epochMaskedCount : 0;
       const accuracy = epochCorrect / seqs.length;
       this.trainingHistory.push({ loss: avgLoss, accuracy, timestamp: Date.now() });
     }
 
     const payload = {
-      loss: totalLoss / Math.max(1, count),
+      loss: maskedCount > 0 ? totalLoss / maskedCount : 0,
       accuracy: correct / Math.max(1, count),
       history: this.trainingHistory
     } as const;

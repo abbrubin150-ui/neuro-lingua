@@ -521,7 +521,12 @@ export class VisualizationService {
       color?: string;
     } = {}
   ): PlotlyChart {
-    const { title = 'Distribution', bins: _bins = 30, xLabel = 'Value', color = '#6366f1' } = options;
+    const {
+      title = 'Distribution',
+      bins: _bins = 30,
+      xLabel = 'Value',
+      color = '#6366f1'
+    } = options;
 
     const trace: PlotlyTrace = {
       type: 'histogram',

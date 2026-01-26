@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import type { Optimizer, TokenizerConfig as TokenizerConfigType } from '../lib/ProNeuralLM';
 import type { ActivationFunction, LRSchedule, InitializationScheme } from '../lib/AdvancedNeuralLM';
+import type { GradientClipMode } from '../training/GradientClipping';
 import { clamp } from '../lib/ProNeuralLM';
 import { TokenizerConfig } from './TokenizerConfig';
 import { DEFAULT_HYPERPARAMETERS, HYPERPARAMETER_CONSTRAINTS } from '../config/constants';
@@ -40,7 +41,10 @@ interface TrainingPanelProps {
   warmupEpochs: number;
   weightDecay: number;
   gradientClipNorm: number;
+  gradientClipMode: GradientClipMode;
   useLayerNorm: boolean;
+  useEMA: boolean;
+  emaDecay: number;
   useBeamSearch: boolean;
   beamWidth: number;
 
@@ -126,7 +130,10 @@ interface TrainingPanelProps {
   onWarmupEpochsChange: (value: number) => void;
   onWeightDecayChange: (value: number) => void;
   onGradientClipNormChange: (value: number) => void;
+  onGradientClipModeChange: (value: GradientClipMode) => void;
   onUseLayerNormChange: (value: boolean) => void;
+  onUseEMAChange: (value: boolean) => void;
+  onEmaDecayChange: (value: number) => void;
   onUseBeamSearchChange: (value: boolean) => void;
   onBeamWidthChange: (value: number) => void;
 
@@ -1729,7 +1736,38 @@ export function TrainingPanel(props: TrainingPanelProps) {
               />
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+            <div>
+              <div style={{ fontSize: 12, color: '#94a3b8' }}>Clip Mode</div>
+              <select
+                aria-label="Gradient clip mode"
+                value={props.gradientClipMode}
+                onChange={(e) => props.onGradientClipModeChange(e.target.value as GradientClipMode)}
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white'
+                }}
+              >
+                <option value="global_norm">Global Norm</option>
+                <option value="per_parameter">Per-Parameter</option>
+                <option value="both">Both</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Layer Norm & EMA */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 12,
+              marginBottom: 12
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center' }}>
               <label
                 style={{
                   display: 'flex',
@@ -1747,6 +1785,54 @@ export function TrainingPanel(props: TrainingPanelProps) {
                 Layer Normalization
               </label>
             </div>
+
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  cursor: 'pointer'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={props.useEMA}
+                  onChange={(e) => props.onUseEMAChange(e.target.checked)}
+                />
+                EMA Weight Averaging
+              </label>
+            </div>
+
+            {props.useEMA && (
+              <div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>EMA Decay</div>
+                <input
+                  aria-label="EMA decay"
+                  type="number"
+                  step="0.001"
+                  value={props.emaDecay}
+                  onChange={(e) =>
+                    props.onEmaDecayChange(
+                      clamp(
+                        parseFloat(e.target.value || '0.999'),
+                        HYPERPARAMETER_CONSTRAINTS.emaDecay.min,
+                        HYPERPARAMETER_CONSTRAINTS.emaDecay.max
+                      )
+                    )
+                  }
+                  style={{
+                    width: '100%',
+                    background: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: 6,
+                    padding: 8,
+                    color: 'white'
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Beam Search */}

@@ -7,6 +7,7 @@ import type { Optimizer, TokenizerConfig } from '../lib/ProNeuralLM';
 import type { ActivationFunction, LRSchedule, InitializationScheme } from '../lib/AdvancedNeuralLM';
 import type { Architecture } from '../components/TrainingPanel';
 import type { InjectionEvent } from './injection';
+import type { GradientClipMode } from '../training/GradientClipping';
 
 /**
  * Loss mask mode for answer-only training
@@ -109,7 +110,12 @@ export interface TrainingConfig {
   warmupEpochs?: number;
   weightDecay?: number;
   gradientClipNorm?: number;
+  gradientClipMode?: GradientClipMode;
   useLayerNorm?: boolean;
+
+  // EMA (Exponential Moving Average) weight averaging
+  useEMA?: boolean;
+  emaDecay?: number;
 
   // Transformer-specific
   numHeads?: number;

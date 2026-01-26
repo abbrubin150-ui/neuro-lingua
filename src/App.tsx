@@ -44,6 +44,9 @@ import {
   HYPERPARAMETER_CONSTRAINTS
 } from './config/constants';
 
+import type { GradientClipMode } from './training/GradientClipping';
+import { EMATracker } from './training/EMAWeights';
+
 import {
   OnboardingCard,
   type OnboardingCardStrings,
@@ -450,7 +453,13 @@ export default function NeuroLinguaDomesticaV324() {
   const [gradientClipNorm, setGradientClipNorm] = useState(
     DEFAULT_ADVANCED_CONFIG.gradientClipNorm
   );
+  const [gradientClipMode, setGradientClipMode] = useState<GradientClipMode>(
+    DEFAULT_ADVANCED_CONFIG.gradientClipMode
+  );
   const [useLayerNorm, setUseLayerNorm] = useState(DEFAULT_ADVANCED_CONFIG.useLayerNorm);
+  const [useEMA, setUseEMA] = useState(DEFAULT_ADVANCED_CONFIG.useEMA);
+  const [emaDecay, setEmaDecay] = useState(DEFAULT_ADVANCED_CONFIG.emaDecay);
+  const emaTrackerRef = useRef<EMATracker | null>(null);
   const [useBeamSearch, setUseBeamSearch] = useState(DEFAULT_GENERATION.useBeamSearch);
   const [beamWidth, setBeamWidth] = useState(DEFAULT_GENERATION.beamWidth);
 
@@ -1213,7 +1222,10 @@ export default function NeuroLinguaDomesticaV324() {
       warmupEpochs,
       weightDecay,
       gradientClipNorm,
+      gradientClipMode,
       useLayerNorm,
+      useEMA,
+      emaDecay,
       numHeads,
       numLayers,
       ffHiddenDim,
@@ -1390,6 +1402,14 @@ export default function NeuroLinguaDomesticaV324() {
       modelRef.current!.setGPUOps(null);
     }
 
+    // Initialize EMA tracker if enabled
+    if (useEMA) {
+      if (!emaTrackerRef.current || emaTrackerRef.current.getDecay() !== emaDecay) {
+        emaTrackerRef.current = new EMATracker(emaDecay);
+      }
+      addSystemMessage(`📈 EMA weight averaging enabled (decay=${emaDecay})`);
+    }
+
     const total = Math.max(1, epochs);
     let aggLoss = 0;
     let aggAcc = 0;
@@ -1411,6 +1431,11 @@ export default function NeuroLinguaDomesticaV324() {
         lossMaskMode !== 'none' ? { mode: lossMaskMode, answerTag: lossMaskAnswerTag } : undefined;
       const res = await modelRef.current!.train(trainingText, 1, currentLossMaskConfig);
       const epochEndTime = Date.now();
+
+      // Update EMA shadow weights after each epoch
+      if (useEMA && emaTrackerRef.current) {
+        emaTrackerRef.current.update(modelRef.current!.getWeights());
+      }
 
       aggLoss += res.loss;
       aggAcc += res.accuracy;
@@ -1476,6 +1501,17 @@ export default function NeuroLinguaDomesticaV324() {
     }
 
     if (trainingRef.current.running) {
+      // Apply EMA weights for inference/evaluation after training
+      if (useEMA && emaTrackerRef.current && emaTrackerRef.current.isInitialized()) {
+        const emaWeights = emaTrackerRef.current.getShadowWeights();
+        if (emaWeights) {
+          modelRef.current!.setWeights(emaWeights);
+          addSystemMessage(
+            `📈 EMA weights applied (${emaTrackerRef.current.getNumUpdates()} updates, decay=${emaDecay})`
+          );
+        }
+      }
+
       const finalLoss = aggLoss / Math.max(1, total);
       const finalAccuracy = aggAcc / Math.max(1, total);
       const finalPerplexity = Math.exp(Math.max(1e-8, finalLoss));
@@ -1782,6 +1818,9 @@ export default function NeuroLinguaDomesticaV324() {
     setSeed(DEFAULT_HYPERPARAMETERS.seed);
     setResume(DEFAULT_HYPERPARAMETERS.resume);
     setUseLayerNorm(false);
+    setGradientClipMode(DEFAULT_ADVANCED_CONFIG.gradientClipMode);
+    setUseEMA(DEFAULT_ADVANCED_CONFIG.useEMA);
+    setEmaDecay(DEFAULT_ADVANCED_CONFIG.emaDecay);
     setNumHeads(DEFAULT_HYPERPARAMETERS.transformer.numHeads);
     setNumLayers(DEFAULT_HYPERPARAMETERS.transformer.numLayers);
     setFfHiddenDim(DEFAULT_HYPERPARAMETERS.transformer.ffHiddenDim);
@@ -2202,7 +2241,10 @@ export default function NeuroLinguaDomesticaV324() {
               warmupEpochs={warmupEpochs}
               weightDecay={weightDecay}
               gradientClipNorm={gradientClipNorm}
+              gradientClipMode={gradientClipMode}
               useLayerNorm={useLayerNorm}
+              useEMA={useEMA}
+              emaDecay={emaDecay}
               useBeamSearch={useBeamSearch}
               beamWidth={beamWidth}
               numHeads={numHeads}
@@ -2239,7 +2281,10 @@ export default function NeuroLinguaDomesticaV324() {
               onWarmupEpochsChange={setWarmupEpochs}
               onWeightDecayChange={setWeightDecay}
               onGradientClipNormChange={setGradientClipNorm}
+              onGradientClipModeChange={setGradientClipMode}
               onUseLayerNormChange={setUseLayerNorm}
+              onUseEMAChange={setUseEMA}
+              onEmaDecayChange={setEmaDecay}
               onUseBeamSearchChange={setUseBeamSearch}
               onBeamWidthChange={setBeamWidth}
               onNumHeadsChange={setNumHeads}

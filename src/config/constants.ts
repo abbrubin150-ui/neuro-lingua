@@ -1,6 +1,7 @@
 import type { Optimizer, TokenizerConfig } from '../lib/ProNeuralLM';
 import type { ActivationFunction, LRSchedule, InitializationScheme } from '../lib/AdvancedNeuralLM';
 import type { BetaSchedule } from '../losses/information_bottleneck';
+import type { GradientClipMode } from '../training/GradientClipping';
 
 /**
  * Storage keys for localStorage
@@ -91,7 +92,10 @@ export const DEFAULT_ADVANCED_CONFIG = {
   warmupEpochs: 0,
   weightDecay: 1e-4,
   gradientClipNorm: 5.0,
-  useLayerNorm: false
+  gradientClipMode: 'global_norm' as GradientClipMode,
+  useLayerNorm: false,
+  useEMA: false,
+  emaDecay: 0.999
 };
 
 /**
@@ -321,6 +325,7 @@ export const HYPERPARAMETER_CONSTRAINTS = {
   warmupEpochs: { min: 0, max: 50 },
   weightDecay: { min: 0, max: 0.01 },
   gradientClipNorm: { min: 1, max: 10 },
+  emaDecay: { min: 0.9, max: 0.9999 },
   transformer: {
     numHeads: { min: 1, max: 16 },
     numLayers: { min: 1, max: 8 },

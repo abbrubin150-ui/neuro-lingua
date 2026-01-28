@@ -81,6 +81,7 @@ import { DecisionEntry2Panel } from './components/DecisionEntry2Panel';
 
 import type { InformationMetrics } from './losses/information_bottleneck';
 import { getBetaSchedule } from './losses/information_bottleneck';
+import { validateRegExpPattern } from './losses/lossMask';
 
 import { useProjects } from './contexts/ProjectContext';
 import { useBrainTraining, useBrainGeneration } from './contexts/BrainContext';
@@ -501,10 +502,17 @@ export default function NeuroLinguaDomesticaV324() {
   const [sceBeta, setSceBeta] = useState(DEFAULT_LOSS_CONFIG.sceBeta);
 
   // Loss Mask parameters (v4.5) - Answer-only training
-  const [lossMaskMode, setLossMaskMode] = useState<'none' | 'afterEquals' | 'afterAnswerTag'>(
-    DEFAULT_LOSS_MASK_CONFIG.mode
-  );
+  const [lossMaskMode, setLossMaskMode] = useState<
+    'none' | 'afterEquals' | 'afterAnswerTag' | 'customRegExp'
+  >(DEFAULT_LOSS_MASK_CONFIG.mode);
   const [lossMaskAnswerTag, setLossMaskAnswerTag] = useState(DEFAULT_LOSS_MASK_CONFIG.answerTag);
+  const [lossMaskCustomPattern, setLossMaskCustomPattern] = useState(
+    DEFAULT_LOSS_MASK_CONFIG.customPattern
+  );
+  const [lossMaskRegExpPosition, setLossMaskRegExpPosition] = useState<
+    'after' | 'before' | 'match' | 'exclude'
+  >(DEFAULT_LOSS_MASK_CONFIG.regExpPosition);
+  const [lossMaskPatternError, setLossMaskPatternError] = useState<string | null>(null);
 
   // Lion optimizer parameters (v4.0)
   const [lionBeta1, setLionBeta1] = useState(DEFAULT_LION_CONFIG.lionBeta1);
@@ -575,6 +583,17 @@ export default function NeuroLinguaDomesticaV324() {
   // Helper to add system messages
   const addSystemMessage = useCallback((content: string) => {
     setMessages((m) => [...m, { type: 'system' as const, content, timestamp: Date.now() }]);
+  }, []);
+
+  // Handler for loss mask pattern changes with validation
+  const handleLossMaskPatternChange = useCallback((pattern: string) => {
+    setLossMaskCustomPattern(pattern);
+    if (pattern.trim() === '') {
+      setLossMaskPatternError(null);
+    } else {
+      const validation = validateRegExpPattern(pattern);
+      setLossMaskPatternError(validation.valid ? null : validation.error || 'Invalid pattern');
+    }
   }, []);
 
   const handleArchitectureChange = useCallback(
@@ -1428,7 +1447,14 @@ export default function NeuroLinguaDomesticaV324() {
       const epochStartTime = Date.now();
       // Build loss mask config if enabled
       const currentLossMaskConfig =
-        lossMaskMode !== 'none' ? { mode: lossMaskMode, answerTag: lossMaskAnswerTag } : undefined;
+        lossMaskMode !== 'none'
+          ? {
+              mode: lossMaskMode,
+              answerTag: lossMaskAnswerTag,
+              customPattern: lossMaskCustomPattern,
+              regExpPosition: lossMaskRegExpPosition
+            }
+          : undefined;
       const res = await modelRef.current!.train(trainingText, 1, currentLossMaskConfig);
       const epochEndTime = Date.now();
 
@@ -2327,8 +2353,14 @@ export default function NeuroLinguaDomesticaV324() {
               // Loss Mask (Answer-Only Training)
               lossMaskMode={lossMaskMode}
               lossMaskAnswerTag={lossMaskAnswerTag}
+              lossMaskCustomPattern={lossMaskCustomPattern}
+              lossMaskRegExpPosition={lossMaskRegExpPosition}
+              lossMaskPatternError={lossMaskPatternError}
               onLossMaskModeChange={setLossMaskMode}
               onLossMaskAnswerTagChange={setLossMaskAnswerTag}
+              onLossMaskCustomPatternChange={handleLossMaskPatternChange}
+              onLossMaskRegExpPositionChange={setLossMaskRegExpPosition}
+              onLossMaskPatternErrorChange={setLossMaskPatternError}
               // Lion optimizer parameters (v4.0)
               lionBeta1={lionBeta1}
               lionBeta2={lionBeta2}

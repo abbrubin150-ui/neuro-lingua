@@ -19,6 +19,7 @@ import {
 import { GPUNeuralOps } from '../backend/gpu_neural_ops';
 import { SophiaOptimizer } from '../training/SophiaOptimizer';
 import type { LossMaskConfig } from '../types/project';
+import { findRegExpMatches, buildCharMaskFromMatches } from '../losses/lossMask';
 
 export type Optimizer = 'momentum' | 'adam' | 'newton' | 'bfgs' | 'lion' | 'sophia';
 export type TokenizerMode = 'unicode' | 'ascii' | 'custom';
@@ -758,24 +759,72 @@ export class ProNeuralLM {
   private buildTrainingLossMask(text: string, lossMaskConfig: LossMaskConfig): number[] {
     const mode = lossMaskConfig.mode;
     const answerTag = lossMaskConfig.answerTag || 'A:';
+    const toks = this.tokenize(text);
+    const numSeqs = toks.length + 1; // +1 for EOS
 
     if (mode === 'none') {
       // All positions contribute to loss
-      const toks = this.tokenize(text);
-      // Number of sequences = length - contextSize (since we start at contextSize)
-      // Plus 1 for EOS token
-      return new Array(toks.length + 1).fill(1);
+      return new Array(numSeqs).fill(1);
     }
 
-    // Find delimiter in the original text
+    // Handle custom RegExp mode
+    if (mode === 'customRegExp') {
+      const pattern = lossMaskConfig.customPattern;
+      const position = lossMaskConfig.regExpPosition || 'after';
+
+      if (!pattern || pattern.trim() === '') {
+        // No pattern provided - return all zeros
+        return new Array(numSeqs).fill(0);
+      }
+
+      // Find matches in the text
+      const matches = findRegExpMatches(text, pattern);
+
+      if (matches.length === 0) {
+        // No matches found - return all zeros to prevent training on malformed examples
+        // Exception: 'exclude' mode with no matches means include everything
+        return new Array(numSeqs).fill(position === 'exclude' ? 1 : 0);
+      }
+
+      // Build character-level mask
+      const charMask = buildCharMaskFromMatches(text, matches, position);
+
+      // Map character positions to token positions
+      const mask = new Array(numSeqs).fill(0);
+
+      // Build character-to-token mapping using the tokenized strings
+      // toks is string[] from tokenize(), so we can directly use token lengths
+      let charPos = 0;
+      for (let t = 0; t < toks.length; t++) {
+        // toks[t] is the token string itself
+        const tokenText = toks[t];
+        const tokenLen = tokenText.length;
+
+        // Check if majority of this token's characters are masked in
+        let includedChars = 0;
+        for (let c = charPos; c < charPos + tokenLen && c < charMask.length; c++) {
+          includedChars += charMask[c];
+        }
+
+        // Token is included if majority of its characters are included
+        mask[t] = tokenLen > 0 && includedChars > tokenLen / 2 ? 1 : 0;
+        charPos += tokenLen;
+      }
+
+      // EOS token at the end - include if the last character was included
+      mask[numSeqs - 1] = charMask.length > 0 && charMask[charMask.length - 1] ? 1 : 0;
+
+      return mask;
+    }
+
+    // Find delimiter in the original text (for afterEquals and afterAnswerTag modes)
     const delimiter = mode === 'afterEquals' ? '=' : answerTag;
     const delimPos = text.indexOf(delimiter);
 
     if (delimPos < 0) {
       // No delimiter found - return all zeros (no loss computed)
       // This prevents training on malformed examples
-      const toks = this.tokenize(text);
-      return new Array(toks.length + 1).fill(0);
+      return new Array(numSeqs).fill(0);
     }
 
     // Count tokens before the delimiter (in the original text, not including BOS)
@@ -789,8 +838,6 @@ export class ProNeuralLM {
     // And the delimiter ends at position (contextSize + tokensBeforeDelim)
     // We want to compute loss AFTER the delimiter
 
-    const toks = this.tokenize(text);
-    const numSeqs = toks.length + 1; // +1 for EOS
     const mask = new Array(numSeqs).fill(0);
 
     // Sequences correspond to positions contextSize...(contextSize + numSeqs - 1) in toks

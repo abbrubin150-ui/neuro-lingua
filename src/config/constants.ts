@@ -226,10 +226,14 @@ export const DEFAULT_LOSS_CONFIG = {
  *   20+7=27
  */
 export const DEFAULT_LOSS_MASK_CONFIG = {
-  /** Loss mask mode: 'none' | 'afterEquals' | 'afterAnswerTag' */
-  mode: 'none' as 'none' | 'afterEquals' | 'afterAnswerTag',
+  /** Loss mask mode: 'none' | 'afterEquals' | 'afterAnswerTag' | 'customRegExp' */
+  mode: 'none' as 'none' | 'afterEquals' | 'afterAnswerTag' | 'customRegExp',
   /** Custom answer tag (used when mode='afterAnswerTag') */
-  answerTag: 'A:'
+  answerTag: 'A:',
+  /** Custom RegExp pattern (used when mode='customRegExp') */
+  customPattern: '',
+  /** RegExp position mode: where to compute loss relative to match */
+  regExpPosition: 'after' as 'after' | 'before' | 'match' | 'exclude'
 };
 
 /**

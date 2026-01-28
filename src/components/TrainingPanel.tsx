@@ -77,8 +77,11 @@ interface TrainingPanelProps {
   sceBeta: number;
 
   // Loss Mask (Answer-Only Training)
-  lossMaskMode: 'none' | 'afterEquals' | 'afterAnswerTag';
+  lossMaskMode: 'none' | 'afterEquals' | 'afterAnswerTag' | 'customRegExp';
   lossMaskAnswerTag: string;
+  lossMaskCustomPattern: string;
+  lossMaskRegExpPosition: 'after' | 'before' | 'match' | 'exclude';
+  lossMaskPatternError: string | null;
 
   // Optimizer-specific parameters (Lion v4.0)
   lionBeta1: number;
@@ -168,8 +171,11 @@ interface TrainingPanelProps {
   onSceBetaChange: (value: number) => void;
 
   // Loss Mask callbacks
-  onLossMaskModeChange: (value: 'none' | 'afterEquals' | 'afterAnswerTag') => void;
+  onLossMaskModeChange: (value: 'none' | 'afterEquals' | 'afterAnswerTag' | 'customRegExp') => void;
   onLossMaskAnswerTagChange: (value: string) => void;
+  onLossMaskCustomPatternChange: (value: string) => void;
+  onLossMaskRegExpPositionChange: (value: 'after' | 'before' | 'match' | 'exclude') => void;
+  onLossMaskPatternErrorChange: (value: string | null) => void;
 
   // Lion optimizer callbacks
   onLionBeta1Change: (value: number) => void;
@@ -1265,7 +1271,7 @@ export function TrainingPanel(props: TrainingPanelProps) {
                 value={props.lossMaskMode}
                 onChange={(e) =>
                   props.onLossMaskModeChange(
-                    e.target.value as 'none' | 'afterEquals' | 'afterAnswerTag'
+                    e.target.value as 'none' | 'afterEquals' | 'afterAnswerTag' | 'customRegExp'
                   )
                 }
                 style={{
@@ -1281,6 +1287,7 @@ export function TrainingPanel(props: TrainingPanelProps) {
                 <option value="none">None (Full Sequence)</option>
                 <option value="afterEquals">After &quot;=&quot; (Math Tasks)</option>
                 <option value="afterAnswerTag">After Answer Tag (Q&A)</option>
+                <option value="customRegExp">Custom RegExp Pattern</option>
               </select>
             </div>
             {props.lossMaskMode === 'afterAnswerTag' && (
@@ -1305,13 +1312,91 @@ export function TrainingPanel(props: TrainingPanelProps) {
                 />
               </div>
             )}
+            {props.lossMaskMode === 'customRegExp' && (
+              <div>
+                <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>Position Mode</div>
+                <select
+                  aria-label="RegExp position mode"
+                  value={props.lossMaskRegExpPosition}
+                  onChange={(e) =>
+                    props.onLossMaskRegExpPositionChange(
+                      e.target.value as 'after' | 'before' | 'match' | 'exclude'
+                    )
+                  }
+                  style={{
+                    width: '100%',
+                    background: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: 6,
+                    padding: 8,
+                    color: 'white',
+                    fontSize: 12
+                  }}
+                >
+                  <option value="after">After Match (loss on content after pattern)</option>
+                  <option value="before">Before Match (loss on content before pattern)</option>
+                  <option value="match">On Match Only (loss only on matched text)</option>
+                  <option value="exclude">Exclude Match (loss on everything except matched)</option>
+                </select>
+              </div>
+            )}
           </div>
+          {/* Custom RegExp Pattern Input */}
+          {props.lossMaskMode === 'customRegExp' && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>
+                Custom Pattern (JS RegExp)
+              </div>
+              <input
+                aria-label="Custom RegExp pattern"
+                type="text"
+                value={props.lossMaskCustomPattern}
+                onChange={(e) => props.onLossMaskCustomPatternChange(e.target.value)}
+                placeholder="Answer:\\s*|^A:|\\[ANSWER\\]"
+                style={{
+                  width: '100%',
+                  background: '#1e293b',
+                  border: `1px solid ${props.lossMaskPatternError ? '#ef4444' : '#475569'}`,
+                  borderRadius: 6,
+                  padding: 8,
+                  color: 'white',
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  boxSizing: 'border-box'
+                }}
+              />
+              {props.lossMaskPatternError && (
+                <div
+                  style={{
+                    marginTop: 4,
+                    fontSize: 10,
+                    color: '#ef4444',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4
+                  }}
+                >
+                  <span>⚠</span> {props.lossMaskPatternError}
+                </div>
+              )}
+            </div>
+          )}
           <div style={{ fontSize: 9, color: '#64748b', marginTop: 8 }}>
             {props.lossMaskMode === 'none' && 'Compute loss on all tokens (standard training)'}
             {props.lossMaskMode === 'afterEquals' &&
               'Only compute loss after "=" - ideal for "20+7=27" format'}
             {props.lossMaskMode === 'afterAnswerTag' &&
               `Only compute loss after "${props.lossMaskAnswerTag}" - ideal for "Q:...\\nA:..." format`}
+            {props.lossMaskMode === 'customRegExp' && (
+              <>
+                Use RegExp to define mask boundaries.{' '}
+                {props.lossMaskRegExpPosition === 'after' && 'Loss computed AFTER first match.'}
+                {props.lossMaskRegExpPosition === 'before' && 'Loss computed BEFORE first match.'}
+                {props.lossMaskRegExpPosition === 'match' && 'Loss computed ONLY on matched text.'}
+                {props.lossMaskRegExpPosition === 'exclude' &&
+                  'Loss computed on all text EXCEPT matches.'}
+              </>
+            )}
           </div>
           {props.lossMaskMode !== 'none' && (
             <div
@@ -1325,18 +1410,35 @@ export function TrainingPanel(props: TrainingPanelProps) {
               }}
             >
               <strong>Tip:</strong> Format your corpus as:
-              {props.lossMaskMode === 'afterEquals' ? (
+              {props.lossMaskMode === 'afterEquals' && (
                 <code style={{ display: 'block', marginTop: 4, fontFamily: 'monospace' }}>
                   20+7=27
                   <br />
                   15-3=12
                 </code>
-              ) : (
+              )}
+              {props.lossMaskMode === 'afterAnswerTag' && (
                 <code style={{ display: 'block', marginTop: 4, fontFamily: 'monospace' }}>
                   Q: What is 20+7?
                   <br />
                   {props.lossMaskAnswerTag} 27
                 </code>
+              )}
+              {props.lossMaskMode === 'customRegExp' && (
+                <div style={{ marginTop: 4 }}>
+                  <div style={{ marginBottom: 4 }}>
+                    <strong>Example patterns:</strong>
+                  </div>
+                  <code style={{ display: 'block', fontFamily: 'monospace', fontSize: 9 }}>
+                    Answer:\\s* - Match &quot;Answer:&quot; followed by whitespace
+                    <br />
+                    ^A: - Match &quot;A:&quot; at start of line
+                    <br />
+                    \\[RESPONSE\\] - Match literal &quot;[RESPONSE]&quot; tag
+                    <br />
+                    (?:Output|Result):\\s* - Match &quot;Output:&quot; or &quot;Result:&quot;
+                  </code>
+                </div>
               )}
             </div>
           )}

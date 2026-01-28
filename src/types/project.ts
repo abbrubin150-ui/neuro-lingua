@@ -14,8 +14,18 @@ import type { GradientClipMode } from '../training/GradientClipping';
  * - 'none': No masking, compute loss on all tokens (default)
  * - 'afterEquals': Mask prompt tokens, compute loss only after '=' delimiter
  * - 'afterAnswerTag': Mask prompt tokens, compute loss only after answer tag (e.g., 'A:')
+ * - 'customRegExp': Use custom RegExp pattern to define mask boundaries
  */
-export type LossMaskMode = 'none' | 'afterEquals' | 'afterAnswerTag';
+export type LossMaskMode = 'none' | 'afterEquals' | 'afterAnswerTag' | 'customRegExp';
+
+/**
+ * RegExp mask position mode
+ * - 'after': Compute loss on tokens AFTER the matched pattern
+ * - 'before': Compute loss on tokens BEFORE the matched pattern
+ * - 'match': Compute loss ONLY on matched tokens
+ * - 'exclude': Compute loss on all tokens EXCEPT matched ones
+ */
+export type RegExpMaskPosition = 'after' | 'before' | 'match' | 'exclude';
 
 /**
  * Configuration for loss masking during training
@@ -25,6 +35,10 @@ export interface LossMaskConfig {
   mode: LossMaskMode;
   /** Custom answer tag for 'afterAnswerTag' mode (default: 'A:') */
   answerTag: string;
+  /** Custom RegExp pattern for 'customRegExp' mode */
+  customPattern?: string;
+  /** Where to apply loss relative to the RegExp match (default: 'after') */
+  regExpPosition?: RegExpMaskPosition;
 }
 
 /**

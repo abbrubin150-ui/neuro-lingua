@@ -1398,6 +1398,23 @@ export function TrainingPanel(props: TrainingPanelProps) {
               </>
             )}
           </div>
+          {props.lossMaskMode === 'afterEquals' && props.tokenizerConfig.mode !== 'character' && (
+            <div
+              style={{
+                marginTop: 8,
+                padding: 8,
+                background: 'rgba(234, 179, 8, 0.15)',
+                border: '1px solid rgba(234, 179, 8, 0.3)',
+                borderRadius: 6,
+                fontSize: 10,
+                color: '#fde68a'
+              }}
+            >
+              <strong>Warning:</strong> For math tasks, use the <strong>Character-level</strong>{' '}
+              tokenizer. The current tokenizer strips symbols like + and = from the corpus, so the
+              model cannot learn arithmetic operators.
+            </div>
+          )}
           {props.lossMaskMode !== 'none' && (
             <div
               style={{

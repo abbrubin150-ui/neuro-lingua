@@ -118,6 +118,7 @@ export function TokenizerConfig({
           >
             <option value="unicode">Unicode (all scripts)</option>
             <option value="ascii">ASCII (a-z, digits)</option>
+            <option value="character">Character-level (for math/code)</option>
             <option value="custom">Custom RegExp</option>
           </select>
         </div>
@@ -188,7 +189,8 @@ export function TokenizerConfig({
           style={{ display: 'none' }}
         />
         <span style={{ fontSize: 12, color: '#94a3b8' }}>
-          Tip: Unicode captures multilingual corpora. Switch to ASCII for code-like datasets.
+          Tip: Unicode captures multilingual corpora. ASCII for English-only. Character-level for
+          math/code (preserves +, =, etc.).
         </span>
       </div>
     </>

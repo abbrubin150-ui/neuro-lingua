@@ -9,6 +9,7 @@ import { SPECIAL_TOKENS } from '../config/constants';
 export function parseTokenizerConfig(raw: unknown): TokenizerConfig {
   if (!raw || typeof raw !== 'object') return { mode: 'unicode' };
   const mode = (raw as { mode?: unknown }).mode;
+  if (mode === 'character') return { mode: 'character' };
   if (mode === 'ascii') return { mode: 'ascii' };
   if (mode === 'custom') {
     const pattern = (raw as { pattern?: unknown }).pattern;

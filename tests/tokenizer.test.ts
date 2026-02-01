@@ -91,6 +91,51 @@ describe('Tokenizer', () => {
     });
   });
 
+  describe('Character mode', () => {
+    it('splits text into individual characters', () => {
+      const tokens = ProNeuralLM.tokenizeText('hello', { mode: 'character' });
+      expect(tokens).toEqual(['h', 'e', 'l', 'l', 'o']);
+    });
+
+    it('preserves math symbols + and =', () => {
+      const tokens = ProNeuralLM.tokenizeText('0+1=1', { mode: 'character' });
+      expect(tokens).toEqual(['0', '+', '1', '=', '1']);
+    });
+
+    it('filters out whitespace characters', () => {
+      const tokens = ProNeuralLM.tokenizeText('a b c', { mode: 'character' });
+      expect(tokens).toEqual(['a', 'b', 'c']);
+    });
+
+    it('preserves case (does not lowercase)', () => {
+      const tokens = ProNeuralLM.tokenizeText('Ab', { mode: 'character' });
+      expect(tokens).toEqual(['A', 'b']);
+    });
+
+    it('handles math corpus correctly', () => {
+      const tokens = ProNeuralLM.tokenizeText('0+0=0', { mode: 'character' });
+      expect(tokens).toEqual(['0', '+', '0', '=', '0']);
+    });
+
+    it('handles empty string', () => {
+      const tokens = ProNeuralLM.tokenizeText('', { mode: 'character' });
+      expect(tokens).toEqual([]);
+    });
+
+    it('handles whitespace-only string', () => {
+      const tokens = ProNeuralLM.tokenizeText('   ', { mode: 'character' });
+      expect(tokens).toEqual([]);
+    });
+
+    it('produces correct vocab for arithmetic dataset', () => {
+      const corpus = '0+0=00+1=10+2=20+3=3';
+      const tokens = ProNeuralLM.tokenizeText(corpus, { mode: 'character' });
+      const uniqueTokens = [...new Set(tokens)];
+      // digits 0-3 plus + and = = 6 unique characters
+      expect(uniqueTokens.sort()).toEqual(['0', '1', '2', '3', '+', '='].sort());
+    });
+  });
+
   describe('Custom mode', () => {
     it('uses custom pattern to split on non-word characters', () => {
       const text = 'hello-world_test';

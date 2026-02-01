@@ -22,7 +22,7 @@ import type { LossMaskConfig } from '../types/project';
 import { findRegExpMatches, buildCharMaskFromMatches } from '../losses/lossMask';
 
 export type Optimizer = 'momentum' | 'adam' | 'newton' | 'bfgs' | 'lion' | 'sophia';
-export type TokenizerMode = 'unicode' | 'ascii' | 'custom';
+export type TokenizerMode = 'unicode' | 'ascii' | 'custom' | 'character';
 
 export type TokenizerConfig = {
   mode: TokenizerMode;
@@ -182,6 +182,7 @@ export class ProNeuralLM {
 
   private static normalizeTokenizerConfig(config?: TokenizerConfig): TokenizerConfig {
     if (!config) return { ...DEFAULT_TOKENIZER_CONFIG };
+    if (config.mode === 'character') return { mode: 'character' };
     if (config.mode === 'ascii') return { mode: 'ascii' };
     if (config.mode === 'custom') {
       if (config.pattern && config.pattern.length > 0) {
@@ -213,6 +214,11 @@ export class ProNeuralLM {
 
   static tokenizeText(text: string, config?: TokenizerConfig): string[] {
     const normalized = ProNeuralLM.normalizeTokenizerConfig(config);
+
+    if (normalized.mode === 'character') {
+      return text.split('').filter((c) => c.trim().length > 0);
+    }
+
     const regex = ProNeuralLM.tokenizerRegexFromConfig(normalized);
     return text
       .toLowerCase()

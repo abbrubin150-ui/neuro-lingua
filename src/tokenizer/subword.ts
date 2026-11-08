@@ -325,9 +325,13 @@ export function encodeSubword(text: string, model: SubwordModel): SubwordSpan[] 
   return spans;
 }
 
-/** Reassemble text from subword tokens (markers become spaces). */
-export function decodeSubword(tokens: string[]): string {
-  return tokens.join('').split(WORD_MARKER).join(' ').replace(/^ /, '');
+/**
+ * Reassemble text from subword tokens (markers become spaces). For a continuation of existing
+ * text (generation) a leading marker means "space before this word" and is kept as a space.
+ */
+export function decodeSubword(tokens: string[], options: { continuation?: boolean } = {}): string {
+  const text = tokens.join('').split(WORD_MARKER).join(' ');
+  return options.continuation ? text : text.replace(/^ /, '');
 }
 
 /** Light structural validation for models read from storage or files. */

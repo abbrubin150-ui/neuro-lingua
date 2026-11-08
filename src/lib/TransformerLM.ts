@@ -559,7 +559,9 @@ export class TransformerLM extends ProNeuralLM {
       let epochMaskedCount = 0;
       let pending = 0;
 
+      let processed = 0;
       for (const { ctx, tgt, index } of items) {
+        this.reportTrainingProgress(++processed, items.length, e);
         const T = ctx.length;
         const lastMasked = (lossMask[index] ?? 1) === 1;
 

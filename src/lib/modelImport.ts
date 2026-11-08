@@ -1,7 +1,9 @@
 /**
  * Parsing of model files selected by the user (Import button).
  *
- * Two formats are accepted:
+ * Three formats are accepted:
+ * - package:  a compact model package produced by the model factory or the Export button
+ *             (`packModel`, src/lib/modelPackage.ts); its checksum is verified
  * - standard: the object produced by `model.toJSON()`
  * - trace:    the object produced by `createTraceExport()`, whose `modelWeights` field holds the
  *             `model.toJSON()` output together with project / ledger / training metadata
@@ -10,13 +12,17 @@
  * detected architecture.
  */
 
+import { isModelPackage, unpackModel, type ModelCard } from './modelPackage';
+
 export type ImportedArchitecture = 'feedforward' | 'advanced' | 'transformer';
 
 export interface ParsedModelImport {
   /** Flat serialized model, as produced by `model.toJSON()`. */
   modelData: Record<string, unknown>;
   architecture: ImportedArchitecture;
-  format: 'standard' | 'trace';
+  format: 'standard' | 'trace' | 'package';
+  /** Model card carried by a model package. */
+  card?: ModelCard;
   /** Metadata carried by trace exports. */
   trace?: {
     projectMeta?: { projectName?: string; runName?: string };
@@ -54,6 +60,17 @@ function assertSerializedModel(model: Record<string, unknown>): void {
 export function parseModelImport(data: unknown): ParsedModelImport {
   if (!isRecord(data)) {
     throw new Error('Model file must contain a JSON object');
+  }
+
+  if (isModelPackage(data)) {
+    const modelData = unpackModel(data);
+    assertSerializedModel(modelData);
+    return {
+      modelData,
+      architecture: data.architecture,
+      format: 'package',
+      card: data.card
+    };
   }
 
   const looksLikeTrace = 'modelWeights' in data && ('exportedAt' in data || 'config' in data);

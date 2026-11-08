@@ -179,6 +179,7 @@ export class ProNeuralLM {
     maxHistory: 7
   };
   private secondOrderState: SecondOrderState = createSecondOrderState();
+  private progressCallback: ((done: number, total: number, epoch: number) => void) | null = null;
 
   private bos = '<BOS>';
   private eos = '<EOS>';
@@ -324,7 +325,8 @@ export class ProNeuralLM {
    * (word markers become spaces) and words are space-separated.
    */
   protected joinTokens(tokens: string[]): string {
-    if (this.tokenizerConfig.mode === 'bpe') return decodeSubword(tokens);
+    // Generated tokens continue the prompt: keep the space a leading word marker stands for.
+    if (this.tokenizerConfig.mode === 'bpe') return decodeSubword(tokens, { continuation: true });
     return this.tokenizerConfig.mode === 'character' ? tokens.join('') : tokens.join(' ');
   }
 
@@ -507,6 +509,23 @@ export class ProNeuralLM {
   setSophiaConfig(config: Omit<SophiaConfig, 'lr'>): void {
     if (this.optimizer !== 'sophia') return;
     this.sophiaOptimizer = new SophiaOptimizer({ ...config, lr: this.learningRate });
+  }
+
+  /**
+   * Report progress inside train(): called with (windows processed, windows in the epoch, epoch)
+   * roughly every percent of an epoch. Pass null to remove it.
+   */
+  setTrainingProgressCallback(
+    callback: ((done: number, total: number, epoch: number) => void) | null
+  ): void {
+    this.progressCallback = callback;
+  }
+
+  protected reportTrainingProgress(done: number, total: number, epoch: number): void {
+    const cb = this.progressCallback;
+    if (!cb) return;
+    const every = Math.max(1, Math.floor(total / 100));
+    if (done === total || done % every === 0) cb(done, total, epoch);
   }
 
   /** Current (possibly scheduled) learning rate. */
@@ -1126,7 +1145,9 @@ export class ProNeuralLM {
       let epochCorrect = 0;
       let epochMaskedCount = 0;
 
+      let processed = 0;
       for (const [ctx, tgt, maskValue] of seqsWithMask) {
+        this.reportTrainingProgress(++processed, seqsWithMask.length, e);
         const cache = await this.forward(ctx, true);
         const pred = cache.probs.indexOf(Math.max(...cache.probs));
 
@@ -1337,6 +1358,13 @@ export class ProNeuralLM {
    * Returns the hidden layer size.
    * @returns Hidden layer dimension
    */
+  /** Restart the sampling / dropout random stream from `seed` (reproducible generation). */
+  reseed(seed: number): void {
+    this.rngSeed = seed >>> 0;
+    this.rng = makeRng(this.rngSeed);
+    this.rngState = this.rng.getState();
+  }
+
   getHiddenSize(): number {
     return this.hiddenSize;
   }

@@ -75,10 +75,13 @@ train options
                          --lowercase
   --epochs <n>           maximum epochs (default 10); --patience <n> early stopping (default 3)
   --lr <x>               learning rate (default 0.003); --warmup <steps> (default 100)
+  --optimizer <o>        adam | momentum | lion (default adam)
   --batch <n>            windows per optimizer step (default 8)
   --stride <n>           training stride (default = context: non-overlapping chunks)
-  --weight-decay <x>     AdamW decay (default 0.01); --dropout <x> (default 0.05)
-  --validation <f>       held-out fraction (default 0.1); --min-paragraph <chars> (default 20)
+  --weight-decay <x>     AdamW decay (default 0.01); --dropout <x> (default 0.05);
+                         --attention-dropout <x> (default 0.05); --dropconnect <x> (default 0)
+  --validation <f>       held-out fraction (default 0.1); --min-paragraph <chars> (default 20);
+                         --split-seed <n> (a different, still deterministic split)
   --precision <p>        float32 | float16 package (default float32)
   --init <package>       continue training an existing model on the new data
   --seed <n>             random seed (default 1337)

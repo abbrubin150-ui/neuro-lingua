@@ -10,6 +10,8 @@ yarn.lock
 __pycache__/
 *.py[cod]
 
-# Models produced by the offline model factory (pnpm lm train)
-models/
+# Models produced by the offline model factory (pnpm lm train → models/<name>/); the tracked
+# artifacts (models/*.json, models/experiments/) are not affected
+models/*/
+!models/experiments/
 *.tsbuildinfo

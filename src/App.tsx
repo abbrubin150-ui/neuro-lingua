@@ -1935,9 +1935,12 @@ export default function NeuroLinguaDomesticaV324() {
           }
         } else if (parsed.format === 'package') {
           const card = parsed.card;
+          // The card is descriptive metadata from the file: never let a malformed one block the import.
+          const parameters =
+            typeof card?.parameters === 'number' ? card.parameters.toLocaleString('en-US') : '?';
           addSystemMessage(
             card
-              ? `📥 Importing model package "${card.name}" (${card.architecture}, ${card.parameters.toLocaleString('en-US')} parameters; checksum verified)`
+              ? `📥 Importing model package "${String(card.name ?? file.name)}" (${String(card.architecture ?? parsed.architecture)}, ${parameters} parameters; checksum verified)`
               : '📥 Importing model package (checksum verified)...'
           );
           if (card) {

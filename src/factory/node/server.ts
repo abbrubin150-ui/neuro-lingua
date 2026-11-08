@@ -30,6 +30,8 @@ interface CompletionRequest {
   top_p?: number;
   top_k?: number;
   stop?: string | string[];
+  /** Reseed the sampler for a reproducible completion. */
+  seed?: number;
 }
 
 function cutAtStop(text: string, stop?: string | string[]): { text: string; stopped: boolean } {
@@ -61,6 +63,9 @@ export async function complete(
       .join('\n');
   const maxTokens = Math.max(1, Math.min(maxTokensLimit, Math.floor(request.max_tokens ?? 64)));
   const temperature = Math.max(0.05, request.temperature ?? 0.8);
+  if (typeof request.seed === 'number' && Number.isFinite(request.seed)) {
+    model.reseed(Math.floor(request.seed));
+  }
   const generated = await model.generate(
     prompt,
     maxTokens,

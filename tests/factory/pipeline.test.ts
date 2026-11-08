@@ -136,6 +136,18 @@ describe('local inference server', () => {
         ).json();
         expect(chat.choices[0].message.role).toBe('assistant');
 
+        // The same seed gives the same sampled completion.
+        const seeded = async () =>
+          (
+            await (
+              await fetch(`${base}/v1/completions`, {
+                method: 'POST',
+                body: JSON.stringify({ prompt: 'the', max_tokens: 6, temperature: 1.5, seed: 11 })
+              })
+            ).json()
+          ).choices[0].text;
+        expect(await seeded()).toBe(await seeded());
+
         expect((await fetch(`${base}/v1/completions`, { method: 'POST', body: '{}' })).status).toBe(400);
         expect((await fetch(`${base}/nope`)).status).toBe(404);
       } finally {

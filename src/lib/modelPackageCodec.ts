@@ -18,7 +18,8 @@
 export const MODEL_PACKAGE_FORMAT = 'neuro-lingua-model';
 export const MODEL_PACKAGE_VERSION = 1;
 
-export type TensorPrecision = 'float32' | 'float16';
+/** float64 is lossless (checkpoints); float32 / float16 make smaller packages. */
+export type TensorPrecision = 'float32' | 'float16' | 'float64';
 
 export interface ModelCard {
   name: string;
@@ -56,7 +57,7 @@ export interface ModelPackage {
 
 interface EncodedTensor {
   $tensor: number[];
-  dtype: 'f32' | 'f16';
+  dtype: 'f32' | 'f16' | 'f64';
   data: string;
 }
 
@@ -193,12 +194,14 @@ function encodeTensor(
     const half = new Uint16Array(flat.length);
     for (let i = 0; i < flat.length; i++) half[i] = toFloat16Bits(flat[i]);
     bytes = new Uint8Array(half.buffer);
+  } else if (precision === 'float64') {
+    bytes = new Uint8Array(Float64Array.from(flat).buffer);
   } else {
     bytes = new Uint8Array(Float32Array.from(flat).buffer);
   }
   return {
     $tensor: shape,
-    dtype: precision === 'float16' ? 'f16' : 'f32',
+    dtype: precision === 'float16' ? 'f16' : precision === 'float64' ? 'f64' : 'f32',
     data: bytesToBase64(bytes)
   };
 }
@@ -211,7 +214,9 @@ function decodeTensor(t: EncodedTensor): unknown {
           new Uint16Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 2),
           fromFloat16Bits
         )
-      : new Float32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 4);
+      : t.dtype === 'f64'
+        ? new Float64Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 8)
+        : new Float32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 4);
   const total = t.$tensor.reduce((a, b) => a * b, 1);
   if (values.length !== total) throw new Error('Tensor payload does not match its shape');
   let offset = 0;
@@ -328,6 +333,19 @@ export function isModelPackage(value: unknown): value is ModelPackage {
     (value as ModelPackage).format === MODEL_PACKAGE_FORMAT &&
     typeof (value as ModelPackage).formatVersion === 'number'
   );
+}
+
+/**
+ * Encode every numeric array of a JSON-like value as a binary tensor (float64 by default, i.e.
+ * lossless) — for state that is not a model, such as optimizer moments in a checkpoint.
+ */
+export function encodeTensors(value: unknown, precision: TensorPrecision = 'float64'): unknown {
+  return encodeNode(JSON.parse(JSON.stringify(value)), precision, true);
+}
+
+/** Inverse of encodeTensors. */
+export function decodeTensors(value: unknown): unknown {
+  return decodeNode(value);
 }
 
 /** Verify the checksum and restore the plain `toJSON()` object. */

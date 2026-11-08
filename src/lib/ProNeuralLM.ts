@@ -42,6 +42,9 @@ export type EvaluationResult = {
   oovRate: number;
 };
 
+/** Position of a model's random stream (see getRandomState). */
+export type RandomState = { seed: number; state: number };
+
 /** Sums over a range of prediction windows (see `evaluateSums` / `evaluationResult`). */
 export type EvaluationSums = {
   /** Negative log-likelihood in nats. */
@@ -1471,6 +1474,18 @@ export class ProNeuralLM {
   reseed(seed: number): void {
     this.rngSeed = seed >>> 0;
     this.rng = makeRng(this.rngSeed);
+    this.rngState = this.rng.getState();
+  }
+
+  /** Position of the random stream (dropout, shuffling, sampling), e.g. for checkpoints. */
+  getRandomState(): RandomState {
+    return { seed: this.rngSeed, state: this.rng.getState() };
+  }
+
+  /** Continue the random stream from a position returned by getRandomState. */
+  setRandomState(position: RandomState): void {
+    this.rngSeed = position.seed >>> 0;
+    this.rng = makeRng(this.rngSeed, position.state >>> 0);
     this.rngState = this.rng.getState();
   }
 

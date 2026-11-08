@@ -11,14 +11,16 @@
  * Run `pnpm lm help` for every option.
  */
 
-import { mkdir, writeFile, appendFile } from 'node:fs/promises';
+import { mkdir, writeFile, appendFile, readFile, rename } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {
   runModelFactory,
   evaluateText,
   withBitsPerCharacter,
-  type FactoryConfig
+  type FactoryCheckpoint,
+  type FactoryConfig,
+  type FactoryOptions
 } from '../src/factory/pipeline';
 import { readCorpusDocuments, loadModelFile } from '../src/factory/node/files';
 import { createInferenceServer } from '../src/factory/node/server';
@@ -28,7 +30,15 @@ import {
   parseWorkerCount
 } from '../src/factory/node/parallel';
 import { TransformerLM } from '../src/lib/TransformerLM';
-import { packModel, renderModelCard } from '../src/lib/modelPackage';
+import {
+  decodeTensors,
+  encodeTensors,
+  packModel,
+  renderModelCard,
+  restoreModel,
+  unpackModel,
+  type ModelPackage
+} from '../src/lib/modelPackage';
 import { prepareCorpus } from '../src/data/corpusPrep';
 import type { Optimizer } from '../src/lib/ProNeuralLM';
 
@@ -95,6 +105,9 @@ train options
                          --split-seed <n> (a different, still deterministic split)
   --precision <p>        float32 | float16 package (default float32)
   --init <package>       continue training an existing model on the new data
+  --resume <dir>         continue an interrupted run from <dir>/checkpoint.nlm.json with its
+                         original data and settings (bit-identical to an uninterrupted run with
+                         the same --workers); --epochs / --patience / --workers may be changed
   --seed <n>             random seed (default 1337)
   --workers <n|auto>     processes for transformer training and evaluation (default auto: one
                          per CPU core, at most 8; 1 trains in-process). Results are reproducible
@@ -120,15 +133,28 @@ function progressBar(done: number, total: number, epoch: number, started: number
   if (done === total) process.stdout.write('\r' + ' '.repeat(70) + '\r');
 }
 
-async function train(a: Args) {
-  const data = list(a, 'data');
-  if (data.length === 0) throw new Error('train needs at least one --data <file|dir>');
-  const name = str(a, 'name', 'local-model')!;
-  const out = path.resolve(str(a, 'out', path.join('models', name))!);
+const CHECKPOINT_FORMAT = 'neuro-lingua-factory-checkpoint';
+
+/** What a run needs besides the model: written into every checkpoint so that --resume works. */
+interface RunDescription {
+  config: FactoryConfig;
+  /** --data inputs as absolute paths. */
+  data: string[];
+  workers: number;
+}
+
+/** Write via a temporary file and a rename, so an interruption never leaves a truncated file. */
+async function writeAtomic(file: string, content: string): Promise<void> {
+  const tmp = `${file}.tmp`;
+  await writeFile(tmp, content);
+  await rename(tmp, file);
+}
+
+function configFromArgs(a: Args, name: string): FactoryConfig {
   const preset =
     PRESETS[(str(a, 'preset', 'tiny') as keyof typeof PRESETS) ?? 'tiny'] ?? PRESETS.tiny;
   const context = num(a, 'context', preset.context);
-  const config: FactoryConfig = {
+  return {
     name,
     description: str(a, 'description'),
     architecture: (str(a, 'arch', 'transformer') as FactoryConfig['architecture']) ?? 'transformer',
@@ -168,38 +194,115 @@ async function train(a: Args) {
     },
     precision: str(a, 'precision', 'float32') === 'float16' ? 'float16' : 'float32'
   };
+}
 
-  const { documents, files } = await readCorpusDocuments(data);
+/** Read <dir>/checkpoint.nlm.json and the run it belongs to. */
+async function loadResumePoint(
+  dir: string,
+  a: Args
+): Promise<{ run: RunDescription; resume: NonNullable<FactoryOptions['resume']> }> {
+  const file = JSON.parse(await readFile(path.join(dir, 'checkpoint.nlm.json'), 'utf8')) as
+    | (ModelPackage & {
+        resume?: { format?: string; run: RunDescription; checkpoint: unknown; best: unknown };
+      })
+    | null;
+  if (!file?.resume || file.resume.format !== CHECKPOINT_FORMAT) {
+    throw new Error(`${dir} has no resumable checkpoint (checkpoint.nlm.json from pnpm lm train)`);
+  }
+  const run = file.resume.run;
+  const checkpoint = decodeTensors(file.resume.checkpoint) as FactoryCheckpoint;
+  if (a.options.has('epochs')) run.config.training.epochs = num(a, 'epochs', 10);
+  if (a.options.has('patience')) run.config.training.patience = num(a, 'patience', 3);
+  if (a.options.has('workers')) {
+    const workers = parseWorkerCount(str(a, 'workers'));
+    if (workers !== run.workers) {
+      console.log(
+        `Continuing with ${workers} workers instead of ${run.workers}: the dropout noise of the remaining epochs differs from the original run`
+      );
+      delete checkpoint.replicaRandomStates;
+      run.workers = workers;
+    }
+  }
+  return {
+    run,
+    resume: {
+      model: restoreModel(unpackModel(file)),
+      checkpoint,
+      bestModel: decodeTensors(file.resume.best) as Record<string, unknown>
+    }
+  };
+}
+
+async function train(a: Args) {
+  const resumeDir = str(a, 'resume');
+  let run: RunDescription;
+  let out: string;
+  let resume: FactoryOptions['resume'];
+  if (resumeDir) {
+    if (a.options.has('init')) throw new Error('--resume and --init cannot be combined');
+    out = path.resolve(resumeDir);
+    ({ run, resume } = await loadResumePoint(out, a));
+  } else {
+    const data = list(a, 'data');
+    if (data.length === 0) throw new Error('train needs at least one --data <file|dir>');
+    const name = str(a, 'name', 'local-model')!;
+    out = path.resolve(str(a, 'out', path.join('models', name))!);
+    run = {
+      config: configFromArgs(a, name),
+      data: data.map((d) => path.resolve(d)),
+      workers: parseWorkerCount(str(a, 'workers'))
+    };
+  }
+
+  const { documents, files } = await readCorpusDocuments(run.data);
   console.log(`Neuro-Lingua model factory — offline, no external AI services`);
   console.log(`Read ${files.length} files (${documents.length} documents)`);
   await mkdir(out, { recursive: true });
   const logFile = path.join(out, 'training-log.jsonl');
-  await writeFile(logFile, '');
+  // A resumed run keeps the log of the epochs that the checkpoint contains.
+  await writeFile(
+    logFile,
+    (resume?.checkpoint.history ?? []).map((report) => JSON.stringify(report) + '\n').join('')
+  );
 
   const init = str(a, 'init');
   const initialModel = init ? (await loadModelFile(path.resolve(init))).model : undefined;
-  const workers = parseWorkerCount(str(a, 'workers'));
+  let bestJson: Record<string, unknown> | null = resume?.bestModel ?? null;
   let epochStarted = Date.now();
   const result = await runModelFactory(
     documents,
-    config,
+    run.config,
     {
       onLog: (m) => console.log(m),
       onProgress: (done, total, epoch) => {
         if (done === 1) epochStarted = Date.now();
         if (process.stdout.isTTY) progressBar(done, total, epoch, epochStarted);
       },
-      onEpoch: async (report, model) => {
+      onEpoch: async (report, model, checkpoint) => {
         await appendFile(logFile, JSON.stringify(report) + '\n');
-        // Latest state (with optimizer buffers) for inspection or manual recovery.
-        const checkpoint = packModel(model.toJSON() as unknown as Record<string, unknown>, {
-          includeOptimizerState: true
-        });
-        await writeFile(path.join(out, 'checkpoint.nlm.json'), JSON.stringify(checkpoint));
+        const json = model.toJSON() as unknown as Record<string, unknown>;
+        if (report.improved) bestJson = JSON.parse(JSON.stringify(json));
+        // Lossless state after this epoch: `pnpm lm train --resume <dir>` continues from here.
+        // A transformer's optimizer state is in the checkpoint; the base-class MLP buffers it
+        // never uses are left out.
+        const file = {
+          ...packModel(json, {
+            precision: 'float64',
+            includeOptimizerState: !(model instanceof TransformerLM)
+          }),
+          resume: {
+            format: CHECKPOINT_FORMAT,
+            version: 1,
+            run,
+            checkpoint: encodeTensors(checkpoint),
+            best: encodeTensors(bestJson)
+          }
+        };
+        await writeAtomic(path.join(out, 'checkpoint.nlm.json'), JSON.stringify(file));
       }
     },
     initialModel,
-    { backend: dataParallelBackend({ workers }) }
+    { backend: dataParallelBackend({ workers: run.workers }), ...(resume ? { resume } : {}) }
   );
   result.card.environment = {
     runtime: `Node ${process.version}`,

@@ -12,12 +12,15 @@
 
 import { parentPort, workerData } from 'node:worker_threads';
 import { TransformerLM } from '../../lib/TransformerLM';
+import type { RandomState } from '../../lib/ProNeuralLM';
 
 export interface ReplicaInit {
   model: Record<string, unknown>;
   trainText: string;
   validationText: string;
   seed: number;
+  /** Continue this random stream instead of seeding (resuming a run). */
+  randomState?: RandomState;
   /** This replica's position (its control word is control[1 + index]). */
   index: number;
   /** Shared parameters (parameterCount() float64 values). */
@@ -30,12 +33,14 @@ export interface ReplicaInit {
 
 export type ReplicaRequest =
   | { nl: 'batch'; id: number; indices: number[] }
-  | { nl: 'eval'; id: number; start: number; end: number };
+  | { nl: 'eval'; id: number; start: number; end: number }
+  | { nl: 'rng'; id: number };
 
 const init = workerData as ReplicaInit;
 const model = TransformerLM.fromJSON(init.model);
 // Each replica draws its own dropout / DropConnect noise.
-model.reseed(init.seed);
+if (init.randomState) model.setRandomState(init.randomState);
+else model.reseed(init.seed);
 const data = init.trainText ? model.prepareTrainingWindows(init.trainText) : null;
 const params = new Float64Array(init.params);
 const grads = new Float64Array(init.grads);
@@ -61,9 +66,11 @@ async function handle(m: ReplicaRequest): Promise<void> {
     parentPort!.postMessage({ nl: 'grads', id: m.id, stats, tokens }, [
       tokens.buffer as ArrayBuffer
     ]);
-  } else {
+  } else if (m.nl === 'eval') {
     const sums = await model.evaluateSums(init.validationText, m.start, m.end);
     parentPort!.postMessage({ nl: 'sums', id: m.id, sums });
+  } else {
+    parentPort!.postMessage({ nl: 'rng', id: m.id, state: model.getRandomState() });
   }
 }
 

@@ -51,7 +51,12 @@ import {
   hadamard,
   sampleWeightMasks
 } from '../models/transformer_backprop';
-import { globalNorm, ParamOptimizer, type ParamOptimizerKind } from '../training/ParamOptimizer';
+import {
+  globalNorm,
+  ParamOptimizer,
+  type ParamOptimizerKind,
+  type ParamOptimizerState
+} from '../training/ParamOptimizer';
 
 /** RoPE base for causal models (short in-browser windows) and for legacy pooled models. */
 const ROPE_BASE_CAUSAL = 10000;
@@ -203,6 +208,12 @@ export interface TrainingWindow {
 export interface TrainingWindows {
   items: TrainingWindow[];
   lossMask: number[];
+}
+
+/** Training state beyond toJSON() (see getTrainingState). */
+export interface TransformerTrainingState {
+  optimizer: ParamOptimizerState | null;
+  scheduleStep: number;
 }
 
 /** Running totals over trained windows. */
@@ -934,6 +945,21 @@ export class TransformerLM extends ProNeuralLM {
     if (offset > flat.length) {
       throw new Error(`Parameter size mismatch: need ${offset}, got ${flat.length}`);
     }
+  }
+
+  /**
+   * Optimizer moments and learning-rate schedule position: with toJSON() (weights, random stream
+   * and history) this is everything needed to continue training exactly where it stopped.
+   */
+  getTrainingState(): TransformerTrainingState {
+    return { optimizer: this.paramOptimizer?.getState() ?? null, scheduleStep: this.scheduleStep };
+  }
+
+  /** Restore getTrainingState() output (after setLearningRateSchedule, which resets the step). */
+  setTrainingState(state: TransformerTrainingState): void {
+    if (state.optimizer) this.getParamOptimizer().setState(state.optimizer);
+    else this.paramOptimizer?.reset();
+    this.scheduleStep = state.scheduleStep;
   }
 
   /** Add an epoch to the training history (data-parallel training records its epochs here). */

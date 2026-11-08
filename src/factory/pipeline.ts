@@ -7,16 +7,27 @@
  * The pipeline is environment-agnostic (Node CLI or browser); file access lives in the callers.
  */
 
-import { prepareCorpus, type CorpusDocument, type CorpusPrepOptions } from '../data/corpusPrep';
+import {
+  fnv1a,
+  prepareCorpus,
+  type CorpusDocument,
+  type CorpusPrepOptions,
+  type PreparedCorpus
+} from '../data/corpusPrep';
 import { trainSubwordModel, subwordVocabulary } from '../tokenizer/subword';
 import {
   ProNeuralLM,
   type EvaluationResult,
   type Optimizer,
+  type RandomState,
   type TokenizerConfig
 } from '../lib/ProNeuralLM';
 import { AdvancedNeuralLM, type AdvancedConfig } from '../lib/AdvancedNeuralLM';
-import { TransformerLM, type TransformerConfig } from '../lib/TransformerLM';
+import {
+  TransformerLM,
+  type TransformerConfig,
+  type TransformerTrainingState
+} from '../lib/TransformerLM';
 import {
   packModel,
   restoreModel,
@@ -72,10 +83,34 @@ export interface EpochReport {
   improved: boolean;
 }
 
+/**
+ * Everything besides the model (whose toJSON carries the weights, random stream and history)
+ * needed to continue a run exactly after an epoch.
+ */
+export interface FactoryCheckpoint {
+  version: 1;
+  epochsDone: number;
+  history: EpochReport[];
+  best: { epoch: number; loss: number };
+  elapsedSeconds: number;
+  /** Fingerprint of the prepared training and validation text: a resumed run needs the same. */
+  dataFingerprint: string;
+  tokenizerSummary: Record<string, unknown>;
+  /** Transformer optimizer moments and learning-rate schedule position. */
+  modelTraining?: TransformerTrainingState;
+  /** Random streams of data-parallel replicas. */
+  replicaRandomStates?: RandomState[];
+}
+
 export interface FactoryCallbacks {
   onLog?: (message: string) => void;
   onProgress?: (done: number, total: number, epoch: number) => void;
-  onEpoch?: (report: EpochReport, model: ProNeuralLM) => void | Promise<void>;
+  /** After every epoch, with the state needed to resume the run from this point. */
+  onEpoch?: (
+    report: EpochReport,
+    model: ProNeuralLM,
+    checkpoint: FactoryCheckpoint
+  ) => void | Promise<void>;
 }
 
 /**
@@ -92,6 +127,8 @@ export interface TrainingBackend {
   ): Promise<{ loss: number }>;
   /** Evaluate the current model on the validation text. */
   evaluate(): Promise<EvaluationResult>;
+  /** Random streams of the backend's own workers, if it has any (for checkpoints). */
+  randomStates?(): Promise<RandomState[]>;
   dispose(): Promise<void>;
 }
 
@@ -100,6 +137,8 @@ export interface TrainingBackendSetup {
   trainText: string;
   validationText: string;
   seed: number;
+  /** Continue the workers' random streams (resuming a run). */
+  randomStates?: RandomState[];
 }
 
 export type TrainingBackendFactory = (setup: TrainingBackendSetup) => Promise<TrainingBackend>;
@@ -126,6 +165,22 @@ export function inProcessBackend({
 export interface FactoryOptions {
   /** Training backend (default: in-process). */
   backend?: TrainingBackendFactory;
+  /**
+   * Continue an interrupted run: the model as it was after `checkpoint.epochsDone` epochs and the
+   * best model so far. The documents and configuration must be those of the original run.
+   */
+  resume?: {
+    model: ProNeuralLM;
+    checkpoint: FactoryCheckpoint;
+    bestModel: Record<string, unknown>;
+  };
+}
+
+/** Fingerprint of a prepared corpus (both splits). */
+export function corpusFingerprint(corpus: PreparedCorpus): string {
+  const text = `${corpus.train}\u0000${corpus.validation}`;
+  const hex = (n: number) => n.toString(16).padStart(8, '0');
+  return hex(fnv1a(text)) + hex(fnv1a(text, 0x9e3779b9));
 }
 
 export interface FactoryResult {
@@ -262,7 +317,9 @@ export async function runModelFactory(
   options: FactoryOptions = {}
 ): Promise<FactoryResult> {
   const log = callbacks.onLog ?? (() => undefined);
-  const started = Date.now();
+  const resume = options.resume;
+  if (resume && initialModel) throw new Error('Resume a run or start from a model, not both');
+  const started = Date.now() - (resume?.checkpoint.elapsedSeconds ?? 0) * 1000;
 
   const corpus = prepareCorpus(documents, config.data);
   if (corpus.train.length === 0) throw new Error('No training text left after preparation');
@@ -270,10 +327,20 @@ export async function runModelFactory(
   log(
     `Data: ${corpus.stats.documents} documents, ${corpus.stats.trainParagraphs} training / ${corpus.stats.validationParagraphs} validation paragraphs, ${corpus.stats.duplicateParagraphs} duplicates removed`
   );
+  const dataFingerprint = corpusFingerprint(corpus);
 
   let model: ProNeuralLM;
   let tokenizerSummary: Record<string, unknown>;
-  if (initialModel) {
+  if (resume) {
+    if (resume.checkpoint.dataFingerprint !== dataFingerprint) {
+      throw new Error(
+        'The prepared training data differs from the interrupted run: resume needs the same documents and data options'
+      );
+    }
+    model = resume.model;
+    tokenizerSummary = resume.checkpoint.tokenizerSummary;
+    log(`Resuming after epoch ${resume.checkpoint.epochsDone}`);
+  } else if (initialModel) {
     model = initialModel;
     const tk = model.getTokenizerConfig();
     tokenizerSummary = { mode: tk.mode, reusedFromInitialModel: true };
@@ -301,21 +368,34 @@ export async function runModelFactory(
   } else if (model instanceof AdvancedNeuralLM) {
     model.setTrainingHorizon(epochs);
   }
+  // After the schedule is configured (which restarts it): continue where the run stopped.
+  if (resume?.checkpoint.modelTraining && model instanceof TransformerLM) {
+    model.setTrainingState(resume.checkpoint.modelTraining);
+  }
 
   const patience = Math.max(0, Math.floor(config.training.patience ?? 0));
-  const history: EpochReport[] = [];
-  let best: { loss: number; epoch: number; json: Record<string, unknown> } | null = null;
+  const history: EpochReport[] = resume ? resume.checkpoint.history.slice() : [];
+  let best: { loss: number; epoch: number; json: Record<string, unknown> } | null = resume
+    ? { ...resume.checkpoint.best, json: resume.bestModel }
+    : null;
+  const firstEpoch = (resume?.checkpoint.epochsDone ?? 0) + 1;
+  const stoppedEarly = (b: typeof best, epoch: number) =>
+    patience > 0 && !!b && epoch - b.epoch >= patience;
 
   const backend = await (options.backend ?? (async (setup) => inProcessBackend(setup)))({
     model,
     trainText: corpus.train,
     validationText: corpus.validation,
-    seed: config.training.seed ?? 1337
+    seed: config.training.seed ?? 1337,
+    ...(resume?.checkpoint.replicaRandomStates
+      ? { randomStates: resume.checkpoint.replicaRandomStates }
+      : {})
   });
   const backendDescription = backend.description;
   if (backendDescription !== 'in-process') log(`Training on ${backendDescription}`);
   try {
-    for (let epoch = 1; epoch <= epochs; epoch++) {
+    const alreadyStopped = resume !== undefined && stoppedEarly(best, firstEpoch - 1);
+    for (let epoch = firstEpoch; epoch <= epochs && !alreadyStopped; epoch++) {
       const t0 = Date.now();
       const result = await backend.trainEpoch(epoch - 1, callbacks.onProgress);
       const val = withBitsPerCharacter(await backend.evaluate(), corpus.validation);
@@ -344,8 +424,21 @@ export async function runModelFactory(
       log(
         `Epoch ${epoch}/${epochs}: train loss ${report.trainLoss.toFixed(3)} · validation loss ${val.loss.toFixed(3)} · ppl ${val.perplexity.toFixed(2)} · ${val.bitsPerCharacter.toFixed(3)} bpc · ${report.seconds.toFixed(1)}s${improved ? ' · best' : ''}`
       );
-      await callbacks.onEpoch?.(report, model);
-      if (patience > 0 && best && epoch - best.epoch >= patience) {
+      if (callbacks.onEpoch) {
+        const checkpoint: FactoryCheckpoint = {
+          version: 1,
+          epochsDone: epoch,
+          history: history.slice(),
+          best: { epoch: best!.epoch, loss: best!.loss },
+          elapsedSeconds: (Date.now() - started) / 1000,
+          dataFingerprint,
+          tokenizerSummary,
+          ...(model instanceof TransformerLM ? { modelTraining: model.getTrainingState() } : {}),
+          ...(backend.randomStates ? { replicaRandomStates: await backend.randomStates() } : {})
+        };
+        await callbacks.onEpoch(report, model, checkpoint);
+      }
+      if (stoppedEarly(best, epoch)) {
         log(`Early stopping: no validation improvement for ${patience} epochs`);
         break;
       }

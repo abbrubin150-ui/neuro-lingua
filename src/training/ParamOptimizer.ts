@@ -17,6 +17,18 @@ interface SlotState {
   v: Tensor;
 }
 
+/** Complete optimizer state (see ParamOptimizer.getState / setState). */
+export interface ParamOptimizerState {
+  kind: ParamOptimizerKind;
+  momentum: number;
+  t: number;
+  slots: Record<string, SlotState>;
+}
+
+function cloneTensor(t: Tensor): Tensor {
+  return Array.isArray(t[0]) ? (t as number[][]).map((r) => r.slice()) : (t as number[]).slice();
+}
+
 function zerosLike(t: Tensor): Tensor {
   return Array.isArray(t[0])
     ? (t as number[][]).map((r) => new Array(r.length).fill(0))
@@ -58,6 +70,28 @@ export class ParamOptimizer {
   reset(): void {
     this.slots.clear();
     this.t = 0;
+  }
+
+  /** A copy of the complete state: moments of every tensor and the step counter. */
+  getState(): ParamOptimizerState {
+    const slots: Record<string, SlotState> = {};
+    for (const [name, slot] of this.slots) {
+      slots[name] = { m: cloneTensor(slot.m), v: cloneTensor(slot.v) };
+    }
+    return { kind: this.kind, momentum: this.momentum, t: this.t, slots };
+  }
+
+  /** Restore a state produced by getState (training then continues exactly). */
+  setState(state: ParamOptimizerState): void {
+    this.kind = state.kind;
+    this.momentum = state.momentum;
+    this.t = state.t;
+    this.slots = new Map(
+      Object.entries(state.slots).map(([name, slot]) => [
+        name,
+        { m: cloneTensor(slot.m), v: cloneTensor(slot.v) }
+      ])
+    );
   }
 
   /** Advance the shared step counter (call once per optimisation step). */

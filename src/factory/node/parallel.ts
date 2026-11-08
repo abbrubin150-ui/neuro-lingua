@@ -20,7 +20,12 @@ import { Worker } from 'node:worker_threads';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { ProNeuralLM, type EvaluationResult, type EvaluationSums } from '../../lib/ProNeuralLM';
+import {
+  ProNeuralLM,
+  type EvaluationResult,
+  type EvaluationSums,
+  type RandomState
+} from '../../lib/ProNeuralLM';
 import {
   TransformerLM,
   addWindowStats,
@@ -169,11 +174,16 @@ export class DataParallelTrainer implements TrainingBackend {
     setup: TrainingBackendSetup & { model: TransformerLM },
     options: DataParallelOptions
   ): Promise<DataParallelTrainer> {
-    const { model, trainText, validationText, seed } = setup;
+    const { model, trainText, validationText, seed, randomStates } = setup;
     const data = trainText ? model.prepareTrainingWindows(trainText) : null;
     const json = model.toJSON() as unknown as Record<string, unknown>;
     const paramsBuffer = new SharedArrayBuffer(model.parameterCount() * 8);
     const workers = Math.max(1, Math.floor(options.workers));
+    if (randomStates && randomStates.length !== workers) {
+      throw new Error(
+        `The checkpoint was made with ${randomStates.length} workers: resume with --workers ${randomStates.length}`
+      );
+    }
     const controlBuffer = new SharedArrayBuffer(4 * (1 + workers));
     const gradSize = model.gradientLayoutSize();
     const replicas = Array.from({ length: workers }, (_, k) => {
@@ -183,6 +193,7 @@ export class DataParallelTrainer implements TrainingBackend {
         trainText,
         validationText,
         seed: (Math.imul(seed >>> 0, 0x9e3779b1) + k + 1) >>> 0,
+        ...(randomStates ? { randomState: randomStates[k] } : {}),
         index: k,
         params: paramsBuffer,
         grads,
@@ -266,6 +277,14 @@ export class DataParallelTrainer implements TrainingBackend {
       )
     );
     return ProNeuralLM.evaluationResult(parts.map((p) => p.sums as EvaluationSums));
+  }
+
+  /** Positions of the replicas' random streams (for checkpoints). */
+  async randomStates(): Promise<RandomState[]> {
+    const replies = await Promise.all(
+      this.replicas.map((r) => r.request({ nl: 'rng', id: ++this.requestId }, 'rng'))
+    );
+    return replies.map((reply) => reply.state as RandomState);
   }
 
   async dispose(): Promise<void> {

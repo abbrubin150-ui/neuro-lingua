@@ -33,6 +33,7 @@ architectures are checked against finite differences in the test suite.
 | Optimizers | Adam, momentum SGD, Lion, Sophia, L-BFGS and damped Newton act on the MLP models; the Transformer uses Adam / momentum / Lion (second-order choices fall back to Adam). |
 | Explainability panel | Shapley values (exact for windows ≤ 10 tokens), integrated gradients on embeddings and attention rollout, all computed from the model. |
 | Information-plane panel | Binning estimates of I(X;Z) and I(Z;Y) from hidden representations; monitoring only (the loss stays cross-entropy). |
+| Edge-learning diagnostics | Empirical Fisher information of the output layer (exact per-window gradients), predictive entropy, loss variance and the diagonal Cramér-Rao bound, measured on the trained model. |
 | Cerebro neuron injection | Works for all architectures; function-preserving for the MLP; rollback restores the exact model. |
 | WebGPU | Offloads the MLP's matrix-vector products only; no measured speedup is claimed. |
 | Causal analysis panel | Runs on data from the engine's built-in simulator (labelled in the UI). |

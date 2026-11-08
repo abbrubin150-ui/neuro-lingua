@@ -1431,18 +1431,25 @@ export class ProNeuralLM {
   async collectRepresentations(
     text: string,
     maxSamples = 256
-  ): Promise<{ representations: number[][]; labels: number[] }> {
+  ): Promise<{ representations: number[][]; labels: number[]; probabilities: number[][] }> {
     const seqs = this.createTrainingSequences(text);
     const step = Math.max(1, Math.ceil(seqs.length / Math.max(1, maxSamples)));
     const representations: number[][] = [];
     const labels: number[] = [];
+    const probabilities: number[][] = [];
     for (let i = 0; i < seqs.length; i += step) {
       const [ctx, tgt] = seqs[i];
-      const { h } = await this.forward(ctx, false);
+      const { h, probs } = await this.forward(ctx, false);
       representations.push(h.slice());
       labels.push(tgt);
+      probabilities.push(probs.slice());
     }
-    return { representations, labels };
+    return { representations, labels, probabilities };
+  }
+
+  /** Number of training windows (next-token targets) that `text` produces. */
+  countTrainingWindows(text: string): number {
+    return this.createTrainingSequences(text).length;
   }
 
   /**

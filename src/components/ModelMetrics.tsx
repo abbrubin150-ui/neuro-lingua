@@ -618,27 +618,22 @@ export function ModelMetrics({
               ℹ️
             </span>
           </h4>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+              gap: 12
+            }}
+          >
             <div style={{ textAlign: 'center' }}>
               <div
                 style={{ fontSize: 11, color: '#94a3b8', cursor: 'help' }}
                 title={EDGE_LEARNING_INFO.fisherInformation}
               >
-                Fisher Info ℹ️
+                Fisher (output layer) ℹ️
               </div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#22c55e' }}>
-                {edgeLearningDiagnostics.fisherInformation.toFixed(4)}
-              </div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div
-                style={{ fontSize: 11, color: '#94a3b8', cursor: 'help' }}
-                title={EDGE_LEARNING_INFO.efficiency}
-              >
-                Efficiency ℹ️
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>
-                {(edgeLearningDiagnostics.efficiency * 100).toFixed(1)}%
+                {edgeLearningDiagnostics.fisherInformation.toExponential(2)}
               </div>
             </div>
             <div style={{ textAlign: 'center' }}>
@@ -646,7 +641,7 @@ export function ModelMetrics({
                 style={{ fontSize: 11, color: '#94a3b8', cursor: 'help' }}
                 title={EDGE_LEARNING_INFO.variance}
               >
-                Variance ℹ️
+                Loss variance ℹ️
               </div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#059669' }}>
                 {edgeLearningDiagnostics.variance.toFixed(4)}
@@ -657,7 +652,7 @@ export function ModelMetrics({
                 style={{ fontSize: 11, color: '#94a3b8', cursor: 'help' }}
                 title={EDGE_LEARNING_INFO.entropy}
               >
-                Entropy ℹ️
+                Predictive entropy ℹ️
               </div>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#34d399' }}>
                 {edgeLearningDiagnostics.entropy.toFixed(4)}
@@ -668,10 +663,10 @@ export function ModelMetrics({
                 style={{ fontSize: 11, color: '#94a3b8', cursor: 'help' }}
                 title={EDGE_LEARNING_INFO.estimatorCovariance}
               >
-                Est. Covariance ℹ️
+                1 / Fisher ℹ️
               </div>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#6ee7b7' }}>
-                {edgeLearningDiagnostics.estimatorCovariance.toFixed(4)}
+                {edgeLearningDiagnostics.estimatorCovariance.toExponential(2)}
               </div>
             </div>
             <div style={{ textAlign: 'center' }}>
@@ -687,8 +682,9 @@ export function ModelMetrics({
             </div>
           </div>
           <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 12, fontStyle: 'italic' }}>
-            💡 Hover over metrics for explanations. Edge Learning quantifies how efficiently the
-            model learns relative to information-theoretic bounds.
+            💡 Measured on {edgeLearningDiagnostics.samples ?? 0} training windows: empirical Fisher
+            information of the output layer (exact per-window gradients), predictive entropy (nats)
+            and loss variance. The Cramér-Rao bound uses the diagonal approximation 1/(N·F̄).
           </div>
         </div>
       )}

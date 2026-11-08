@@ -23,7 +23,7 @@ import { StorageManager } from './lib/storage';
 import { buildVocab, parseTokenizerConfig, downloadBlob } from './lib/utils';
 import type { GPUNeuralOps, GPUMetrics } from './backend/gpu_neural_ops';
 import {
-  computeSimulatedEdgeLearningDiagnostics,
+  computeEdgeLearningDiagnostics,
   type EdgeLearningDiagnostics
 } from './backend/edgeLearning';
 import {
@@ -1582,18 +1582,19 @@ export default function NeuroLinguaDomesticaV324() {
 
       // Compute Edge Learning diagnostics
       try {
-        const trainingHistory = modelRef.current!.getTrainingHistory();
-        const losses = trainingHistory.map((h) => h.loss);
-        const parametersCount = modelRef.current!.getParametersCount();
-
-        const diagnostics = computeSimulatedEdgeLearningDiagnostics(parametersCount, losses);
+        // Measured on the trained model: empirical output-layer Fisher, predictive entropy and
+        // loss variance over (a subsample of) the training windows.
+        const diagnostics = await computeEdgeLearningDiagnostics(modelRef.current!, trainingText, {
+          maxSamples: 256,
+          trainingWindows: modelRef.current!.countTrainingWindows(trainingText)
+        });
         setEdgeLearningDiagnostics(diagnostics);
 
         if (diagnostics.status === 'success') {
           addSystemMessage(
-            `📊 Edge Learning: Fisher=${diagnostics.fisherInformation.toFixed(4)}, Efficiency=${(
-              diagnostics.efficiency * 100
-            ).toFixed(1)}%`
+            `📊 Edge Learning: Fisher (output layer, mean diagonal)=${diagnostics.fisherInformation.toExponential(
+              2
+            )}, predictive entropy=${diagnostics.entropy.toFixed(3)} nats`
           );
         }
       } catch (error) {
@@ -1601,7 +1602,7 @@ export default function NeuroLinguaDomesticaV324() {
       }
 
       addSystemMessage(
-        `✅ Training complete! Average accuracy: ${(finalAccuracy * 100).toFixed(1)}%`
+        `✅ Training complete! Final-epoch accuracy: ${(finalAccuracy * 100).toFixed(1)}%`
       );
       const activeModelArchitecture = detectModelArchitecture(modelRef.current!);
       modelRef.current!.saveToLocalStorage(getStorageKeyForArchitecture(activeModelArchitecture));

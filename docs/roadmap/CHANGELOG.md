@@ -46,6 +46,10 @@ covered by finite-difference gradient tests; quality changes are measured on hel
 - Information bottleneck: the plotted I(X;Z), I(Z;Y) and H(Z) were formulas of the epoch number and
   the advertised IB loss was never applied. Replaced by binning estimates from hidden
   representations; the panel is labelled as monitoring only.
+- Edge-learning diagnostics: "Fisher information" was the final loss, "entropy" log(#params)·(1+convergence),
+  "variance" the final loss, and "efficiency" a ratio of those, shown with a "COMPUTED" badge. They are now
+  measured on the model (empirical output-layer Fisher from exact per-window gradients, predictive entropy,
+  loss variance, diagonal Cramér-Rao bound); "efficiency" was removed.
 - Causal analysis: identifiability diagnostics (positivity, propensity range, ...) were hard-coded;
   they now come from the engine, and the panel says it runs on simulated data.
 - Training stats show the current epoch, not the running mean over all epochs.

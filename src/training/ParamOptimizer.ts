@@ -65,7 +65,22 @@ export class ParamOptimizer {
     this.t++;
   }
 
-  update(name: string, param: Tensor, grad: Tensor, lr: number, rows?: Iterable<number>): void {
+  /**
+   * Apply one update to `param` using `grad`.
+   * @param rows      update only these rows of a matrix (sparse embedding updates)
+   * @param options.gradScale multiply the gradient by this factor first (e.g. 1/batch · clip)
+   * @param options.zeroGrad  reset the used gradient entries to 0 (fused accumulator reset)
+   */
+  update(
+    name: string,
+    param: Tensor,
+    grad: Tensor,
+    lr: number,
+    rows?: Iterable<number>,
+    options: { gradScale?: number; zeroGrad?: boolean } = {}
+  ): void {
+    const gradScale = options.gradScale ?? 1;
+    const zeroGrad = options.zeroGrad ?? false;
     let slot = this.slots.get(name);
     if (!slot || !shapeMatches(slot.m, param)) {
       slot = { m: zerosLike(param), v: zerosLike(param) };
@@ -77,44 +92,65 @@ export class ParamOptimizer {
       const M = slot.m as number[][];
       const Vs = slot.v as number[][];
       const rowIter = rows ?? P.keys();
-      for (const i of rowIter) this.updateRow(P[i], G[i], M[i], Vs[i], lr);
+      for (const i of rowIter) {
+        this.updateRow(P[i], G[i], M[i], Vs[i], lr, gradScale, zeroGrad);
+      }
     } else {
       this.updateRow(
         param as number[],
         grad as number[],
         slot.m as number[],
         slot.v as number[],
-        lr
+        lr,
+        gradScale,
+        zeroGrad
       );
     }
   }
 
-  private updateRow(p: number[], g: number[], m: number[], v: number[], lr: number): void {
+  private updateRow(
+    p: number[],
+    g: number[],
+    m: number[],
+    v: number[],
+    lr: number,
+    gradScale: number,
+    zeroGrad: boolean
+  ): void {
     const t = Math.max(1, this.t);
+    const n = p.length;
     if (this.kind === 'adam') {
       const b1 = this.beta1;
       const b2 = this.beta2;
       const c1 = 1 - Math.pow(b1, t);
       const c2 = 1 - Math.pow(b2, t);
-      for (let j = 0; j < p.length; j++) {
-        m[j] = b1 * m[j] + (1 - b1) * g[j];
-        v[j] = b2 * v[j] + (1 - b2) * g[j] * g[j];
-        p[j] -= (lr * (m[j] / c1)) / (Math.sqrt(v[j] / c2) + this.eps);
+      const eps = this.eps;
+      for (let j = 0; j < n; j++) {
+        const gj = g[j] * gradScale;
+        const mj = b1 * m[j] + (1 - b1) * gj;
+        const vj = b2 * v[j] + (1 - b2) * gj * gj;
+        m[j] = mj;
+        v[j] = vj;
+        p[j] -= (lr * (mj / c1)) / (Math.sqrt(vj / c2) + eps);
       }
     } else if (this.kind === 'lion') {
       const b1 = 0.9;
       const b2 = 0.99;
-      for (let j = 0; j < p.length; j++) {
-        const c = b1 * m[j] + (1 - b1) * g[j];
+      for (let j = 0; j < n; j++) {
+        const gj = g[j] * gradScale;
+        const c = b1 * m[j] + (1 - b1) * gj;
         p[j] -= lr * Math.sign(c);
-        m[j] = b2 * m[j] + (1 - b2) * g[j];
+        m[j] = b2 * m[j] + (1 - b2) * gj;
       }
     } else {
-      for (let j = 0; j < p.length; j++) {
-        m[j] = this.momentum * m[j] + g[j];
-        p[j] -= lr * m[j];
+      const mu = this.momentum;
+      for (let j = 0; j < n; j++) {
+        const mj = mu * m[j] + g[j] * gradScale;
+        m[j] = mj;
+        p[j] -= lr * mj;
       }
     }
+    if (zeroGrad) g.fill(0);
   }
 }
 

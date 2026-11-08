@@ -68,9 +68,13 @@ export class InjectionEngine {
   }
 
   propose(diag: InjectionDiagnostics, target: InjectionTarget): InjectionProposal {
+    let k = Math.max(1, Math.min(target.hiddenSize, diag.suggestedK || 1));
+    // Transformers grow every attention head equally: round k up to a multiple of numHeads.
+    const heads = Number(target.metadata?.numHeads ?? 1);
+    if (target.type === 'transformer' && heads > 1) k = Math.ceil(k / heads) * heads;
     return {
       target,
-      k: Math.max(1, Math.min(target.hiddenSize, diag.suggestedK || 1)),
+      k,
       method: diag.meanResidual > this.epsilon ? 'residual_eig' : 'random_he',
       epsilon: this.epsilon,
       minGain: this.minGain,

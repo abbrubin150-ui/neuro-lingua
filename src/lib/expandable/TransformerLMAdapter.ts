@@ -1,5 +1,6 @@
 import type { InjectableLayer } from './InjectableLayer';
 import type { InjectionTarget } from '../../types/injection';
+import { decodeBaseWeights, unflatten } from './weightCodec';
 import type { TransformerLM, TransformerRMSStates } from '../TransformerLM';
 
 /**
@@ -54,11 +55,9 @@ export class TransformerLMAdapter implements InjectableLayer {
     if (k <= 0) return false;
     if (newSize > this.maxHiddenSize) return false;
 
-    // Check if new size is compatible with attention heads
-    // The model dimension must be divisible by number of heads
-    // The expandHiddenLayer method will normalize heads if needed
-    // But we check that it won't reduce to less than 1 head
-    if (newSize < transformerInfo.numHeads) return false;
+    // Every head must grow by the same number of dimensions so that the learned head structure
+    // is kept (and a rollback restores the same layout): k must be a multiple of numHeads.
+    if (k % transformerInfo.numHeads !== 0) return false;
 
     return true;
   }
@@ -113,6 +112,11 @@ export class TransformerLMAdapter implements InjectableLayer {
       baseArrays.push(new Float32Array([renorm.ffn.epsilon]));
     }
 
+    // Final RMSNorm of the causal objective (one trailing array)
+    if (transformerWeights.finalNorm) {
+      baseArrays.push(new Float32Array(transformerWeights.finalNorm.gamma));
+    }
+
     return baseArrays;
   }
 
@@ -121,137 +125,79 @@ export class TransformerLMAdapter implements InjectableLayer {
       throw new Error('Invalid weights array: expected at least 6 arrays');
     }
 
+    // Shapes are inferred from the snapshot itself: the live model may have been widened since.
     const vocabSize = this.model.getVocabSize();
-    const contextSize = this.model.getContextSize();
-    const inputDim = vocabSize * contextSize;
-    const transformerInfo = this.model.getTransformerInfo();
-    const numLayers = transformerInfo.numLayers;
-    const ffHiddenDim = transformerInfo.ffHiddenDim;
+    const numLayers = this.model.getTransformerInfo().numLayers;
+    const base = decodeBaseWeights(weights, vocabSize);
+    const D = base.bHidden.length;
+    this.model.setWeights(base);
 
-    // Infer hidden size from bHidden
-    const bHidden = Array.from(weights[1]);
-    const hiddenSize = bHidden.length;
+    const positionEmbeddings = unflatten(weights[5], weights[5].length / D);
 
-    // Reshape wHidden
-    const wHidden: number[][] = [];
-    const wHiddenFlat = Array.from(weights[0]);
-    for (let i = 0; i < hiddenSize; i++) {
-      wHidden.push(wHiddenFlat.slice(i * inputDim, (i + 1) * inputDim));
+    // Per layer: 9 arrays (query, key, value, ff1, ff2, attn γ/ε, ffn γ/ε) or 7 (legacy shared
+    // γ/ε), optionally followed by one final-norm array.
+    const baseIndex = 6;
+    const remaining = weights.length - baseIndex;
+    let arraysPerLayer = 0;
+    let hasFinalNorm = false;
+    for (const per of [9, 7]) {
+      const extra = remaining - per * numLayers;
+      if (extra === 0 || extra === 1) {
+        arraysPerLayer = per;
+        hasFinalNorm = extra === 1;
+        break;
+      }
+    }
+    if (arraysPerLayer === 0) {
+      throw new Error('Invalid weights array: unexpected transformer payload');
     }
 
-    // Reshape wOutput
-    const wOutput: number[][] = [];
-    const wOutputFlat = Array.from(weights[2]);
-    for (let i = 0; i < vocabSize; i++) {
-      wOutput.push(wOutputFlat.slice(i * hiddenSize, (i + 1) * hiddenSize));
-    }
-
-    const bOutput = Array.from(weights[3]);
-
-    // Reshape embedding
-    const embedding: number[][] = [];
-    const embeddingFlat = Array.from(weights[4]);
-    const embeddingDim = Math.floor(embeddingFlat.length / vocabSize);
-    for (let i = 0; i < vocabSize; i++) {
-      embedding.push(embeddingFlat.slice(i * embeddingDim, (i + 1) * embeddingDim));
-    }
-
-    // Set base weights
-    this.model.setWeights({
-      wHidden,
-      bHidden,
-      wOutput,
-      bOutput,
-      embedding
-    });
-
-    // Reshape position embeddings (index 5)
-    const posEmbFlat = Array.from(weights[5]);
-    const maxSeqLength = Math.floor(posEmbFlat.length / hiddenSize);
-    const positionEmbeddings: number[][] = [];
-    for (let i = 0; i < maxSeqLength; i++) {
-      positionEmbeddings.push(posEmbFlat.slice(i * hiddenSize, (i + 1) * hiddenSize));
-    }
-
-    // Rebuild transformer weights
     const attentionWeights: Array<{ query: number[][]; key: number[][]; value: number[][] }> = [];
     const ffWeights1: number[][][] = [];
     const ffWeights2: number[][][] = [];
     const renormStates: TransformerRMSStates[] = [];
 
-    // 9 arrays per layer (new format): query, key, value, ff1, ff2, attn gamma/eps, ffn gamma/eps
-    // 7 arrays per layer (legacy): query, key, value, ff1, ff2, shared gamma/eps
-    const baseIndex = 6;
-    const arraysPerLayer = (weights.length - baseIndex) / numLayers;
-    if (!Number.isInteger(arraysPerLayer) || (arraysPerLayer !== 7 && arraysPerLayer !== 9)) {
-      throw new Error('Invalid weights array: unexpected transformer payload');
-    }
-
     for (let layer = 0; layer < numLayers; layer++) {
       const offset = baseIndex + layer * arraysPerLayer;
-
-      // Reshape attention weights [hiddenSize x hiddenSize]
-      const queryFlat = Array.from(weights[offset]);
-      const keyFlat = Array.from(weights[offset + 1]);
-      const valueFlat = Array.from(weights[offset + 2]);
-
-      const query: number[][] = [];
-      const key: number[][] = [];
-      const value: number[][] = [];
-      for (let i = 0; i < hiddenSize; i++) {
-        query.push(queryFlat.slice(i * hiddenSize, (i + 1) * hiddenSize));
-        key.push(keyFlat.slice(i * hiddenSize, (i + 1) * hiddenSize));
-        value.push(valueFlat.slice(i * hiddenSize, (i + 1) * hiddenSize));
-      }
-      attentionWeights.push({ query, key, value });
-
-      // Reshape FF weights
-      // ff1: [hiddenSize x ffHiddenDim]
-      const ff1Flat = Array.from(weights[offset + 3]);
-      const ff1Layer: number[][] = [];
-      for (let i = 0; i < hiddenSize; i++) {
-        ff1Layer.push(ff1Flat.slice(i * ffHiddenDim, (i + 1) * ffHiddenDim));
-      }
-      ffWeights1.push(ff1Layer);
-
-      // ff2: [ffHiddenDim x hiddenSize]
-      const ff2Flat = Array.from(weights[offset + 4]);
-      const ff2Layer: number[][] = [];
-      for (let i = 0; i < ffHiddenDim; i++) {
-        ff2Layer.push(ff2Flat.slice(i * hiddenSize, (i + 1) * hiddenSize));
-      }
-      ffWeights2.push(ff2Layer);
+      // Q: D×D, K/V: D×kvDim (GQA), ff1: D×2F (SwiGLU), ff2: F×D
+      attentionWeights.push({
+        query: unflatten(weights[offset], D),
+        key: unflatten(weights[offset + 1], D),
+        value: unflatten(weights[offset + 2], D)
+      });
+      ffWeights1.push(unflatten(weights[offset + 3], D));
+      ffWeights2.push(unflatten(weights[offset + 4], weights[offset + 4].length / D));
 
       if (arraysPerLayer === 7) {
-        // Legacy format: single RMSNorm used for both sublayers
         const gamma = Array.from(weights[offset + 5]);
-        const epsilonArr = Array.from(weights[offset + 6]);
-        const epsilon = epsilonArr[0] ?? 1e-6;
+        const epsilon = Array.from(weights[offset + 6])[0] ?? 1e-6;
         renormStates.push({
           attention: { gamma: [...gamma], epsilon },
           ffn: { gamma: [...gamma], epsilon }
         });
       } else {
-        // New format: separate RMSNorm states
-        const attnGamma = Array.from(weights[offset + 5]);
-        const attnEpsilon = Array.from(weights[offset + 6])[0] ?? 1e-6;
-        const ffnGamma = Array.from(weights[offset + 7]);
-        const ffnEpsilon = Array.from(weights[offset + 8])[0] ?? 1e-6;
-
         renormStates.push({
-          attention: { gamma: attnGamma, epsilon: attnEpsilon },
-          ffn: { gamma: ffnGamma, epsilon: ffnEpsilon }
+          attention: {
+            gamma: Array.from(weights[offset + 5]),
+            epsilon: Array.from(weights[offset + 6])[0] ?? 1e-6
+          },
+          ffn: {
+            gamma: Array.from(weights[offset + 7]),
+            epsilon: Array.from(weights[offset + 8])[0] ?? 1e-6
+          }
         });
       }
     }
 
-    // Set transformer-specific weights
     this.model.setTransformerWeights({
       attentionWeights,
       ffWeights1,
       ffWeights2,
       positionEmbeddings,
-      renormStates
+      renormStates,
+      finalNorm: hasFinalNorm
+        ? { gamma: Array.from(weights[weights.length - 1]), epsilon: 1e-6 }
+        : null
     });
   }
 }

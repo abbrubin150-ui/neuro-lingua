@@ -47,8 +47,7 @@ describe('TransformerLMAdapter', () => {
 
   describe('canInject', () => {
     it('should return true for valid injection count', () => {
-      expect(adapter.canInject(1)).toBe(true);
-      expect(adapter.canInject(4)).toBe(true);
+      expect(adapter.canInject(4)).toBe(true); // multiples of numHeads (4)
       expect(adapter.canInject(8)).toBe(true);
     });
 
@@ -62,11 +61,13 @@ describe('TransformerLMAdapter', () => {
     });
 
     it('should respect head count constraints', () => {
-      // Very small adapter that would result in size < numHeads
+      // k must be a multiple of numHeads (4) so that every head grows equally
+      expect(adapter.canInject(2)).toBe(false);
+      expect(adapter.canInject(4)).toBe(true);
+      expect(adapter.canInject(8)).toBe(true);
+      // ...and the new size must fit the adapter's maximum
       const tinyAdapter = new TransformerLMAdapter(model, 'tiny', 18);
-      // This is fine since 16 + 8 = 24 >= numHeads (4)
-      expect(tinyAdapter.canInject(8)).toBe(false); // exceeds max
-      expect(tinyAdapter.canInject(2)).toBe(true); // 16 + 2 = 18, ok
+      expect(tinyAdapter.canInject(4)).toBe(false); // 16 + 4 = 20 > 18
     });
   });
 
@@ -155,8 +156,8 @@ describe('TransformerLMAdapter', () => {
     it('should export weights as Float32Arrays', () => {
       const weights = adapter.exportWeights();
 
-      // Base (5) + position embeddings (1) + per layer (9 * 2 layers) = 24
-      expect(weights.length).toBe(6 + 9 * 2);
+      // Base (5) + position embeddings (1) + per layer (9 * 2 layers) + final norm (1) = 25
+      expect(weights.length).toBe(6 + 9 * 2 + 1);
       weights.forEach((w) => {
         expect(w).toBeInstanceOf(Float32Array);
       });

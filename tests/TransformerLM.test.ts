@@ -225,7 +225,8 @@ describe('TransformerLM', () => {
     const D = 8;
     const kv = 2 * (D / 4);
     const perLayer = D * D + 2 * D * kv + D * 12 + 6 * D + 2 * D;
-    expect(model.getParametersCount()).toBe(V * D + D * V + V + 2 * perLayer);
+    const finalNorm = D; // causal objective: RMSNorm before the output projection
+    expect(model.getParametersCount()).toBe(V * D + D * V + V + 2 * perLayer + finalNorm);
   });
 
   it('learns a deterministic sequence through full backpropagation', async () => {

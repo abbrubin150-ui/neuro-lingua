@@ -1,75 +1,96 @@
 /**
- * TransformerLM - Transformer-based Neural Language Model
+ * TransformerLM — decoder-only transformer language model trained with exact backpropagation.
  *
- * A character-level language model using transformer architecture:
- * - Multi-head self-attention mechanism
- * - Position-aware embeddings
- * - Feed-forward layers with residual connections
- * - RMS normalization (pre-norm residual layout)
- * - Compatible with ProNeuralLM interface for seamless UI integration
+ * Objective 'causal' (default for new models):
+ *   x_t   = E[token_t]
+ *   h     = Block_L(…Block_1(x))     pre-norm blocks (see models/transformer_backprop.ts):
+ *                                    RMSNorm → causal MHA/GQA with per-head RoPE → residual →
+ *                                    RMSNorm → SwiGLU FFN → residual
+ *   n_t   = RMSNorm(h_t; γ_final)
+ *   p(token_{t+1} | token_≤t) = softmax(Woutᵀ·n_t + b)
+ *   Training minimises the next-token cross-entropy at every position of every context window
+ *   (one window = `contextSize` tokens); inference (generation, evaluation, distillation) reads
+ *   the last position.
+ *
+ * Objective 'pooled' (legacy): models saved before the causal revision used bidirectional
+ * attention, full-row RoPE (base 500000) and mean pooling over the window with a single
+ * next-token loss. Loading such a model keeps that objective so its predictions are unchanged.
+ *
+ * Regularisation (training only): attention-probability dropout, DropConnect on Q/K/V and
+ * dropout on the read-out vector, all with exact gradients through the sampled masks.
+ * Optimisation: Adam / Lion / momentum-SGD over every parameter, mini-batches of
+ * `batchSize` windows, global-norm gradient clipping. Computation is CPU-only.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { ProNeuralLM, type Optimizer, type TokenizerConfig } from './ProNeuralLM';
-import { MiniTransformerBlock, type MiniTransformerConfig } from '../models/mini_transformer';
+import {
+  ProNeuralLM,
+  type ForwardCache,
+  type Optimizer,
+  type TokenizerConfig
+} from './ProNeuralLM';
 import type { AttentionWeights, Matrix } from '../models/attention';
 import { stableSoftmax } from './MathUtils';
-import { type RMSNormState } from './RMSNorm';
-import { GPUNeuralOps } from '../backend/gpu_neural_ops';
+import type { RMSNormState } from './RMSNorm';
+import type { GPUNeuralOps } from '../backend/gpu_neural_ops';
 import type { LossMaskConfig } from '../types/project';
 import {
   blockBackward,
   blockForward,
   createBlockGrads,
+  rmsBackward,
+  rmsForward,
   zeros,
   type BlockCache,
   type BlockConfig,
+  type BlockDropout,
   type BlockGrads,
-  type BlockParams
+  type BlockMasks,
+  type BlockParams,
+  hadamard,
+  sampleWeightMasks
 } from '../models/transformer_backprop';
-import {
-  globalNorm,
-  ParamOptimizer,
-  scaleTensors,
-  type ParamOptimizerKind
-} from '../training/ParamOptimizer';
+import { globalNorm, ParamOptimizer, type ParamOptimizerKind } from '../training/ParamOptimizer';
 
-const TRANSFORMER_ROPE_BASE = 500000;
-/** Global-norm gradient clipping threshold for one training step. */
+/** RoPE base for causal models (short in-browser windows) and for legacy pooled models. */
+const ROPE_BASE_CAUSAL = 10000;
+const ROPE_BASE_LEGACY = 500000;
+const NORM_EPSILON = 1e-6;
+/** Global-norm gradient clipping threshold for one optimisation step. */
 const TRANSFORMER_GRAD_CLIP = 1.0;
 
-type StackPass = {
-  h: number[];
-  logits: number[];
-  probs: number[];
-  avgEmb: number[];
-  positions: number[];
-  caches: BlockCache[];
-  output: number[][];
-  dropMask: number[] | null;
-};
+export type TransformerObjective = 'causal' | 'pooled';
 
 export type TransformerConfig = {
   numLayers?: number;
   numHeads?: number;
   ffHiddenDim?: number;
+  /** Dropout probability on attention weights (training only). */
   attentionDropout?: number;
+  /** DropConnect probability on individual Q/K/V weights (training only). */
   dropConnectRate?: number;
+  /** Only RMSNorm is implemented; the field is kept for configuration compatibility. */
   normType?: 'rms' | 'layer';
   /**
    * Number of key-value heads for Grouped-Query Attention (GQA).
    * When numKVHeads < numHeads, multiple query heads share the same K/V heads.
-   * This reduces KV cache memory by (numHeads / numKVHeads) factor.
    *
    * Examples:
    * - numKVHeads = numHeads: Standard Multi-Head Attention (MHA)
    * - numKVHeads = 1: Multi-Query Attention (MQA)
    * - numKVHeads = numHeads/4: GQA with 4:1 ratio (used in Llama-3.2)
-   *
-   * Default: equals numHeads (standard MHA for backward compatibility)
    */
   numKVHeads?: number;
+  /** Training objective / architecture revision (see the file header). Default 'causal'. */
+  objective?: TransformerObjective;
+  /** RoPE base. Default 10000 for 'causal', 500000 for legacy 'pooled' models. */
+  ropeBase?: number;
+  /**
+   * Number of context windows whose gradients are averaged before one optimizer step
+   * (DropConnect masks are shared within a mini-batch). 1 reproduces per-window updates.
+   */
+  batchSize?: number;
 };
 
 const DEFAULT_TRANSFORMER_CONFIG: Required<TransformerConfig> = {
@@ -79,18 +100,22 @@ const DEFAULT_TRANSFORMER_CONFIG: Required<TransformerConfig> = {
   attentionDropout: 0.1,
   dropConnectRate: 0.1,
   normType: 'rms',
-  numKVHeads: 4 // Default: same as numHeads (standard MHA)
+  numKVHeads: 4,
+  objective: 'causal',
+  ropeBase: ROPE_BASE_CAUSAL,
+  batchSize: 8
 };
 
 type BaseModelJson = ReturnType<ProNeuralLM['toJSON']>;
 type TransformerSerializedModel = BaseModelJson & {
   architecture: 'transformer';
   transformer: {
-    config: Required<TransformerConfig>;
+    config: TransformerConfig;
     attentionWeights: AttentionWeights[];
     ffWeights1: Matrix[];
     ffWeights2: Matrix[];
     renormStates: TransformerRMSStates[] | RMSNormState[];
+    finalNorm?: RMSNormState;
   };
 };
 
@@ -116,26 +141,113 @@ function createTransformerRng(seed: number, state?: number): TransformerRng {
   };
 }
 
+/** Activations of one forward pass through the stack. */
+type StackPass = {
+  positions: number[];
+  X0: Matrix;
+  caches: BlockCache[];
+  /** Output of the last block, one row per position. */
+  hidden: Matrix;
+  /** Causal objective: RMS of each hidden row and the normalised rows (before dropout). */
+  finalRms: number[] | null;
+  normed: Matrix | null;
+  /** Positions read out by the output projection (pooled objective: [-1]). */
+  scored: number[];
+  /** Vectors fed to the output projection (after dropout), one per scored entry. */
+  readouts: number[][];
+  masks: (number[] | null)[];
+  logits: number[][];
+  probs: number[][];
+};
+
+type WeightMasks = Pick<BlockMasks, 'query' | 'key' | 'value'>;
+
+/** DropConnect state of one layer for the current mini-batch: masks and W̃ = W ⊙ M. */
+type LayerDropConnect = { masks: WeightMasks; masked: AttentionWeights };
+
+type GradBuffers = {
+  wOutput: Matrix;
+  bOutput: number[];
+  finalGamma: number[] | null;
+  layers: BlockGrads[];
+  embedding: Map<number, number[]>;
+};
+
+// ---------------------------------------------------------------------------
+// Index re-mapping helpers used when the model width grows (neuron injection)
+// ---------------------------------------------------------------------------
+
+/** New index of every old column when `newSpan − oldSpan` slots are appended to each block. */
+function blockwiseIndexMap(oldWidth: number, oldSpan: number, newSpan: number): number[] {
+  return Array.from(
+    { length: oldWidth },
+    (_, j) => Math.floor(j / oldSpan) * newSpan + (j % oldSpan)
+  );
+}
+
+function identityMap(n: number): number[] {
+  return Array.from({ length: n }, (_, i) => i);
+}
+
+/** Place v[from] at out[map[from]]; unmapped slots are filled with fill(). */
+function remapVector(v: number[], map: number[], newLength: number, fill: () => number): number[] {
+  const out = new Array<number>(newLength);
+  const mapped = new Array<boolean>(newLength).fill(false);
+  map.forEach((to, from) => {
+    if (to >= 0 && to < newLength) {
+      out[to] = v[from];
+      mapped[to] = true;
+    }
+  });
+  for (let i = 0; i < newLength; i++) if (!mapped[i]) out[i] = fill();
+  return out;
+}
+
+function remapRows(M: Matrix, map: number[], newRows: number, newRow: () => number[]): Matrix {
+  const out: Matrix = new Array(newRows);
+  map.forEach((to, from) => {
+    if (to >= 0 && to < newRows) out[to] = M[from];
+  });
+  for (let i = 0; i < newRows; i++) if (!out[i]) out[i] = newRow();
+  return out;
+}
+
+function remapCols(M: Matrix, map: number[], newCols: number, fill: () => number): Matrix {
+  return M.map((row) => remapVector(row, map, newCols, fill));
+}
+
 /**
  * TransformerLM - Full transformer language model
  */
 export class TransformerLM extends ProNeuralLM {
   private transformerConfig: Required<TransformerConfig>;
-  private transformerLayers: MiniTransformerBlock[] = [];
+  /**
+   * Sinusoidal position table kept for the Cerebro adapter API. Positions are encoded with RoPE
+   * inside attention; this table is not used by the forward pass.
+   */
   private positionEmbeddings: number[][] = [];
   private maxSeqLength = 128;
 
   // Transformer-specific weights (stored in addition to base embeddings)
   private attentionWeights: AttentionWeights[] = [];
-
   private ffWeights1: Matrix[] = [];
   private ffWeights2: Matrix[] = [];
 
-  // RMSNorm state (gamma/epsilon) for each layer
+  // RMSNorm state (gamma/epsilon) for each layer, plus the final norm of the causal objective
   private renormStates: TransformerRMSStates[] = [];
+  private finalNorm: RMSNormState = { gamma: [], epsilon: NORM_EPSILON };
 
-  // Optimizer state for the full transformer stack (not serialized; rebuilt lazily)
+  // Optimizer state and gradient accumulators (not serialized; rebuilt lazily)
   private paramOptimizer: ParamOptimizer | null = null;
+  private gradBuffers: GradBuffers | null = null;
+  /** DropConnect masks and masked Q/K/V weights of the current mini-batch (one per layer). */
+  private batchDropConnect: LayerDropConnect[] | null = null;
+
+  /**
+   * Causal objective: also train the predictions made from shorter prefixes inside each window
+   * (positions 0..T−2). When false only the full-context prediction at T−1 is trained.
+   */
+  private causalLossOnAllPositions = true;
 
   // Seeded RNG for transformer weight initialization (reproducible for a given seed)
   private initRng: TransformerRng | null = null;
@@ -152,13 +264,23 @@ export class TransformerLM extends ProNeuralLM {
     tokenizerConfig: TokenizerConfig = { mode: 'unicode' },
     transformerConfig: TransformerConfig = {}
   ) {
-    // Initialize base ProNeuralLM (provides embedding layer and basic infrastructure)
     super(vocab, hiddenSize, lr, contextSize, optimizer, momentum, dropout, seed, tokenizerConfig);
 
-    this.transformerConfig = { ...DEFAULT_TRANSFORMER_CONFIG, ...transformerConfig };
+    const objective = transformerConfig.objective ?? DEFAULT_TRANSFORMER_CONFIG.objective;
+    this.transformerConfig = {
+      ...DEFAULT_TRANSFORMER_CONFIG,
+      ...transformerConfig,
+      objective,
+      ropeBase:
+        transformerConfig.ropeBase ?? (objective === 'pooled' ? ROPE_BASE_LEGACY : ROPE_BASE_CAUSAL)
+    };
     this.initializeTransformerLayers();
     this.initializePositionEmbeddings();
   }
+
+  // ---------------------------------------------------------------------------
+  // Initialisation
+  // ---------------------------------------------------------------------------
 
   /**
    * Ensure RMSNorm states have separate attention/FFN entries and correct dimensions.
@@ -169,7 +291,7 @@ export class TransformerLM extends ProNeuralLM {
   ): TransformerRMSStates {
     const defaultState = {
       gamma: new Array(modelDim).fill(1),
-      epsilon: 1e-6
+      epsilon: NORM_EPSILON
     } satisfies RMSNormState;
     const clone = (s: RMSNormState): RMSNormState => ({ gamma: [...s.gamma], epsilon: s.epsilon });
     if (!state) return { attention: clone(defaultState), ffn: clone(defaultState) };
@@ -188,70 +310,41 @@ export class TransformerLM extends ProNeuralLM {
   }
 
   /**
-   * Initialize transformer layers
+   * Initialize (or restore) every transformer parameter.
    */
   private initializeTransformerLayers(existing?: {
     attention?: AttentionWeights[];
     ff1?: Matrix[];
     ff2?: Matrix[];
     renormStates?: TransformerRMSStates[] | RMSNormState[];
+    finalNorm?: RMSNormState;
   }): void {
-    const { numLayers, numHeads, ffHiddenDim, attentionDropout, dropConnectRate, numKVHeads } =
-      this.transformerConfig;
+    const { numLayers, numHeads, ffHiddenDim, numKVHeads } = this.transformerConfig;
     const modelDim = this.getHiddenSize();
     const normalizedHeads = this.normalizeHeadCount(modelDim, numHeads);
-    if (normalizedHeads !== this.transformerConfig.numHeads) {
-      this.transformerConfig = { ...this.transformerConfig, numHeads: normalizedHeads };
-    }
-
-    // Normalize numKVHeads to be valid
     const normalizedKVHeads = this.normalizeKVHeadCount(
       normalizedHeads,
       numKVHeads ?? normalizedHeads
     );
-    if (normalizedKVHeads !== this.transformerConfig.numKVHeads) {
-      this.transformerConfig = { ...this.transformerConfig, numKVHeads: normalizedKVHeads };
-    }
+    this.transformerConfig = {
+      ...this.transformerConfig,
+      numHeads: normalizedHeads,
+      numKVHeads: normalizedKVHeads
+    };
 
-    // Calculate KV dimension for GQA
+    // GQA: K/V weights are [modelDim x kvDim]
     const headDim = modelDim / normalizedHeads;
     const kvDim = normalizedKVHeads * headDim;
 
-    this.transformerLayers = [];
     this.paramOptimizer?.reset();
+    this.gradBuffers = null;
     this.attentionWeights = [];
     this.ffWeights1 = [];
     this.ffWeights2 = [];
     this.renormStates = [];
 
     for (let i = 0; i < numLayers; i++) {
-      const existingState = existing?.renormStates?.[i];
-      const normalizedState: TransformerRMSStates = this.normalizeRenormState(
-        existingState,
-        modelDim
-      );
-
-      const config: MiniTransformerConfig = {
-        modelDim,
-        heads: this.transformerConfig.numHeads,
-        ff: {
-          hiddenDim: ffHiddenDim,
-          activation: (x: number) => Math.max(0, x) // Unused in SwiGLU but kept for compatibility
-        },
-        attentionDropout,
-        dropConnectRate,
-        attentionRms: normalizedState.attention,
-        ffnRms: normalizedState.ffn,
-        ropeBase: TRANSFORMER_ROPE_BASE,
-        numKVHeads: normalizedKVHeads, // GQA support
-        gpuOps: this.getGPUOpsInstance()
-      };
-
-      this.transformerLayers.push(new MiniTransformerBlock(config));
-      this.renormStates.push(normalizedState);
-
-      // GQA: K/V weights are smaller when numKVHeads < numHeads
-      // Query: [modelDim x modelDim], Key/Value: [modelDim x kvDim]
+      this.renormStates.push(this.normalizeRenormState(existing?.renormStates?.[i], modelDim));
       this.attentionWeights.push(
         existing?.attention?.[i] ?? {
           query: this.initWeightMatrix([modelDim, modelDim]),
@@ -259,12 +352,16 @@ export class TransformerLM extends ProNeuralLM {
           value: this.initWeightMatrix([modelDim, kvDim])
         }
       );
-
       this.ffWeights1.push(
         existing?.ff1?.[i] ?? this.initWeightMatrix([modelDim, ffHiddenDim * 2])
       );
       this.ffWeights2.push(existing?.ff2?.[i] ?? this.initWeightMatrix([ffHiddenDim, modelDim]));
     }
+
+    this.finalNorm =
+      existing?.finalNorm && existing.finalNorm.gamma.length === modelDim
+        ? { gamma: [...existing.finalNorm.gamma], epsilon: existing.finalNorm.epsilon }
+        : { gamma: new Array(modelDim).fill(1), epsilon: NORM_EPSILON };
   }
 
   /**
@@ -274,26 +371,32 @@ export class TransformerLM extends ProNeuralLM {
     if (requestedKVHeads <= 0) return 1;
     if (requestedKVHeads >= numHeads) return numHeads;
     if (numHeads % requestedKVHeads === 0) return requestedKVHeads;
-    // Find largest valid divisor <= requested
     for (let candidate = requestedKVHeads; candidate >= 1; candidate--) {
       if (numHeads % candidate === 0) return candidate;
     }
     return 1;
   }
 
-  /**
-   * Initialize position embeddings
-   */
+  private normalizeHeadCount(modelDim: number, requestedHeads: number): number {
+    if (requestedHeads <= 0) return 1;
+    if (modelDim % requestedHeads === 0) return requestedHeads;
+    for (let candidate = requestedHeads; candidate >= 1; candidate--) {
+      if (modelDim % candidate === 0) return candidate;
+    }
+    return 1;
+  }
+
+  private sinusoid(pos: number, dimIdx: number, modelDim: number): number {
+    const angle = pos / Math.pow(10000, (2 * Math.floor(dimIdx / 2)) / modelDim);
+    return dimIdx % 2 === 0 ? Math.sin(angle) : Math.cos(angle);
+  }
+
   private initializePositionEmbeddings(): void {
     const modelDim = this.getHiddenSize();
     this.positionEmbeddings = [];
-
     for (let pos = 0; pos < this.maxSeqLength; pos++) {
       const embedding = new Array(modelDim);
-      for (let i = 0; i < modelDim; i++) {
-        const angle = pos / Math.pow(10000, (2 * Math.floor(i / 2)) / modelDim);
-        embedding[i] = i % 2 === 0 ? Math.sin(angle) : Math.cos(angle);
-      }
+      for (let i = 0; i < modelDim; i++) embedding[i] = this.sinusoid(pos, i, modelDim);
       this.positionEmbeddings.push(embedding);
     }
   }
@@ -307,50 +410,29 @@ export class TransformerLM extends ProNeuralLM {
   }
 
   /**
-   * Initialize weight matrix with He initialization
+   * He-uniform initialisation: U(−√(6/fanIn)·½, …) ≈ variance 2/fanIn·⅓ (kept from the original
+   * implementation so that seeds keep producing the same networks).
    */
-  private initWeightMatrix(shape: number[]): any {
-    if (shape.length === 2) {
-      const [rows, cols] = shape;
-      const scale = Math.sqrt(2.0 / rows);
-      return Array(rows)
-        .fill(0)
-        .map(() =>
-          Array(cols)
-            .fill(0)
-            .map(() => (this.initRandom() - 0.5) * 2 * scale)
-        );
-    } else if (shape.length === 3) {
-      const [depth, rows, cols] = shape;
-      return Array(depth)
-        .fill(0)
-        .map(() => this.initWeightMatrix([rows, cols]));
-    }
-    return [];
+  private initWeightMatrix(shape: [number, number]): Matrix {
+    const [rows, cols] = shape;
+    const scale = Math.sqrt(2.0 / rows);
+    return Array.from({ length: rows }, () =>
+      Array.from({ length: cols }, () => (this.initRandom() - 0.5) * 2 * scale)
+    );
   }
 
-  /**
-   * Add position embeddings to input embeddings
-   */
-  private addPositionEmbeddings(embeddings: number[][]): number[][] {
-    return embeddings.map((emb, pos) => {
-      if (pos >= this.maxSeqLength) return emb;
-      const posEmb = this.positionEmbeddings[pos];
-      return emb.map((val, i) => val + posEmb[i]);
-    });
-  }
+  // ---------------------------------------------------------------------------
+  // Introspection
+  // ---------------------------------------------------------------------------
 
-  /**
-   * Get architecture type for display
-   */
   getArchitectureType(): string {
     return 'Transformer';
   }
 
   /**
    * Trainable parameter count of the transformer model: token embeddings, every transformer
-   * block (Q/K/V, SwiGLU FFN, two RMSNorm gains) and the output projection. The base MLP's
-   * hidden layer is not used by TransformerLM and is therefore not counted.
+   * block (Q/K/V, SwiGLU FFN, two RMSNorm gains), the final RMSNorm (causal objective) and the
+   * output projection. The base MLP's hidden layer is not used by TransformerLM.
    */
   getParametersCount(): number {
     const V = this.getVocabSize();
@@ -363,39 +445,44 @@ export class TransformerLM extends ProNeuralLM {
       total += size(this.ffWeights1[l]) + size(this.ffWeights2[l]);
       total += this.renormStates[l].attention.gamma.length + this.renormStates[l].ffn.gamma.length;
     }
+    if (this.isCausal()) total += this.finalNorm.gamma.length;
     return total;
   }
 
-  /**
-   * Get transformer-specific info
-   */
   getTransformerInfo(): {
     numLayers: number;
     numHeads: number;
     ffHiddenDim: number;
     numKVHeads: number;
+    objective: TransformerObjective;
+    batchSize: number;
   } {
     return {
       numLayers: this.transformerConfig.numLayers,
       numHeads: this.transformerConfig.numHeads,
       ffHiddenDim: this.transformerConfig.ffHiddenDim,
-      numKVHeads: this.transformerConfig.numKVHeads
+      numKVHeads: this.transformerConfig.numKVHeads,
+      objective: this.transformerConfig.objective,
+      batchSize: this.transformerConfig.batchSize
     };
   }
 
   /**
-   * Propagate GPU accelerator to transformer layers.
+   * The transformer stack runs on the CPU (exact forward/backward); the GPU accelerator is only
+   * stored for API compatibility.
    */
   setGPUOps(gpuOps: GPUNeuralOps | null) {
     super.setGPUOps(gpuOps);
-    for (const layer of this.transformerLayers) {
-      layer.setGPUOps(gpuOps);
-    }
   }
 
-  /**
-   * Override train method to use transformer forward/backward passes
-   */
+  private isCausal(): boolean {
+    return this.transformerConfig.objective === 'causal';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Training
+  // ---------------------------------------------------------------------------
+
   async train(
     text: string,
     epochs = 10,
@@ -405,28 +492,22 @@ export class TransformerLM extends ProNeuralLM {
     readonly accuracy: number;
     readonly history: { loss: number; accuracy: number; timestamp: number }[];
   }> {
-    // Create training sequences (reuse parent method via any cast)
-    const createTrainingSequences = (this as any).createTrainingSequences.bind(this);
-    const buildTrainingLossMask = (this as any).buildTrainingLossMask.bind(this);
-    const shuffleInPlace = (this as any).shuffleInPlace.bind(this);
-    const trainingHistory = (this as any).trainingHistory as Array<{
+    const self = this as any;
+    const trainingHistory = self.trainingHistory as Array<{
       loss: number;
       accuracy: number;
       timestamp: number;
     }>;
 
-    const seqs = createTrainingSequences(text);
+    const seqs = self.createTrainingSequences(text) as [number[], number][];
     if (seqs.length === 0) return { loss: 0, accuracy: 0, history: trainingHistory };
 
-    // Build loss mask if config provided
-    const lossMask = lossMaskConfig
-      ? buildTrainingLossMask(text, lossMaskConfig)
+    const lossMask: number[] = lossMaskConfig
+      ? self.buildTrainingLossMask(text, lossMaskConfig)
       : new Array(seqs.length).fill(1);
-
-    // Pair sequences with their mask values for shuffling
-    const seqsWithMask: [number[], number, number][] = seqs.map(
-      (seq: [number[], number], i: number) => [seq[0], seq[1], lossMask[i] ?? 1]
-    );
+    const items = seqs.map(([ctx, tgt], index) => ({ ctx, tgt, index }));
+    const batchSize = Math.max(1, Math.floor(this.transformerConfig.batchSize));
+    const causal = this.isCausal();
 
     let totalLoss = 0;
     let correct = 0;
@@ -434,34 +515,70 @@ export class TransformerLM extends ProNeuralLM {
     let maskedCount = 0;
 
     for (let e = 0; e < epochs; e++) {
-      shuffleInPlace(seqsWithMask);
+      self.shuffleInPlace(items);
       let epochLoss = 0;
       let epochCorrect = 0;
       let epochMaskedCount = 0;
+      let pending = 0;
 
-      for (const [ctx, tgt, maskValue] of seqsWithMask) {
-        const pass = this.stackForward(ctx, maskValue === 1);
-        const { probs } = pass;
+      for (const { ctx, tgt, index } of items) {
+        const T = ctx.length;
+        const lastMasked = (lossMask[index] ?? 1) === 1;
+
+        // Scored entries: positions whose next token is a real (unmasked) target.
+        let scored: number[];
+        let targets: number[];
+        if (causal) {
+          scored = [];
+          targets = [];
+          if (this.causalLossOnAllPositions) {
+            for (let t = 0; t < T - 1; t++) {
+              // ctx[t + 1] is the target of training sequence (index + t + 1 − T);
+              // negative indices are the BOS padding, which is never predicted.
+              const seq = index + t + 1 - T;
+              if (seq >= 0 && (lossMask[seq] ?? 1) === 1) {
+                scored.push(t);
+                targets.push(ctx[t + 1]);
+              }
+            }
+          }
+          scored.push(T - 1);
+          targets.push(lastMasked ? tgt : -1);
+        } else {
+          scored = [-1];
+          targets = [lastMasked ? tgt : -1];
+        }
+
+        const learn = targets.some((t) => t >= 0);
+        if (learn && pending === 0) this.batchDropConnect = this.sampleBatchDropConnect();
+        const pass = this.stackForward(ctx, learn, scored, learn);
+        const lastProbs = pass.probs[pass.probs.length - 1];
         let pred = 0;
-        for (let i = 1; i < probs.length; i++) if (probs[i] > probs[pred]) pred = i;
+        for (let i = 1; i < lastProbs.length; i++) if (lastProbs[i] > lastProbs[pred]) pred = i;
 
-        // Only compute loss and backprop for unmasked positions
-        if (maskValue === 1) {
-          const loss = -Math.log(probs[tgt] + 1e-8);
+        if (lastMasked) {
+          const loss = -Math.log(lastProbs[tgt] + 1e-8);
           epochLoss += loss;
           totalLoss += loss;
           epochMaskedCount++;
           maskedCount++;
-          this.stackBackwardAndUpdate(ctx, tgt, pass);
         }
-
-        // Still track accuracy for all positions
         if (pred === tgt) {
           epochCorrect++;
           correct++;
         }
         count++;
+
+        if (learn) {
+          this.accumulateGradients(ctx, pass, targets);
+          pending++;
+          if (pending === batchSize) {
+            this.applyAccumulatedGradients(pending);
+            pending = 0;
+          }
+        }
       }
+      if (pending > 0) this.applyAccumulatedGradients(pending);
 
       const avgLoss = epochMaskedCount > 0 ? epochLoss / epochMaskedCount : 0;
       const accuracy = epochCorrect / seqs.length;
@@ -473,43 +590,36 @@ export class TransformerLM extends ProNeuralLM {
       accuracy: correct / Math.max(1, count),
       history: trainingHistory
     } as const;
-    (this as any).lastUpdatedAt = Date.now();
+    self.lastUpdatedAt = Date.now();
     return payload;
   }
 
   /**
    * Forward pass used by every inference path inherited from ProNeuralLM (generate with all
-   * sampling modes and penalties, getLogitsForContext / distillation, evaluation).
-   * Replaces the base feed-forward MLP so that TransformerLM always runs the transformer stack.
+   * sampling modes and penalties, getLogitsForContext / distillation, evaluate).
    */
-  protected async forward(inputs: number[], _train = false) {
+  protected async forward(inputs: number[], _train = false): Promise<ForwardCache> {
     const pass = this.stackForward(inputs, false);
+    const h = pass.readouts[pass.readouts.length - 1];
     return {
-      h: pass.h,
-      logits: pass.logits,
-      probs: pass.probs,
-      avgEmb: pass.avgEmb,
-      dropMask: null as number[] | null,
-      preAct: pass.h
+      h,
+      logits: pass.logits[pass.logits.length - 1],
+      probs: pass.probs[pass.probs.length - 1],
+      avgEmb: this.meanRows(pass.X0),
+      dropMask: null,
+      preAct: h
     };
   }
 
   /**
-   * Inspection helper kept for diagnostics/tests: returns the pooled state and the final
-   * hidden sequence of the transformer stack.
+   * Inspection helper kept for diagnostics/tests: next-token distribution and the final hidden
+   * sequence of the transformer stack.
    * @private
    */
   private async transformerForwardPass(inputs: number[], _train = false) {
+    const cache = await this.forward(inputs, false);
     const pass = this.stackForward(inputs, false);
-    return {
-      h: pass.h,
-      logits: pass.logits,
-      probs: pass.probs,
-      avgEmb: pass.avgEmb,
-      dropMask: null as number[] | null,
-      preAct: pass.h,
-      transformerHidden: pass.output
-    };
+    return { ...cache, transformerHidden: pass.hidden };
   }
 
   private blockParams(layerIdx: number): BlockParams {
@@ -526,62 +636,253 @@ export class TransformerLM extends ProNeuralLM {
   }
 
   private blockConfig(): BlockConfig {
+    const causal = this.isCausal();
     return {
       numHeads: this.transformerConfig.numHeads,
       numKVHeads: this.transformerConfig.numKVHeads,
-      ropeBase: TRANSFORMER_ROPE_BASE
+      ropeBase: this.transformerConfig.ropeBase,
+      causal,
+      ropePerHead: causal
     };
   }
 
+  private meanRows(rows: Matrix): number[] {
+    const H = rows[0]?.length ?? this.getHiddenSize();
+    const y = new Array(H).fill(0);
+    for (const v of rows) for (let i = 0; i < H; i++) y[i] += v[i];
+    const n = rows.length || 1;
+    for (let i = 0; i < H; i++) y[i] /= n;
+    return y;
+  }
+
   /**
-   * Exact forward pass through the transformer stack (RoPE positions 0..T-1), mean pooling,
-   * optional inverted dropout on the pooled state (training only) and the output projection.
+   * Exact forward pass. `train` enables the stochastic regularisers; `scored` lists the
+   * positions whose next-token distribution is needed (causal objective; default: the last
+   * position). The pooled objective always produces a single read-out.
    */
-  private stackForward(inputs: number[], train: boolean): StackPass {
-    const embedding = (this as any).embedding as number[][];
-    const wOutput = (this as any).wOutput as number[][];
-    const bOutput = (this as any).bOutput as number[];
-    const dropout = (this as any).dropout as number;
+  /**
+   * Sample one DropConnect mask per layer for the next mini-batch and pre-compute the masked
+   * weights (weights are constant within a mini-batch, so W̃ = W ⊙ M is built once).
+   */
+  private sampleBatchDropConnect(): LayerDropConnect[] | null {
+    const rate = this.transformerConfig.dropConnectRate;
+    if (rate <= 0) return null;
+    const random = () => (this as any).nextRandom() as number;
+    return this.attentionWeights.map((att, l) => {
+      const masks = sampleWeightMasks(this.blockParams(l), rate, random);
+      return {
+        masks,
+        masked: {
+          query: hadamard(att.query, masks.query),
+          key: hadamard(att.key, masks.key),
+          value: hadamard(att.value, masks.value)
+        }
+      };
+    });
+  }
+
+  private stackForward(
+    inputs: number[],
+    train: boolean,
+    scored?: number[],
+    useBatchDropConnect = false
+  ): StackPass {
+    const self = this as any;
+    const embedding = self.embedding as number[][];
+    const wOutput = self.wOutput as number[][];
+    const bOutput = self.bOutput as number[];
+    const dropout = self.dropout as number;
+    const random = () => self.nextRandom() as number;
     const positions = inputs.map((_, i) => i);
     const config = this.blockConfig();
+    const T = inputs.length;
+
+    // Attention dropout is sampled per window; DropConnect uses the mini-batch masks (W̃ = W ⊙ M).
+    const { attentionDropout } = this.transformerConfig;
+    const blockDropout: BlockDropout | undefined =
+      train && attentionDropout > 0
+        ? { attention: attentionDropout, dropConnect: 0, random }
+        : undefined;
+    const dropConnect = train && useBatchDropConnect ? this.batchDropConnect : null;
 
     const X0 = inputs.map((i) => embedding[i].slice());
     const caches: BlockCache[] = [];
     let hidden = X0;
     for (let l = 0; l < this.transformerConfig.numLayers; l++) {
-      const { out, cache } = blockForward(hidden, this.blockParams(l), config, positions);
+      const params = this.blockParams(l);
+      if (dropConnect) params.attention = dropConnect[l].masked;
+      const { out, cache } = blockForward(hidden, params, config, positions, {
+        dropout: blockDropout
+      });
       caches.push(cache);
       hidden = out;
     }
 
-    const pooled = this.transformerAverageVectors(hidden);
-    let dropMask: number[] | null = null;
-    let h = pooled;
-    if (train && dropout > 0) {
-      const scale = 1 / (1 - dropout);
-      const nextRandom = (this as any).nextRandom.bind(this) as () => number;
-      dropMask = pooled.map(() => (nextRandom() > dropout ? scale : 0));
-      h = pooled.map((v, i) => v * dropMask![i]);
+    let finalRms: number[] | null = null;
+    let normed: Matrix | null = null;
+    let scoredPositions: number[];
+    let rawReadouts: number[][];
+    if (this.isCausal()) {
+      const fn = rmsForward(hidden, this.finalNorm.gamma, this.finalNorm.epsilon);
+      finalRms = fn.rms;
+      normed = fn.N;
+      scoredPositions = scored ?? [T - 1];
+      rawReadouts = scoredPositions.map((p) => normed![p]);
+    } else {
+      scoredPositions = [-1];
+      rawReadouts = [this.meanRows(hidden)];
     }
+
+    const masks: (number[] | null)[] = [];
+    const readouts = rawReadouts.map((r) => {
+      if (!train || dropout <= 0) {
+        masks.push(null);
+        return r;
+      }
+      const keepScale = 1 / (1 - dropout);
+      const mask = r.map(() => (random() > dropout ? keepScale : 0));
+      masks.push(mask);
+      return r.map((v, i) => v * mask[i]);
+    });
 
     const V = bOutput.length;
-    const logits = new Array(V);
-    for (let j = 0; j < V; j++) {
-      let sum = bOutput[j];
-      for (let i = 0; i < h.length; i++) sum += wOutput[i][j] * h[i];
-      logits[j] = sum;
-    }
+    const logits = readouts.map((h) => {
+      const out = bOutput.slice();
+      for (let i = 0; i < h.length; i++) {
+        const hi = h[i];
+        if (hi === 0) continue;
+        const row = wOutput[i];
+        for (let j = 0; j < V; j++) out[j] += row[j] * hi;
+      }
+      return out;
+    });
 
     return {
-      h,
-      logits,
-      probs: stableSoftmax(logits),
-      avgEmb: this.transformerAverageVectors(X0),
       positions,
+      X0,
       caches,
-      output: hidden,
-      dropMask
+      hidden,
+      finalRms,
+      normed,
+      scored: scoredPositions,
+      readouts,
+      masks,
+      logits,
+      probs: logits.map((z) => stableSoftmax(z))
     };
+  }
+
+  private ensureGradBuffers(): GradBuffers {
+    const self = this as any;
+    const wOutput = self.wOutput as number[][];
+    const H = this.getHiddenSize();
+    const V = (self.bOutput as number[]).length;
+    const g = this.gradBuffers;
+    if (
+      g &&
+      g.wOutput.length === H &&
+      g.bOutput.length === V &&
+      g.layers.length === this.transformerConfig.numLayers &&
+      g.layers.every(
+        (lg, l) =>
+          lg.query.length === H &&
+          lg.key[0]?.length === this.attentionWeights[l].key[0]?.length &&
+          lg.ff2.length === this.ffWeights2[l].length
+      )
+    ) {
+      return g;
+    }
+    this.gradBuffers = {
+      wOutput: zeros(wOutput.length, V),
+      bOutput: new Array(V).fill(0),
+      finalGamma: this.isCausal() ? new Array(H).fill(0) : null,
+      layers: this.attentionWeights.map((_, l) => createBlockGrads(this.blockParams(l))),
+      embedding: new Map()
+    };
+    return this.gradBuffers;
+  }
+
+  /**
+   * Backpropagate the mean cross-entropy over the scored entries of one window (targets < 0 are
+   * skipped) and add the gradients to the accumulators. Returns that mean loss.
+   */
+  private accumulateGradients(inputs: number[], pass: StackPass, targets: number[]): number {
+    const self = this as any;
+    const wOutput = self.wOutput as number[][];
+    const H = this.getHiddenSize();
+    const V = (self.bOutput as number[]).length;
+    const T = inputs.length;
+    const config = this.blockConfig();
+    const g = this.ensureGradBuffers();
+
+    const active = targets.filter((t) => t >= 0).length;
+    if (active === 0) return 0;
+    const w = 1 / active;
+
+    let loss = 0;
+    const dReadouts: (number[] | null)[] = targets.map((tgt, k) => {
+      if (tgt < 0) return null;
+      const probs = pass.probs[k];
+      const r = pass.readouts[k];
+      loss -= Math.log(probs[tgt] + 1e-12) * w;
+      const dLogits = probs.map((p, j) => (p - (j === tgt ? 1 : 0)) * w);
+      const dr = new Array(H).fill(0);
+      for (let i = 0; i < H; i++) {
+        const row = wOutput[i];
+        const gRow = g.wOutput[i];
+        const ri = r[i];
+        let s = 0;
+        for (let j = 0; j < V; j++) {
+          gRow[j] += ri * dLogits[j];
+          s += row[j] * dLogits[j];
+        }
+        dr[i] = s;
+      }
+      for (let j = 0; j < V; j++) g.bOutput[j] += dLogits[j];
+      const mask = pass.masks[k];
+      return mask ? dr.map((v, i) => v * mask[i]) : dr;
+    });
+
+    let dHidden: Matrix;
+    if (this.isCausal()) {
+      const dNormed = zeros(T, H);
+      dReadouts.forEach((dr, k) => {
+        if (!dr) return;
+        const row = dNormed[pass.scored[k]];
+        for (let i = 0; i < H; i++) row[i] += dr[i];
+      });
+      dHidden = rmsBackward(
+        dNormed,
+        pass.hidden,
+        pass.finalRms!,
+        this.finalNorm.gamma,
+        g.finalGamma!
+      );
+    } else {
+      const dr = dReadouts[0]!;
+      dHidden = pass.hidden.map(() => dr.map((v) => v / T));
+    }
+
+    for (let l = this.transformerConfig.numLayers - 1; l >= 0; l--) {
+      dHidden = blockBackward(
+        dHidden,
+        pass.caches[l],
+        this.blockParams(l),
+        config,
+        pass.positions,
+        g.layers[l]
+      );
+    }
+
+    inputs.forEach((tok, t) => {
+      let row = g.embedding.get(tok);
+      if (!row) {
+        row = new Array(H).fill(0);
+        g.embedding.set(tok, row);
+      }
+      for (let i = 0; i < H; i++) row[i] += dHidden[t][i];
+    });
+    return loss;
   }
 
   private getParamOptimizer(): ParamOptimizer {
@@ -600,240 +901,185 @@ export class TransformerLM extends ProNeuralLM {
   }
 
   /**
-   * Full backpropagation (softmax cross-entropy → output projection → pooling → every
-   * transformer block → token embeddings), global-norm gradient clipping and one optimizer step.
+   * DropConnect: gradients were accumulated w.r.t. W̃ = W ⊙ M, so ∂L/∂W = M ⊙ ∂L/∂W̃.
+   * Converts the Q/K/V accumulators in place and ends the mini-batch's mask lifetime.
    */
-  private stackBackwardAndUpdate(inputs: number[], target: number, pass: StackPass): void {
-    const wOutput = (this as any).wOutput as number[][];
-    const bOutput = (this as any).bOutput as number[];
-    const embedding = (this as any).embedding as number[][];
-    const lr = (this as any).learningRate as number;
-    const H = this.getHiddenSize();
-    const V = bOutput.length;
-    const config = this.blockConfig();
-
-    const dLogits = pass.probs.map((p, i) => p - (i === target ? 1 : 0));
-    const dWout = zeros(H, V);
-    const dh = new Array(H).fill(0);
-    for (let i = 0; i < H; i++) {
-      const row = wOutput[i];
-      const gRow = dWout[i];
-      let s = 0;
-      for (let j = 0; j < V; j++) {
-        gRow[j] = pass.h[i] * dLogits[j];
-        s += row[j] * dLogits[j];
+  private finalizeDropConnectGradients(g: GradBuffers): void {
+    if (!this.batchDropConnect) return;
+    this.batchDropConnect.forEach(({ masks }, l) => {
+      const lg = g.layers[l];
+      for (const [grad, mask] of [
+        [lg.query, masks.query],
+        [lg.key, masks.key],
+        [lg.value, masks.value]
+      ] as const) {
+        if (!mask) continue;
+        for (let i = 0; i < grad.length; i++) {
+          const row = grad[i];
+          const mrow = mask[i];
+          for (let j = 0; j < row.length; j++) row[j] *= mrow[j];
+        }
       }
-      dh[i] = pass.dropMask ? s * pass.dropMask[i] : s;
-    }
-    const dBout = dLogits.slice();
-
-    // Mean pooling distributes the gradient evenly across positions.
-    const T = inputs.length;
-    let dHidden: number[][] = pass.output.map(() => dh.map((v) => v / T));
-    const layerGrads: BlockGrads[] = new Array(this.transformerConfig.numLayers);
-    for (let l = this.transformerConfig.numLayers - 1; l >= 0; l--) {
-      const params = this.blockParams(l);
-      const grads = createBlockGrads(params);
-      dHidden = blockBackward(dHidden, pass.caches[l], params, config, pass.positions, grads);
-      layerGrads[l] = grads;
-    }
-
-    // Sparse embedding gradient (tokens may repeat inside the context window).
-    const dEmb: number[][] = [];
-    const touched = new Set<number>();
-    inputs.forEach((tok, t) => {
-      if (!dEmb[tok]) dEmb[tok] = new Array(H).fill(0);
-      const row = dEmb[tok];
-      for (let i = 0; i < H; i++) row[i] += dHidden[t][i];
-      touched.add(tok);
     });
+    this.batchDropConnect = null;
+  }
 
-    const allGrads: Array<number[] | number[][]> = [dWout, dBout];
-    for (const g of layerGrads) {
-      allGrads.push(g.query, g.key, g.value, g.ff1, g.ff2, g.attnGamma, g.ffnGamma);
+  /**
+   * Average the accumulated gradients over `count` windows, clip their global norm, apply one
+   * optimizer step to every parameter and reset the accumulators.
+   */
+  private applyAccumulatedGradients(count: number): void {
+    const g = this.gradBuffers;
+    if (!g || count <= 0) return;
+    const self = this as any;
+    const lr = self.learningRate as number;
+
+    this.finalizeDropConnectGradients(g);
+
+    const tensors: Array<number[] | number[][]> = [g.wOutput, g.bOutput];
+    if (g.finalGamma) tensors.push(g.finalGamma);
+    for (const lg of g.layers) {
+      tensors.push(lg.query, lg.key, lg.value, lg.ff1, lg.ff2, lg.attnGamma, lg.ffnGamma);
     }
-    for (const tok of touched) allGrads.push(dEmb[tok]);
-    const norm = globalNorm(allGrads);
-    if (norm > TRANSFORMER_GRAD_CLIP) scaleTensors(allGrads, TRANSFORMER_GRAD_CLIP / norm);
+    for (const row of g.embedding.values()) tensors.push(row);
+
+    // One pass for the norm; averaging, clipping and the accumulator reset are fused into the
+    // optimizer update below.
+    const norm = globalNorm(tensors) / count;
+    const gradScale =
+      (1 / count) * (norm > TRANSFORMER_GRAD_CLIP ? TRANSFORMER_GRAD_CLIP / norm : 1);
+    const opts = { gradScale, zeroGrad: true };
 
     const opt = this.getParamOptimizer();
     opt.step();
-    opt.update('wOutput', wOutput, dWout, lr);
-    opt.update('bOutput', bOutput, dBout, lr);
-    for (let l = 0; l < layerGrads.length; l++) {
+    opt.update('wOutput', self.wOutput, g.wOutput, lr, undefined, opts);
+    opt.update('bOutput', self.bOutput, g.bOutput, lr, undefined, opts);
+    if (g.finalGamma && this.isCausal()) {
+      opt.update('finalGamma', this.finalNorm.gamma, g.finalGamma, lr, undefined, opts);
+    }
+    for (let l = 0; l < g.layers.length; l++) {
       const p = this.blockParams(l);
-      const g = layerGrads[l];
-      opt.update(`L${l}.query`, p.attention.query, g.query, lr);
-      opt.update(`L${l}.key`, p.attention.key, g.key, lr);
-      opt.update(`L${l}.value`, p.attention.value, g.value, lr);
-      opt.update(`L${l}.ff1`, p.ff1, g.ff1, lr);
-      opt.update(`L${l}.ff2`, p.ff2, g.ff2, lr);
-      opt.update(`L${l}.attnGamma`, p.attnGamma, g.attnGamma, lr);
-      opt.update(`L${l}.ffnGamma`, p.ffnGamma, g.ffnGamma, lr);
+      const lg = g.layers[l];
+      opt.update(`L${l}.query`, p.attention.query, lg.query, lr, undefined, opts);
+      opt.update(`L${l}.key`, p.attention.key, lg.key, lr, undefined, opts);
+      opt.update(`L${l}.value`, p.attention.value, lg.value, lr, undefined, opts);
+      opt.update(`L${l}.ff1`, p.ff1, lg.ff1, lr, undefined, opts);
+      opt.update(`L${l}.ff2`, p.ff2, lg.ff2, lr, undefined, opts);
+      opt.update(`L${l}.attnGamma`, p.attnGamma, lg.attnGamma, lr, undefined, opts);
+      opt.update(`L${l}.ffnGamma`, p.ffnGamma, lg.ffnGamma, lr, undefined, opts);
     }
-    opt.update('embedding', embedding, dEmb, lr, touched);
+    const sparse: number[][] = [];
+    for (const [tok, row] of g.embedding) sparse[tok] = row;
+    opt.update('embedding', self.embedding, sparse, lr, g.embedding.keys(), opts);
+    g.embedding.clear();
   }
 
-  /**
-   * Helper methods
-   */
-  private transformerAverageVectors(vectors: number[][]): number[] {
-    const H = this.getHiddenSize();
-    const y = new Array(H).fill(0);
-    const n = vectors.length || 1;
-    for (const v of vectors) {
-      for (let i = 0; i < H; i++) y[i] += v[i];
-    }
-    for (let i = 0; i < H; i++) y[i] /= n;
-    return y;
-  }
+  // ---------------------------------------------------------------------------
+  // Structural changes (Cerebro neuron injection)
+  // ---------------------------------------------------------------------------
 
   /**
-   * Expand hidden layer (modelDim) by adding k neurons.
-   * Used by Cerebro neuron injection system.
-   * Extends base class expansion with transformer-specific weights.
-   * @param k Number of neurons to add
-   * @param useHeInit Use He initialization (for ReLU networks)
+   * Widen the model from D to D + k.
+   *
+   * When k is a multiple of numHeads every head grows by k/numHeads dimensions appended at the
+   * end of its slice, so the learned head structure is kept (the residual stream is re-indexed
+   * consistently in every tensor). New output-projection rows and new FFN output columns start
+   * at zero. Otherwise the new dimensions are appended and a valid head layout is re-derived
+   * (learned head structure is not preserved). Optimizer state is reset in both cases.
    */
   expandHiddenLayer(k: number, useHeInit = true): void {
     if (k <= 0) return;
+    const self = this as any;
 
-    const oldModelDim = this.getHiddenSize();
-    const newModelDim = oldModelDim + k;
-    const { ffHiddenDim } = this.transformerConfig;
+    const oldD = this.getHiddenSize();
+    const newD = oldD + k;
+    const cfg = this.transformerConfig;
+    const oldHeads = cfg.numHeads;
+    const oldKV = cfg.numKVHeads;
+    const oldHd = oldD / oldHeads;
+    const oldKvDim = oldKV * oldHd;
 
-    // Call parent to expand base weights (wHidden, wOutput, etc.)
-    // Note: This will also update hiddenSize
-    super.expandHiddenLayer(k, useHeInit);
-
-    // Calculate initialization scale
-    const scale = useHeInit ? Math.sqrt(2.0 / oldModelDim) : Math.sqrt(1.0 / oldModelDim);
-
-    // Expand token embeddings: add k dimensions to each token
-    // In transformer, embeddings are used directly for attention so must match modelDim
-    const embedding = (this as any).embedding as number[][];
-    for (let i = 0; i < embedding.length; i++) {
-      for (let j = 0; j < k; j++) {
-        embedding[i].push((this.initRandom() - 0.5) * 2 * scale);
-      }
+    let newHeads = oldHeads;
+    let newKV = oldKV;
+    let residualMap: number[];
+    let kvMap: number[];
+    if (k % oldHeads === 0) {
+      const newHd = newD / oldHeads;
+      residualMap = blockwiseIndexMap(oldD, oldHd, newHd);
+      kvMap = blockwiseIndexMap(oldKvDim, oldHd, newHd);
+    } else {
+      newHeads = this.normalizeHeadCount(newD, oldHeads);
+      newKV = this.normalizeKVHeadCount(newHeads, oldKV);
+      residualMap = identityMap(oldD);
+      kvMap = identityMap(Math.min(oldKvDim, newKV * (newD / newHeads)));
     }
+    const newKvDim = newKV * (newD / newHeads);
 
-    // Expand position embeddings: add k dimensions to each position
+    const scale = useHeInit ? Math.sqrt(2.0 / newD) : Math.sqrt(1.0 / newD);
+    const rand = () => (this.initRandom() - 0.5) * 2 * scale;
+    const small = () => (this.initRandom() - 0.5) * 0.1;
+    const zero = () => 0;
+    const one = () => 1;
+    const V = this.getVocabSize();
+
+    // Base tensors: embeddings, output projection and the (unused) MLP hidden layer
+    self.embedding = (self.embedding as Matrix).map((row) =>
+      remapVector(row, residualMap, newD, small)
+    );
+    self.wOutput = remapRows(self.wOutput as Matrix, residualMap, newD, () => new Array(V).fill(0));
+    self.wHidden = remapCols(
+      remapRows(self.wHidden as Matrix, residualMap, newD, () => new Array(oldD).fill(0)),
+      residualMap,
+      newD,
+      zero
+    );
+    self.bHidden = remapVector(self.bHidden as number[], residualMap, newD, zero);
+    self.hiddenSize = newD;
+
+    for (let l = 0; l < cfg.numLayers; l++) {
+      const att = this.attentionWeights[l];
+      const newRow = (width: number) => () => Array.from({ length: width }, rand);
+      att.query = remapCols(
+        remapRows(att.query, residualMap, newD, newRow(oldD)),
+        residualMap,
+        newD,
+        rand
+      );
+      att.key = remapCols(
+        remapRows(att.key, residualMap, newD, newRow(oldKvDim)),
+        kvMap,
+        newKvDim,
+        rand
+      );
+      att.value = remapCols(
+        remapRows(att.value, residualMap, newD, newRow(oldKvDim)),
+        kvMap,
+        newKvDim,
+        rand
+      );
+      this.ffWeights1[l] = remapRows(
+        this.ffWeights1[l],
+        residualMap,
+        newD,
+        newRow(this.ffWeights1[l][0]?.length ?? 0)
+      );
+      this.ffWeights2[l] = remapCols(this.ffWeights2[l], residualMap, newD, zero);
+      const norm = this.renormStates[l];
+      norm.attention.gamma = remapVector(norm.attention.gamma, residualMap, newD, one);
+      norm.ffn.gamma = remapVector(norm.ffn.gamma, residualMap, newD, one);
+    }
+    this.finalNorm.gamma = remapVector(this.finalNorm.gamma, residualMap, newD, one);
+
+    // Position table (API compatibility): extend with sinusoids for the new dimensions
     for (let pos = 0; pos < this.positionEmbeddings.length; pos++) {
       const posEmb = this.positionEmbeddings[pos];
-      for (let i = 0; i < k; i++) {
-        // Use sinusoidal encoding for new dimensions
-        const dimIdx = oldModelDim + i;
-        const angle = pos / Math.pow(10000, (2 * Math.floor(dimIdx / 2)) / newModelDim);
-        posEmb.push(dimIdx % 2 === 0 ? Math.sin(angle) : Math.cos(angle));
-      }
+      for (let i = oldD; i < newD; i++) posEmb.push(this.sinusoid(pos, i, newD));
     }
 
-    // Expand each transformer layer's weights
-    for (let layerIdx = 0; layerIdx < this.transformerConfig.numLayers; layerIdx++) {
-      const attention = this.attentionWeights[layerIdx];
-      const ff1 = this.ffWeights1[layerIdx];
-      const ff2 = this.ffWeights2[layerIdx];
-      const renormState = this.renormStates[layerIdx];
-
-      // Expand attention weights: query, key, value are [modelDim x modelDim]
-      // Add k new rows to each matrix
-      for (let i = 0; i < k; i++) {
-        const newQueryRow: number[] = [];
-        const newKeyRow: number[] = [];
-        const newValueRow: number[] = [];
-        for (let j = 0; j < oldModelDim; j++) {
-          newQueryRow.push((this.initRandom() - 0.5) * 2 * scale);
-          newKeyRow.push((this.initRandom() - 0.5) * 2 * scale);
-          newValueRow.push((this.initRandom() - 0.5) * 2 * scale);
-        }
-        attention.query.push(newQueryRow);
-        attention.key.push(newKeyRow);
-        attention.value.push(newValueRow);
-      }
-      // Add k new columns to each existing row
-      for (let i = 0; i < oldModelDim; i++) {
-        for (let j = 0; j < k; j++) {
-          attention.query[i].push((this.initRandom() - 0.5) * 2 * scale);
-          attention.key[i].push((this.initRandom() - 0.5) * 2 * scale);
-          attention.value[i].push((this.initRandom() - 0.5) * 2 * scale);
-        }
-      }
-      // Also add columns to the new rows
-      for (let i = oldModelDim; i < newModelDim; i++) {
-        for (let j = 0; j < k; j++) {
-          attention.query[i].push((this.initRandom() - 0.5) * 2 * scale);
-          attention.key[i].push((this.initRandom() - 0.5) * 2 * scale);
-          attention.value[i].push((this.initRandom() - 0.5) * 2 * scale);
-        }
-      }
-
-      // Expand ffWeights1: [modelDim x (ffHiddenDim*2)] -> add k rows
-      for (let i = 0; i < k; i++) {
-        const newRow: number[] = [];
-        for (let j = 0; j < ffHiddenDim * 2; j++) {
-          newRow.push((this.initRandom() - 0.5) * 2 * scale);
-        }
-        ff1.push(newRow);
-      }
-
-      // Expand ffWeights2: [ffHiddenDim x modelDim] -> add k columns to each row
-      for (let i = 0; i < ffHiddenDim; i++) {
-        for (let j = 0; j < k; j++) {
-          ff2[i].push((this.initRandom() - 0.5) * 2 * scale);
-        }
-      }
-
-      // Expand renorm state gamma vectors
-      for (let i = 0; i < k; i++) {
-        renormState.attention.gamma.push(1);
-        renormState.ffn.gamma.push(1);
-      }
-    }
-
-    // Reinitialize transformer layers with new dimensions
-    this.reinitializeTransformerLayers();
-  }
-
-  /**
-   * Reinitialize transformer layer objects after dimension change.
-   * Preserves existing weights while updating internal structures.
-   */
-  private reinitializeTransformerLayers(): void {
-    const modelDim = this.getHiddenSize();
-    const { numLayers, ffHiddenDim, attentionDropout, dropConnectRate, numKVHeads } =
-      this.transformerConfig;
-    const normalizedHeads = this.normalizeHeadCount(modelDim, this.transformerConfig.numHeads);
-    if (normalizedHeads !== this.transformerConfig.numHeads) {
-      this.transformerConfig = { ...this.transformerConfig, numHeads: normalizedHeads };
-    }
-
-    // Normalize numKVHeads
-    const normalizedKVHeads = this.normalizeKVHeadCount(normalizedHeads, numKVHeads);
-    if (normalizedKVHeads !== this.transformerConfig.numKVHeads) {
-      this.transformerConfig = { ...this.transformerConfig, numKVHeads: normalizedKVHeads };
-    }
-
-    // Recreate transformer blocks with new dimensions but existing weights
-    this.transformerLayers = [];
-    for (let i = 0; i < numLayers; i++) {
-      const config: MiniTransformerConfig = {
-        modelDim,
-        heads: this.transformerConfig.numHeads,
-        ff: {
-          hiddenDim: ffHiddenDim,
-          activation: (x: number) => Math.max(0, x)
-        },
-        attentionDropout,
-        dropConnectRate,
-        attentionRms: this.renormStates[i].attention,
-        ffnRms: this.renormStates[i].ffn,
-        ropeBase: TRANSFORMER_ROPE_BASE,
-        numKVHeads: normalizedKVHeads, // GQA support
-        gpuOps: this.getGPUOpsInstance()
-      };
-      this.transformerLayers.push(new MiniTransformerBlock(config));
-    }
+    this.transformerConfig = { ...cfg, numHeads: newHeads, numKVHeads: newKV };
+    this.paramOptimizer?.reset();
+    this.gradBuffers = null;
+    this.reinitializeOptimizerState();
   }
 
   /**
@@ -845,18 +1091,21 @@ export class TransformerLM extends ProNeuralLM {
     ffWeights2: Matrix[];
     positionEmbeddings: number[][];
     renormStates: TransformerRMSStates[];
+    finalNorm: RMSNormState | null;
   } {
     return {
       attentionWeights: this.attentionWeights,
       ffWeights1: this.ffWeights1,
       ffWeights2: this.ffWeights2,
       positionEmbeddings: this.positionEmbeddings,
-      renormStates: this.renormStates
+      renormStates: this.renormStates,
+      finalNorm: this.isCausal() ? this.finalNorm : null
     };
   }
 
   /**
-   * Set transformer-specific weights from adapter (for rollback).
+   * Set transformer-specific weights from adapter (for rollback). The KV-head count is derived
+   * from the restored key matrices so that GQA layouts round-trip.
    */
   setTransformerWeights(weights: {
     attentionWeights: AttentionWeights[];
@@ -864,17 +1113,33 @@ export class TransformerLM extends ProNeuralLM {
     ffWeights2: Matrix[];
     positionEmbeddings: number[][];
     renormStates: TransformerRMSStates[] | RMSNormState[];
+    finalNorm?: RMSNormState | null;
   }): void {
+    const D = this.getHiddenSize();
+    const heads = this.normalizeHeadCount(D, this.transformerConfig.numHeads);
+    const kvDim = weights.attentionWeights[0]?.key[0]?.length ?? D;
+    const headDim = D / heads;
+    const kvHeads = Number.isInteger(kvDim / headDim) ? kvDim / headDim : heads;
+    this.transformerConfig = { ...this.transformerConfig, numHeads: heads, numKVHeads: kvHeads };
+
     this.attentionWeights = weights.attentionWeights;
     this.ffWeights1 = weights.ffWeights1;
     this.ffWeights2 = weights.ffWeights2;
     this.positionEmbeddings = weights.positionEmbeddings;
-    this.paramOptimizer?.reset();
     this.renormStates = weights.renormStates.map((state) =>
-      this.normalizeRenormState(state as TransformerRMSStates | RMSNormState, this.getHiddenSize())
+      this.normalizeRenormState(state as TransformerRMSStates | RMSNormState, D)
     );
-    this.reinitializeTransformerLayers();
+    this.finalNorm =
+      weights.finalNorm && weights.finalNorm.gamma.length === D
+        ? { gamma: [...weights.finalNorm.gamma], epsilon: weights.finalNorm.epsilon }
+        : { gamma: new Array(D).fill(1), epsilon: NORM_EPSILON };
+    this.paramOptimizer?.reset();
+    this.gradBuffers = null;
   }
+
+  // ---------------------------------------------------------------------------
+  // Serialization
+  // ---------------------------------------------------------------------------
 
   toJSON() {
     const base = super.toJSON() as BaseModelJson;
@@ -886,7 +1151,8 @@ export class TransformerLM extends ProNeuralLM {
         attentionWeights: this.attentionWeights,
         ffWeights1: this.ffWeights1,
         ffWeights2: this.ffWeights2,
-        renormStates: this.renormStates
+        renormStates: this.renormStates,
+        ...(this.isCausal() ? { finalNorm: this.finalNorm } : {})
       }
     } satisfies TransformerSerializedModel;
   }
@@ -916,6 +1182,15 @@ export class TransformerLM extends ProNeuralLM {
   }
 
   private static fromSerialized(data: TransformerSerializedModel): TransformerLM {
+    const saved = data.transformer.config ?? {};
+    // Models saved before the causal revision carry no objective: keep their exact behaviour.
+    const objective: TransformerObjective = saved.objective ?? 'pooled';
+    const config: TransformerConfig = {
+      ...saved,
+      objective,
+      ropeBase: saved.ropeBase ?? (objective === 'pooled' ? ROPE_BASE_LEGACY : ROPE_BASE_CAUSAL)
+    };
+
     const model = new TransformerLM(
       data.vocab,
       data.hiddenSize,
@@ -926,59 +1201,16 @@ export class TransformerLM extends ProNeuralLM {
       data.dropout ?? 0,
       data.rngSeed ?? 1337,
       data.tokenizerConfig,
-      data.transformer.config
+      config
     );
-
-    (model as any).embedding = data.embedding;
-    (model as any).wHidden = data.wHidden;
-    (model as any).wOutput = data.wOutput;
-    (model as any).bHidden = data.bHidden;
-    (model as any).bOutput = data.bOutput;
-    if (typeof data.adamT === 'number') (model as any).adamT = data.adamT;
-    if (data.mEmbedding) (model as any).mEmbedding = data.mEmbedding;
-    if (data.mWHidden) (model as any).mWHidden = data.mWHidden;
-    if (data.mWOutput) (model as any).mWOutput = data.mWOutput;
-    if (data.mBHidden) (model as any).mBHidden = data.mBHidden;
-    if (data.mBOutput) (model as any).mBOutput = data.mBOutput;
-    if (data.aEmbedding) (model as any).aEmbedding = { m: data.aEmbedding.m, v: data.aEmbedding.v };
-    if (data.aWHidden) (model as any).aWHidden = { m: data.aWHidden.m, v: data.aWHidden.v };
-    if (data.aWOutput) (model as any).aWOutput = { m: data.aWOutput.m, v: data.aWOutput.v };
-    if (data.aBHidden) (model as any).aBHidden = { m: data.aBHidden.m, v: data.aBHidden.v };
-    if (data.aBOutput) (model as any).aBOutput = { m: data.aBOutput.m, v: data.aBOutput.v };
-    (model as any).wordToIdx = new Map(data.wordToIdx);
-    (model as any).idxToWord = new Map(data.idxToWord);
-    (model as any).trainingHistory = data.trainingHistory || [];
-    if (typeof data.lastUpdatedAt === 'number') {
-      (model as any).lastUpdatedAt = data.lastUpdatedAt;
-    }
-
-    if (typeof data.rngSeed === 'number') {
-      (model as any).rngSeed = data.rngSeed >>> 0;
-    }
-    const rngState =
-      typeof (data as BaseModelJson).rngState === 'number'
-        ? ((data as BaseModelJson).rngState as number) >>> 0
-        : undefined;
-    (model as any).rng = createTransformerRng((model as any).rngSeed, rngState);
-    (model as any).rngState = (model as any).rng.getState();
-
-    model.transformerConfig = data.transformer.config;
+    TransformerLM.restoreSerializedState(model, data);
     model.initializeTransformerLayers({
       attention: data.transformer.attentionWeights,
       ff1: data.transformer.ffWeights1,
       ff2: data.transformer.ffWeights2,
-      renormStates: data.transformer.renormStates
+      renormStates: data.transformer.renormStates,
+      finalNorm: data.transformer.finalNorm
     });
-
     return model;
-  }
-
-  private normalizeHeadCount(modelDim: number, requestedHeads: number): number {
-    if (requestedHeads <= 0) return 1;
-    if (modelDim % requestedHeads === 0) return requestedHeads;
-    for (let candidate = requestedHeads; candidate >= 1; candidate--) {
-      if (modelDim % candidate === 0) return candidate;
-    }
-    return 1;
   }
 }

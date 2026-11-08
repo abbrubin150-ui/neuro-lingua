@@ -473,10 +473,11 @@ export class AdvancedNeuralLM extends ProNeuralLM {
     // Convert tokens to text
     const outputTokens = result.tokens.slice(initialContext.length);
     const idxToWord = (this as any).idxToWord;
-    const text = outputTokens
-      .filter((idx: number) => idx !== eosIdx)
-      .map((idx: number) => idxToWord.get(idx))
-      .join(' ');
+    const text = this.joinTokens(
+      outputTokens
+        .filter((idx: number) => idx !== eosIdx)
+        .map((idx: number) => idxToWord.get(idx) as string)
+    );
 
     return {
       text,
@@ -519,7 +520,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
       ctx.push(idx);
     }
 
-    return out.join(' ');
+    return this.joinTokens(out);
   }
 
   /**
@@ -550,7 +551,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
       ctx.push(idx);
     }
 
-    return out.join(' ');
+    return this.joinTokens(out);
   }
 
   /**
@@ -651,10 +652,11 @@ export class AdvancedNeuralLM extends ProNeuralLM {
 
     // Convert tokens to text
     const idxToWord = (this as any).idxToWord;
-    const text = out
-      .map((idx: number) => idxToWord.get(idx))
-      .filter((word: string | undefined) => word !== undefined)
-      .join(' ');
+    const text = this.joinTokens(
+      out
+        .map((idx: number) => idxToWord.get(idx))
+        .filter((word: string | undefined): word is string => word !== undefined)
+    );
 
     return {
       text,

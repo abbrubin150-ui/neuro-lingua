@@ -1,6 +1,7 @@
 import type { InjectableLayer } from './InjectableLayer';
 import type { InjectionTarget } from '../../types/injection';
 import type { AdvancedNeuralLM } from '../AdvancedNeuralLM';
+import { decodeBaseWeights } from './weightCodec';
 
 /**
  * Adapter that wraps AdvancedNeuralLM to implement InjectableLayer interface.
@@ -23,14 +24,14 @@ export class AdvancedNeuralLMAdapter implements InjectableLayer {
 
   getTarget(): InjectionTarget {
     const hiddenSize = this.model.getHiddenSize();
-    const vocabSize = this.model.getVocabSize();
-    const contextSize = this.model.getContextSize();
 
     return {
       modelId: this.modelId,
       layerId: 'hidden-0',
       type: 'ffn',
-      dModel: vocabSize * contextSize,
+      // Hidden units read the mean context embedding (dimension = hiddenSize in ProNeuralLM),
+      // so their weight rows live in that space.
+      dModel: hiddenSize,
       hiddenSize
     };
   }
@@ -82,47 +83,8 @@ export class AdvancedNeuralLMAdapter implements InjectableLayer {
     if (weights.length < 5) {
       throw new Error('Invalid weights array: expected at least 5 arrays');
     }
-
-    const vocabSize = this.model.getVocabSize();
-    const contextSize = this.model.getContextSize();
-    const inputDim = vocabSize * contextSize;
-
-    // Infer hidden size from bHidden
-    const bHidden = Array.from(weights[1]);
-    const hiddenSize = bHidden.length;
-
-    // Reshape wHidden
-    const wHidden: number[][] = [];
-    const wHiddenFlat = Array.from(weights[0]);
-    for (let i = 0; i < hiddenSize; i++) {
-      wHidden.push(wHiddenFlat.slice(i * inputDim, (i + 1) * inputDim));
-    }
-
-    // Reshape wOutput
-    const wOutput: number[][] = [];
-    const wOutputFlat = Array.from(weights[2]);
-    for (let i = 0; i < vocabSize; i++) {
-      wOutput.push(wOutputFlat.slice(i * hiddenSize, (i + 1) * hiddenSize));
-    }
-
-    const bOutput = Array.from(weights[3]);
-
-    // Reshape embedding
-    const embedding: number[][] = [];
-    const embeddingFlat = Array.from(weights[4]);
-    const embeddingDim = Math.floor(embeddingFlat.length / vocabSize);
-    for (let i = 0; i < vocabSize; i++) {
-      embedding.push(embeddingFlat.slice(i * embeddingDim, (i + 1) * embeddingDim));
-    }
-
-    // Set base weights
-    this.model.setWeights({
-      wHidden,
-      bHidden,
-      wOutput,
-      bOutput,
-      embedding
-    });
+    // Shapes are inferred from the snapshot (the live model may have been widened since).
+    this.model.setWeights(decodeBaseWeights(weights, this.model.getVocabSize()));
 
     // Restore layer norm parameters if present
     if (weights.length >= 7 && this.model.setAdvancedWeights) {

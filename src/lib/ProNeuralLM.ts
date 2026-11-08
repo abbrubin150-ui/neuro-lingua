@@ -237,19 +237,67 @@ export class ProNeuralLM {
     }
   }
 
-  static tokenizeText(text: string, config?: TokenizerConfig): string[] {
+  /**
+   * Tokenize `text` and return every token with its [start, end) offsets in the original string.
+   *
+   * - character mode: one token per code point; every run of whitespace becomes a single ' '
+   *   token (leading/trailing whitespace is dropped) so that a character model can learn word
+   *   and expression boundaries. Case is preserved.
+   * - word modes (unicode / ascii / custom): lower-cased; characters matched by the mode's
+   *   regex act as separators; tokens are the remaining non-whitespace runs.
+   */
+  static tokenizeWithOffsets(
+    text: string,
+    config?: TokenizerConfig
+  ): { token: string; start: number; end: number }[] {
     const normalized = ProNeuralLM.normalizeTokenizerConfig(config);
+    const out: { token: string; start: number; end: number }[] = [];
 
     if (normalized.mode === 'character') {
-      return text.split('').filter((c) => c.trim().length > 0);
+      let i = 0;
+      let pendingSpace: { start: number; end: number } | null = null;
+      for (const ch of text) {
+        const start = i;
+        i += ch.length;
+        if (/\s/u.test(ch)) {
+          if (out.length > 0) {
+            pendingSpace = pendingSpace ? { start: pendingSpace.start, end: i } : { start, end: i };
+          }
+          continue;
+        }
+        if (pendingSpace) {
+          out.push({ token: ' ', ...pendingSpace });
+          pendingSpace = null;
+        }
+        out.push({ token: ch, start, end: i });
+      }
+      return out;
     }
 
     const regex = ProNeuralLM.tokenizerRegexFromConfig(normalized);
-    return text
-      .toLowerCase()
-      .replace(regex, ' ')
-      .split(/\s+/)
-      .filter((t) => t.length > 0);
+    const lower = text.toLowerCase();
+    // Replace separators with the same number of spaces so offsets stay aligned with `text`.
+    const cleaned = lower.replace(regex, (m) => ' '.repeat(m.length));
+    const aligned = cleaned.length === text.length;
+    const re = /\S+/gu;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(cleaned)) !== null) {
+      const start = aligned ? match.index : Math.min(match.index, text.length);
+      const end = aligned
+        ? match.index + match[0].length
+        : Math.min(start + match[0].length, text.length);
+      out.push({ token: match[0], start, end });
+    }
+    return out;
+  }
+
+  static tokenizeText(text: string, config?: TokenizerConfig): string[] {
+    return ProNeuralLM.tokenizeWithOffsets(text, config).map((t) => t.token);
+  }
+
+  /** Join generated tokens back into text (characters are concatenated, words space-separated). */
+  protected joinTokens(tokens: string[]): string {
+    return this.tokenizerConfig.mode === 'character' ? tokens.join('') : tokens.join(' ');
   }
 
   setTokenizerConfig(config: TokenizerConfig) {
@@ -884,26 +932,19 @@ export class ProNeuralLM {
       // Build character-level mask
       const charMask = buildCharMaskFromMatches(text, matches, position);
 
-      // Map character positions to token positions
+      // Map character positions to token positions using each token's real span in `text`
+      // (accumulating token lengths would ignore the separators the tokenizer drops).
       const mask = new Array(numSeqs).fill(0);
-
-      // Build character-to-token mapping using the tokenized strings
-      // toks is string[] from tokenize(), so we can directly use token lengths
-      let charPos = 0;
-      for (let t = 0; t < toks.length; t++) {
-        // toks[t] is the token string itself
-        const tokenText = toks[t];
-        const tokenLen = tokenText.length;
-
-        // Check if majority of this token's characters are masked in
+      const spans = ProNeuralLM.tokenizeWithOffsets(text, this.tokenizerConfig);
+      for (let t = 0; t < spans.length; t++) {
+        const { start, end } = spans[t];
+        const tokenLen = end - start;
         let includedChars = 0;
-        for (let c = charPos; c < charPos + tokenLen && c < charMask.length; c++) {
+        for (let c = start; c < end && c < charMask.length; c++) {
           includedChars += charMask[c];
         }
-
-        // Token is included if majority of its characters are included
+        // Token is included if the majority of its characters are included
         mask[t] = tokenLen > 0 && includedChars > tokenLen / 2 ? 1 : 0;
-        charPos += tokenLen;
       }
 
       // EOS token at the end - include if the last character was included
@@ -1114,7 +1155,7 @@ export class ProNeuralLM {
       ctx.push(idx);
       generatedTokenIds.push(idx); // Track for repetition penalty
     }
-    return out.join(' ');
+    return this.joinTokens(out);
   }
 
   /**
@@ -1253,89 +1294,64 @@ export class ProNeuralLM {
   }
 
   /**
-   * Expand hidden layer by adding k neurons.
-   * Used by Cerebro neuron injection system.
-   * @param k Number of neurons to add
-   * @param useHeInit Use He initialization (for ReLU networks)
+   * Expand the model width by k (Cerebro neuron injection).
+   *
+   * In ProNeuralLM the embedding dimension equals the hidden size, so both grow together:
+   *   embedding  V×H → V×(H+k)   new dimensions drawn like the initial embeddings
+   *   wHidden    H×H → (H+k)×(H+k)  existing units get zero weights on the new embedding
+   *                                 dimensions; new units read every dimension
+   *   wOutput    H×V → (H+k)×V      new units start with zero outgoing weights
+   * The expansion is function-preserving: predictions are identical right after injection, and
+   * the new units start learning on the next step (their outgoing weights receive gradient).
+   * Optimizer state is reset to the new shapes.
    */
   expandHiddenLayer(k: number, useHeInit = true): void {
     if (k <= 0) return;
 
-    const vocabSize = this.vocab.length;
-    const inputDim = vocabSize * this.contextSize;
-    const newHiddenSize = this.hiddenSize + k;
+    const H = this.hiddenSize;
+    const newH = H + k;
+    const V = this.vocab.length;
+    const inScale = useHeInit ? Math.sqrt(2.0 / newH) : Math.sqrt(1.0 / newH);
 
-    // Calculate initialization scale
-    const scale = useHeInit ? Math.sqrt(2.0 / inputDim) : Math.sqrt(1.0 / inputDim);
-
-    // Expand wHidden: add k new rows
-    for (let i = 0; i < k; i++) {
-      const newRow: number[] = [];
-      for (let j = 0; j < inputDim; j++) {
-        newRow.push(this.randn(scale));
-      }
-      this.wHidden.push(newRow);
+    for (const row of this.embedding) {
+      for (let j = 0; j < k; j++) row.push(this.randn(0.05));
     }
-
-    // Expand bHidden: add k zeros
+    for (const row of this.wHidden) {
+      for (let j = 0; j < k; j++) row.push(0);
+    }
     for (let i = 0; i < k; i++) {
+      this.wHidden.push(this.randomArray(newH, inScale));
       this.bHidden.push(0);
+      this.wOutput.push(new Array(V).fill(0));
     }
 
-    // Expand wOutput: wOutput is [H x V], so add k new rows
-    const outputScale = useHeInit ? Math.sqrt(2.0 / newHiddenSize) : Math.sqrt(1.0 / newHiddenSize);
-    for (let i = 0; i < k; i++) {
-      const newRow: number[] = [];
-      for (let j = 0; j < vocabSize; j++) {
-        newRow.push(this.randn(outputScale));
-      }
-      this.wOutput.push(newRow);
-    }
-
-    // Update hidden size
-    this.hiddenSize = newHiddenSize;
-
-    // Reinitialize optimizer state for new dimensions
+    this.hiddenSize = newH;
     this.reinitializeOptimizerState();
   }
 
   /**
-   * Reinitialize optimizer state for current weight dimensions.
-   * Called after weight structure changes (e.g., neuron injection).
+   * Reset every optimizer buffer to zeros with the current parameter shapes
+   * (after a structural change such as neuron injection or setWeights).
    */
-  private reinitializeOptimizerState(): void {
+  protected reinitializeOptimizerState(): void {
+    const zerosLike = (m: number[][]) => m.map((row) => row.map(() => 0));
     const V = this.vocab.length;
     const H = this.hiddenSize;
-    const inputDim = V * this.contextSize;
 
-    // Momentum buffers
-    this.mEmbedding = this.embedding.map((row) => row.map(() => 0));
-    this.mWHidden = Array.from({ length: H }, () => Array(inputDim).fill(0));
-    this.mWOutput = Array.from({ length: V }, () => Array(H).fill(0));
-    this.mBHidden = Array(H).fill(0);
-    this.mBOutput = Array(V).fill(0);
+    this.mEmbedding = zerosLike(this.embedding);
+    this.mWHidden = zerosLike(this.wHidden);
+    this.mWOutput = zerosLike(this.wOutput);
+    this.mBHidden = new Array(H).fill(0);
+    this.mBOutput = new Array(V).fill(0);
 
-    // Adam buffers
-    this.aEmbedding = {
-      m: this.embedding.map((row) => row.map(() => 0)),
-      v: this.embedding.map((row) => row.map(() => 0))
-    };
-    this.aWHidden = {
-      m: Array.from({ length: H }, () => Array(inputDim).fill(0)),
-      v: Array.from({ length: H }, () => Array(inputDim).fill(0))
-    };
-    this.aWOutput = {
-      m: Array.from({ length: V }, () => Array(H).fill(0)),
-      v: Array.from({ length: V }, () => Array(H).fill(0))
-    };
-    this.aBHidden = {
-      m: Array(H).fill(0),
-      v: Array(H).fill(0)
-    };
-    this.aBOutput = {
-      m: Array(V).fill(0),
-      v: Array(V).fill(0)
-    };
+    this.aEmbedding = { m: zerosLike(this.embedding), v: zerosLike(this.embedding) };
+    this.aWHidden = { m: zerosLike(this.wHidden), v: zerosLike(this.wHidden) };
+    this.aWOutput = { m: zerosLike(this.wOutput), v: zerosLike(this.wOutput) };
+    this.aBHidden = { m: new Array(H).fill(0), v: new Array(H).fill(0) };
+    this.aBOutput = { m: new Array(V).fill(0), v: new Array(V).fill(0) };
+    this.adamT = 0;
+    this.resetSecondOrderState();
+    this.sophiaOptimizer?.reset();
   }
 
   /**

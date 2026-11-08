@@ -29,7 +29,7 @@ describe('AdvancedNeuralLMAdapter', () => {
       expect(target.layerId).toBe('hidden-0');
       expect(target.type).toBe('ffn');
       expect(target.hiddenSize).toBe(16);
-      expect(target.dModel).toBe(8 * 3); // vocabSize * contextSize
+      expect(target.dModel).toBe(16); // embedding dimension (= hiddenSize)
     });
   });
 

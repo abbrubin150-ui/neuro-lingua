@@ -9,3 +9,7 @@ npm-debug.log*
 yarn.lock
 __pycache__/
 *.py[cod]
+
+# Models produced by the offline model factory (pnpm lm train)
+models/
+*.tsbuildinfo

@@ -31,7 +31,6 @@ import {
   type TokenizerConfig
 } from './ProNeuralLM';
 import type { AttentionWeights, Matrix } from '../models/attention';
-import { stableSoftmax } from './MathUtils';
 import type { RMSNormState } from './RMSNorm';
 import type { GPUNeuralOps } from '../backend/gpu_neural_ops';
 import type { LossMaskConfig } from '../types/project';
@@ -198,6 +197,105 @@ type GradBuffers = {
 // ---------------------------------------------------------------------------
 
 /** New index of every old column when `newSpan − oldSpan` slots are appended to each block. */
+// ---------------------------------------------------------------------------
+// Output-layer kernels: the vocabulary projection dominates training time. Written as plain
+// module-level loops (V8 optimises them far better than closures) that stream each row of the
+// hidden × vocabulary matrix once per window for all scored positions, instead of once per
+// position. Every output element is accumulated in the same order as a per-position loop, so the
+// results are bit-identical.
+// ---------------------------------------------------------------------------
+
+/** logits = bias + h·W for one readout row (W is hidden × vocabulary). */
+function projectOutput(h: number[], W: number[][], bias: number[]): number[] {
+  const V = bias.length;
+  // A typed accumulator keeps the inner loop monomorphic whatever the arrays' element kinds.
+  const out = new Float64Array(V);
+  for (let j = 0; j < V; j++) out[j] = bias[j];
+  for (let i = 0; i < h.length; i++) {
+    const hi = h[i];
+    if (hi === 0) continue;
+    const row = W[i];
+    for (let j = 0; j < V; j++) out[j] += row[j] * hi;
+  }
+  return Array.from(out);
+}
+
+/**
+ * Softmax of one row of logits with exactly the arithmetic of MathUtils' `stableSoftmax` at
+ * temperature 1 (p = exp(x − (max + log Σ exp(x − max)))), but O(1) validation instead of three
+ * extra passes: non-finite logits or an unstable span still throw.
+ */
+function outputSoftmax(logits: number[]): number[] {
+  const n = logits.length;
+  let max = -Infinity;
+  let min = Infinity;
+  for (let j = 0; j < n; j++) {
+    const v = logits[j];
+    if (v > max) max = v;
+    if (v < min) min = v;
+  }
+  let sum = 0;
+  for (let j = 0; j < n; j++) sum += Math.exp(logits[j] - max);
+  const lse = max + Math.log(sum);
+  // A NaN logit makes the sum NaN; ±Infinity makes max or min non-finite.
+  if (!Number.isFinite(lse) || !Number.isFinite(min)) {
+    throw new Error('Softmax logits contain non-finite values');
+  }
+  if (max - min > 1e6) {
+    throw new Error(`Softmax logits span too wide for stable normalization: ${max - min}`);
+  }
+  const probs = new Array<number>(n);
+  for (let j = 0; j < n; j++) probs[j] = Math.exp(logits[j] - lse);
+  return probs;
+}
+
+/**
+ * Backward of the output layer for softmax cross-entropy, each scored position weighted by
+ * `weight` (targets < 0 are skipped): adds Σ r ⊗ dLogits to gW and Σ dLogits to gBias and
+ * returns W·dLogits per position (null for skipped ones).
+ */
+function outputBackward(
+  readouts: number[][],
+  probs: number[][],
+  targets: number[],
+  weight: number,
+  W: number[][],
+  gW: number[][],
+  gBias: number[]
+): (number[] | null)[] {
+  const V = gBias.length;
+  const H = W.length;
+  const active: number[] = [];
+  const dLogits: Float64Array[] = [];
+  targets.forEach((target, k) => {
+    if (target < 0) return;
+    const p = probs[k];
+    const d = new Float64Array(V);
+    for (let j = 0; j < V; j++) d[j] = (p[j] - (j === target ? 1 : 0)) * weight;
+    active.push(k);
+    dLogits.push(d);
+  });
+  const dr = active.map(() => new Array<number>(H));
+  for (let i = 0; i < H; i++) {
+    const row = W[i];
+    const gRow = gW[i];
+    for (let a = 0; a < active.length; a++) {
+      const ri = readouts[active[a]][i];
+      const d = dLogits[a];
+      let s = 0;
+      for (let j = 0; j < V; j++) {
+        gRow[j] += ri * d[j];
+        s += row[j] * d[j];
+      }
+      dr[a][i] = s;
+    }
+  }
+  for (const d of dLogits) for (let j = 0; j < V; j++) gBias[j] += d[j];
+  const out: (number[] | null)[] = targets.map(() => null);
+  active.forEach((k, a) => (out[k] = dr[a]));
+  return out;
+}
+
 function blockwiseIndexMap(oldWidth: number, oldSpan: number, newSpan: number): number[] {
   return Array.from(
     { length: oldWidth },
@@ -807,17 +905,7 @@ export class TransformerLM extends ProNeuralLM {
       return r.map((v, i) => v * mask[i]);
     });
 
-    const V = bOutput.length;
-    const logits = readouts.map((h) => {
-      const out = bOutput.slice();
-      for (let i = 0; i < h.length; i++) {
-        const hi = h[i];
-        if (hi === 0) continue;
-        const row = wOutput[i];
-        for (let j = 0; j < V; j++) out[j] += row[j] * hi;
-      }
-      return out;
-    });
+    const logits = readouts.map((h) => projectOutput(h, wOutput, bOutput));
 
     return {
       positions,
@@ -830,7 +918,7 @@ export class TransformerLM extends ProNeuralLM {
       readouts,
       masks,
       logits,
-      probs: logits.map((z) => stableSoftmax(z))
+      probs: logits.map((z) => outputSoftmax(z))
     };
   }
 
@@ -901,7 +989,6 @@ export class TransformerLM extends ProNeuralLM {
     const self = this as any;
     const wOutput = self.wOutput as number[][];
     const H = this.getHiddenSize();
-    const V = (self.bOutput as number[]).length;
     const T = pass.X0.length;
     const config = this.blockConfig();
 
@@ -910,25 +997,20 @@ export class TransformerLM extends ProNeuralLM {
     const w = 1 / active;
 
     let loss = 0;
-    const dReadouts: (number[] | null)[] = targets.map((tgt, k) => {
-      if (tgt < 0) return null;
-      const probs = pass.probs[k];
-      const r = pass.readouts[k];
-      loss -= Math.log(probs[tgt] + 1e-12) * w;
-      const dLogits = probs.map((p, j) => (p - (j === tgt ? 1 : 0)) * w);
-      const dr = new Array(H).fill(0);
-      for (let i = 0; i < H; i++) {
-        const row = wOutput[i];
-        const gRow = g.wOutput[i];
-        const ri = r[i];
-        let s = 0;
-        for (let j = 0; j < V; j++) {
-          gRow[j] += ri * dLogits[j];
-          s += row[j] * dLogits[j];
-        }
-        dr[i] = s;
-      }
-      for (let j = 0; j < V; j++) g.bOutput[j] += dLogits[j];
+    targets.forEach((tgt, k) => {
+      if (tgt >= 0) loss -= Math.log(pass.probs[k][tgt] + 1e-12) * w;
+    });
+    const outputGradients = outputBackward(
+      pass.readouts,
+      pass.probs,
+      targets,
+      w,
+      wOutput,
+      g.wOutput,
+      g.bOutput
+    );
+    const dReadouts: (number[] | null)[] = outputGradients.map((dr, k) => {
+      if (!dr) return null;
       const mask = pass.masks[k];
       return mask ? dr.map((v, i) => v * mask[i]) : dr;
     });

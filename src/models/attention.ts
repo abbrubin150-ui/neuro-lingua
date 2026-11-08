@@ -32,6 +32,11 @@ export interface MultiHeadForwardOptions extends ScaledDotProductAttentionOption
   positions?: number[];
   /** RoPE base. Defaults to 500000 per v4 spec. */
   ropeBase?: number;
+  /**
+   * Training mode. Attention dropout is only applied when true; inference (the default)
+   * is deterministic.
+   */
+  train?: boolean;
 }
 
 function cpuMatmul(a: Matrix, b: Matrix): Matrix {
@@ -282,7 +287,7 @@ export class MultiHeadAttention {
     weights: AttentionWeights,
     options: MultiHeadForwardOptions = {}
   ): Promise<Matrix> {
-    const { positions, ropeBase = 500000, ...attentionOpts } = options;
+    const { positions, ropeBase = 500000, train = false, ...attentionOpts } = options;
     const projections = await this.project(inputs, weights);
 
     // Split queries into numHeads heads
@@ -306,7 +311,7 @@ export class MultiHeadAttention {
         ...attentionOpts,
         temperature: this.config.keyDim
       });
-      headOutputs.push(this.applyDropout(output));
+      headOutputs.push(train ? this.applyDropout(output) : output);
     }
 
     return this.combineHeads(headOutputs).map((row) => row.map((v) => v * this.projectionScale));

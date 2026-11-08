@@ -108,8 +108,8 @@ export class RMSNorm {
       gradNormalized[i] = gradOutput[i] * this.gamma[i];
     }
 
-    // Gradient w.r.t. input: chain rule through normalization
-    // d(x/RMS)/dx = 1/RMS - (x/RMS) * (x/RMS³) / dimension
+    // Gradient w.r.t. input. With r = sqrt(mean(x²) + ε) and n = x / r:
+    //   ∂L/∂x_j = gN_j / r − x_j · Σ_i(gN_i · x_i) / (D · r³)
     const gradInput = new Array(this.dimension);
     const rms3 = rms * rms * rms;
 
@@ -118,14 +118,9 @@ export class RMSNorm {
       dotProduct += gradNormalized[i] * x[i];
     }
 
+    const k = dotProduct / (this.dimension * rms3);
     for (let i = 0; i < this.dimension; i++) {
-      // Derivative of normalization
-      const dNorm = 1.0 / rms - (x[i] * x[i]) / (this.dimension * rms3);
-      gradInput[i] = gradNormalized[i] * dNorm;
-
-      // Account for contribution through RMS
-      const dRMS = -(normalized[i] / rms) * (x[i] / this.dimension);
-      gradInput[i] += dotProduct * dRMS;
+      gradInput[i] = gradNormalized[i] / rms - x[i] * k;
     }
 
     return gradInput;

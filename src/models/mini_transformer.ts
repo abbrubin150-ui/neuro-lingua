@@ -114,13 +114,16 @@ export class MiniTransformerBlock {
   ): Promise<Matrix> {
     // Pre-norm layout: normalize then apply the sublayer, then add the residual
     const normedForAttention = inputs.map((row) => this.applyRMS(row));
-    const dropconnectedAttention: AttentionWeights = {
-      query: applyDropConnect(attentionWeights.query, {
-        rate: this.config.dropConnectRate ?? 0
-      }),
-      key: applyDropConnect(attentionWeights.key, { rate: this.config.dropConnectRate ?? 0 }),
-      value: applyDropConnect(attentionWeights.value, { rate: this.config.dropConnectRate ?? 0 })
-    };
+    // DropConnect is a training-time regulariser only; inference uses the raw weights.
+    const dropRate = options.train ? (this.config.dropConnectRate ?? 0) : 0;
+    const dropconnectedAttention: AttentionWeights =
+      dropRate > 0
+        ? {
+            query: applyDropConnect(attentionWeights.query, { rate: dropRate }),
+            key: applyDropConnect(attentionWeights.key, { rate: dropRate }),
+            value: applyDropConnect(attentionWeights.value, { rate: dropRate })
+          }
+        : attentionWeights;
 
     const attentionOutput = await this.attention.forward(normedForAttention, dropconnectedAttention, {
       causal: false,

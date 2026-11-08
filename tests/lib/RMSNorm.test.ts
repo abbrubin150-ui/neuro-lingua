@@ -349,4 +349,37 @@ describe('RMSNorm', () => {
       expect(rms).toBeCloseTo(1.0, 5);
     });
   });
+
+  describe('Gradient correctness', () => {
+    it('backward matches finite-difference gradients for input and gamma', () => {
+      const D = 5;
+      const x = [0.7, -1.3, 2.1, 0.05, -0.4];
+      const gamma = [1.2, 0.8, -0.5, 1.5, 0.9];
+      const w = [0.3, -0.7, 1.1, 0.2, -1.4]; // L = Σ w ⊙ y
+      const loss = (xs: number[], gs: number[]) =>
+        rmsNorm(xs, gs, 1e-6).reduce((s, v, i) => s + v * w[i], 0);
+
+      const layer = RMSNorm.loadState({ gamma, epsilon: 1e-6 }, D);
+      layer.forward(x);
+      const gradInput = layer.backward(w);
+      const gammaGrad = (layer as unknown as { gammaGrad: number[] }).gammaGrad;
+
+      const h = 1e-6;
+      for (let j = 0; j < D; j++) {
+        const xp = [...x];
+        const xm = [...x];
+        xp[j] += h;
+        xm[j] -= h;
+        const numeric = (loss(xp, gamma) - loss(xm, gamma)) / (2 * h);
+        expect(gradInput[j]).toBeCloseTo(numeric, 6);
+
+        const gp = [...gamma];
+        const gm = [...gamma];
+        gp[j] += h;
+        gm[j] -= h;
+        const numericGamma = (loss(x, gp) - loss(x, gm)) / (2 * h);
+        expect(gammaGrad[j]).toBeCloseTo(numericGamma, 6);
+      }
+    });
+  });
 });

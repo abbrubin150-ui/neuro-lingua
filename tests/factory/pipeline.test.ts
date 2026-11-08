@@ -5,7 +5,7 @@ import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { runModelFactory, evaluateText, type FactoryConfig } from '../../src/factory/pipeline';
 import { listCorpusFiles, readCorpusDocuments } from '../../src/factory/node/files';
-import { createInferenceServer } from '../../src/factory/node/server';
+import { complete, createInferenceServer } from '../../src/factory/node/server';
 import { loadModelFromPackage, unpackModel } from '../../src/lib/modelPackage';
 import { TransformerLM } from '../../src/lib/TransformerLM';
 
@@ -154,5 +154,30 @@ describe('local inference server', () => {
         await new Promise((resolve) => server.close(resolve));
       }
     }
+  });
+
+  it('reports the tokens actually sampled and why generation stopped', async () => {
+    const { model } = await runModelFactory(DOCS, config({ epochs: 1 }));
+    // EOS cannot be sampled when the model never assigns it probability: force 'length'.
+    const detailed = await model.generateDetailed('the', 5, 0.8);
+    expect(detailed.tokens).toBeLessThanOrEqual(5);
+    expect(detailed.finishReason === 'length').toBe(detailed.tokens === 5);
+
+    model.reseed(5);
+    const text = await model.generate('the', 7, 0.9);
+    model.reseed(5);
+    expect((await model.generateDetailed('the', 7, 0.9)).text).toBe(text);
+
+    const result = await complete(model, { prompt: 'the', max_tokens: 4, seed: 2 });
+    model.reseed(2);
+    const reference = await model.generateDetailed('the', 4, 0.8, 0, 0.9);
+    expect(result.completionTokens).toBe(reference.tokens);
+    expect(result.finishReason).toBe(reference.finishReason === 'eos' ? 'stop' : 'length');
+
+    model.reseed(2);
+    const full = await model.generateDetailed('the', 30, 0.8, 0, 0.9);
+    const cut = await complete(model, { prompt: 'the', max_tokens: 30, seed: 2, stop: 'e' });
+    expect(cut.text).toBe(full.text.split('e')[0]);
+    if (full.text.includes('e')) expect(cut.finishReason).toBe('stop');
   });
 });

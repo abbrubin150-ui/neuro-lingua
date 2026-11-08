@@ -14,7 +14,9 @@
 - **Dropout** (train‑only)
 - **Advanced Text Generation**: Greedy, Sampling (Top-p/Top-k/Typical/Mirostat v2), Beam Search, and Contrastive decoding
 - **Session persistence**, onboarding tips, and downloadable **training-history CSVs** (localized labels)
-- **Tokenizer presets** (Unicode / ASCII / custom regex / character-level) with import/export support; a BPE tokenizer exists as a library module (`src/tokenizer/BPETokenizer.ts`) but is not wired into the models
+- **Tokenizers**: Unicode / ASCII / custom regex / character-level, and a **subword (BPE) tokenizer learned from your corpus** (`src/tokenizer/subword.ts`) that works with all three architectures, with import/export support
+- **Offline model factory** (`pnpm lm`): train, evaluate, package and serve your own model from local files — no external AI model, API key or network service ([guide](./docs/guides/OFFLINE_MODEL_FACTORY.md))
+- **Works offline**: the web app caches itself with a service worker (installable), models are exported as checksummed `.nlm.json` packages with a model card, and a test guards against any external AI service
 - **Dataset abstraction** and **reproducibility layer** (v4.4): library modules with tests (splits, hashing, replay verification); not yet used by the UI training loop
 - **Held-out evaluation**: `model.evaluate(text)` and `pnpm benchmark:models` ([results](./docs/benchmarks/MODEL_BENCHMARK.md))
 - **Desktop app** (v4.4): Electron packaging for Windows with full feature parity
@@ -36,8 +38,12 @@ architectures are checked against finite differences in the test suite.
 | Edge-learning diagnostics | Empirical Fisher information of the output layer (exact per-window gradients), predictive entropy, loss variance and the diagonal Cramér-Rao bound, measured on the trained model. |
 | Cerebro neuron injection | Works for all architectures; function-preserving for the MLP; rollback restores the exact model. |
 | WebGPU | Offloads the MLP's matrix-vector products only; no measured speedup is claimed. |
+| Subword tokenizer (BPE) | Learned from the corpus (deterministic, keeps Hebrew niqqud attached, exact offsets); used by all architectures in the app and the CLI. |
+| Offline model factory | `pnpm lm train / eval / generate / serve / info`: corpus preparation, tokenizer, transformer training with validation and early stopping, packages with model cards, a local completions / chat server. |
+| Offline web app | Service worker pre-caches every build file; packages export/import with checksums; localStorage saves fall back to compact packages; training keeps the page responsive and Stop acts mid-epoch. |
+| No external AI | `tests/offline/noExternalServices.test.ts` fails on AI-service clients, hosted AI endpoints or network calls in the app, CLI and desktop code. |
 | Causal analysis panel | Runs on data from the engine's built-in simulator (labelled in the UI). |
-| Library modules not wired into the app | BPE tokenizer, dataset abstraction, reproducibility layer, sparse / linearized attention, K-FAC, mixed precision, `src/integrations` (simulated HuggingFace / Slack / Prometheus services), `src/autodiff`, `GovernanceBoard` component. |
+| Library modules not wired into the app | `BPETokenizer.ts` (an older BPE module; the models use `subword.ts`), dataset abstraction, reproducibility layer, sparse / linearized attention, K-FAC, mixed precision, `src/integrations` (simulated HuggingFace / Slack / Prometheus services), `src/autodiff`, `GovernanceBoard` component. |
 
 ## 🚀 Advanced Features
 
@@ -174,6 +180,10 @@ attention over its short context window. Patterns that reduce O(n²) attention c
 
 ### 🔤 BPE Tokenizer (v4.4)
 
+> The models use the subword tokenizer in `src/tokenizer/subword.ts` (select **Subword BPE** in the
+> tokenizer panel, or `pnpm lm train --tokenizer bpe`). The features below describe the standalone
+> `BPETokenizer.ts` library module.
+
 - ✅ **Byte Pair Encoding** - Subword tokenization for better vocabulary coverage
 - ✅ **Configurable Vocab Size** - Train tokenizers with custom vocabulary limits
 - ✅ **Merge Rules** - Priority-based merge operations with full history
@@ -213,10 +223,10 @@ attention over its short context window. Patterns that reduce O(n²) attention c
 - ✅ **Mobile Friendly** - Responsive design for all screen sizes
 - ✅ **Quick Start** - Just open `neuro-lingua-lite.html` in any browser
 
-📚 **[See full mathematical documentation →](./MATHEMATICAL_ENHANCEMENTS.md)**
-🚀 **[v4.0 Mathematical & Architectural Upgrades (Hebrew) →](./NEURO_LINGUA_V4_UPGRADES.md)**
-📖 **[Transformer architecture guide →](./TRANSFORMER_GUIDE.md)**
-⚡ **[GPU acceleration setup →](./GPU_ACCELERATION_GUIDE.md)**
+📚 **[See full mathematical documentation →](./docs/theory/MATHEMATICAL_ENHANCEMENTS.md)**
+🚀 **[v4.0 Mathematical & Architectural Upgrades (Hebrew) →](./docs/roadmap/NEURO_LINGUA_V4_UPGRADES.md)**
+📖 **[Transformer architecture guide →](./docs/guides/TRANSFORMER_GUIDE.md)**
+⚡ **[GPU acceleration setup →](./docs/guides/GPU_ACCELERATION_GUIDE.md)**
 
 > This repository is intentionally simple: the only thing your agent does is **train** and **update** the model JSON.
 > The tokenizer is language‑agnostic, while the UI strings are available in English and Hebrew.
@@ -253,7 +263,15 @@ pnpm benchmark:gpu
 # 7) Desktop App (Windows)
 pnpm electron:dev    # Development with hot-reload
 pnpm electron:build  # Build NSIS installer
+
+# 8) Offline model factory: your own model from local files, no external AI
+pnpm lm train --data ./my-texts --name my-model      # → models/my-model/model.nlm.json
+pnpm lm generate --model models/my-model/model.nlm.json --prompt "Once upon a time"
+pnpm lm serve --model models/my-model/model.nlm.json # local completions / chat API on 127.0.0.1
 ```
+
+See the [offline model factory guide](./docs/guides/OFFLINE_MODEL_FACTORY.md) (Hebrew quick start +
+English reference).
 
 The browser UI allows you to paste a training corpus and interact with the model.  
 The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and writes the artifact to `models/neuro‑lingua‑v324.json`.
@@ -506,13 +524,14 @@ Export models with complete audit trail including project metadata, decision led
 ## 📚 Documentation
 
 - **[CLAUDE.md](./CLAUDE.md)** - Comprehensive AI assistant development guide
-- **[MATHEMATICAL_ENHANCEMENTS.md](./MATHEMATICAL_ENHANCEMENTS.md)** - Detailed mathematical formulations
-- **[NEURO_LINGUA_V4_UPGRADES.md](./NEURO_LINGUA_V4_UPGRADES.md)** - v4.0 Mathematical & Architectural Upgrades (Hebrew)
-- **[TRANSFORMER_GUIDE.md](./TRANSFORMER_GUIDE.md)** - Transformer architecture deep dive
-- **[TRANSFORMER_IMPLEMENTATION.md](./TRANSFORMER_IMPLEMENTATION.md)** - Implementation details
-- **[GPU_ACCELERATION_GUIDE.md](./GPU_ACCELERATION_GUIDE.md)** - WebGPU setup and benchmarking
-- **[DEVELOPMENT_SETUP_GUIDE.md](./DEVELOPMENT_SETUP_GUIDE.md)** - Development environment setup
-- **[CHANGELOG_v3.3.md](./CHANGELOG_v3.3.md)** - Project & Run management release notes
+- **[OFFLINE_MODEL_FACTORY.md](./docs/guides/OFFLINE_MODEL_FACTORY.md)** - Produce, package and serve your own model offline (Hebrew quick start + English reference)
+- **[MATHEMATICAL_ENHANCEMENTS.md](./docs/theory/MATHEMATICAL_ENHANCEMENTS.md)** - Detailed mathematical formulations
+- **[NEURO_LINGUA_V4_UPGRADES.md](./docs/roadmap/NEURO_LINGUA_V4_UPGRADES.md)** - v4.0 Mathematical & Architectural Upgrades (Hebrew)
+- **[TRANSFORMER_GUIDE.md](./docs/guides/TRANSFORMER_GUIDE.md)** - Transformer architecture deep dive
+- **[TRANSFORMER_IMPLEMENTATION.md](./docs/architecture/TRANSFORMER_IMPLEMENTATION.md)** - Implementation details
+- **[GPU_ACCELERATION_GUIDE.md](./docs/guides/GPU_ACCELERATION_GUIDE.md)** - WebGPU setup and benchmarking
+- **[DEVELOPMENT_SETUP_GUIDE.md](./docs/guides/DEVELOPMENT_SETUP_GUIDE.md)** - Development environment setup
+- **[CHANGELOG_v3.3.md](./docs/roadmap/CHANGELOG_v3.3.md)** - Project & Run management release notes
 
 ---
 

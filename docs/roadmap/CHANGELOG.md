@@ -6,6 +6,48 @@ An audit of what actually runs versus what the UI and documentation claimed. Eve
 covered by finite-difference gradient tests; quality changes are measured on held-out data
 (`pnpm benchmark:models`, see [MODEL_BENCHMARK.md](../benchmarks/MODEL_BENCHMARK.md)).
 
+### Offline model production ([guide](../guides/OFFLINE_MODEL_FACTORY.md))
+
+Everything needed to produce, package and run a model from local files, with no external AI model,
+API or network service.
+
+- **Model factory CLI** (`pnpm lm train | eval | generate | serve | info`, `src/factory/`): local
+  documents (.txt .md .jsonl .json .csv) → cleaned, de-duplicated corpus with a content-hash
+  train/validation split → subword tokenizer → transformer trained with validation every epoch,
+  early stopping and the best epoch kept → package + model card + training log. `--init`
+  continues an existing model. Held-out quality is reported in bits per character, which does not
+  depend on the tokenizer.
+- **Subword (BPE) tokenizer** wired into all three architectures (`src/tokenizer/subword.ts`):
+  deterministic incremental training (≈ 0.2 s for 200 K characters), Hebrew niqqud kept with its
+  letter, exact character offsets, spaces restored on decoding. Selectable in the tokenizer panel.
+- **Transformer training for larger corpora**: chunked windows (`trainingStride`) with the
+  alignment re-drawn every epoch, per-step warm-up + cosine learning rate, decoupled weight decay.
+- **Model packages** (`neuro-lingua-model` v1, `src/lib/modelPackageCodec.ts`): base64
+  float32/float16 tensors, optimizer state dropped, FNV-1a 64-bit checksum verified on load, model
+  card with provenance (`offline: true | false | null`). The UI-default transformer: 23 MB as plain
+  JSON → 5.7 MB (float32) → 2.9 MB (float16).
+- **Local inference server** (`pnpm lm serve`): completions / chat-completions JSON shapes,
+  `127.0.0.1` by default, CORS only on request, request and token limits, `seed` for
+  reproducible samples; `finish_reason` and token counts come from the sampler
+  (`generateDetailed`), not from re-tokenizing the output.
+- **Browser app**: 📦 Package export with an honest model card (a model that started from an
+  imported file keeps that file's provenance), Import of packages, and localStorage saves that fall
+  back to float32 / float16 packages — the default transformer did not fit before, so saving
+  failed silently.
+- **Offline web app**: a build-time service worker pre-caches every file (network-first
+  navigations, cached fallback, old caches removed on update) and a web app manifest; the desktop
+  app needs none.
+- **Responsive in-browser training**: training yields to the page every 50 ms (progress within the
+  epoch, Stop acts within one window and the interrupted epoch is not recorded). Fixed: strided
+  epochs reported accuracy over all targets instead of the windows trained.
+- **1.56× faster transformer training** (output layer and softmax as monomorphic kernels;
+  bit-identical results).
+- Fixed: the embedding-visualization panel ran t-SNE over the whole vocabulary on the main thread
+  whenever the model changed (≈ 12 s for 300 tokens, minutes for a 2,000-token subword
+  vocabulary, freezing the page). Projections now run on request over a bounded selection —
+  words and subwords first, specials excluded — with UMAP as the default method.
+- **No-external-AI guard** (`tests/offline/noExternalServices.test.ts`).
+
 ### Models
 
 - **TransformerLM is trained for real.** Attention and feed-forward weights used to be moved by a

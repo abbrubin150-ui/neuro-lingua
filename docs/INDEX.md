@@ -9,6 +9,7 @@
 - [Project README](../README.md) - Project overview and quickstart
 - [Claude Assistant Guide](./guides/CLAUDE_ASSISTANT_GUIDE.md) - Comprehensive AI assistant guide (120KB)
 - [Development Setup](./guides/DEVELOPMENT_SETUP_GUIDE.md) - Get started with development
+- [Offline Model Factory](./guides/OFFLINE_MODEL_FACTORY.md) - Your own language model, offline, without external AI services
 
 ---
 
@@ -37,6 +38,7 @@ Step-by-step guides and tutorials.
 | [Python Modules](./guides/PYTHON_MODULES.md) | Python module reference |
 | [Transformer Guide](./guides/TRANSFORMER_GUIDE.md) | Understanding transformer architecture |
 | [Loss Functions](./guides/losses.md) | Available loss functions |
+| [Offline Model Factory](./guides/OFFLINE_MODEL_FACTORY.md) | Train, package and serve your own model from local files, with no external AI (Hebrew quick start + English reference) |
 
 ---
 

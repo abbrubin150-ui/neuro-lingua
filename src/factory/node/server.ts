@@ -66,21 +66,22 @@ export async function complete(
   if (typeof request.seed === 'number' && Number.isFinite(request.seed)) {
     model.reseed(Math.floor(request.seed));
   }
-  const generated = await model.generate(
+  const generated = await model.generateDetailed(
     prompt,
     maxTokens,
     temperature,
     Math.max(0, Math.floor(request.top_k ?? 0)),
     Math.min(1, Math.max(0, request.top_p ?? 0.9))
   );
-  const { text, stopped } = cutAtStop(generated, request.stop);
+  const { text, stopped } = cutAtStop(generated.text, request.stop);
   const config = model.getTokenizerConfig();
-  const completionTokens = ProNeuralLM.tokenizeText(text, config).length;
   return {
     text,
-    finishReason: stopped || completionTokens < maxTokens ? 'stop' : 'length',
+    // 'length' only when the token limit (not the end-of-sequence token or a stop string) ended it.
+    finishReason: stopped || generated.finishReason === 'eos' ? 'stop' : 'length',
     promptTokens: ProNeuralLM.tokenizeText(prompt, config).length,
-    completionTokens
+    // Tokens actually sampled; re-counted only for the part kept before a stop string.
+    completionTokens: stopped ? ProNeuralLM.tokenizeText(text, config).length : generated.tokens
   };
 }
 

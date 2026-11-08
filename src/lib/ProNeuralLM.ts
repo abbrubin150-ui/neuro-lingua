@@ -1281,6 +1281,37 @@ export class ProNeuralLM {
     mirostatTau = 0,
     mirostatEta = 0.1
   ): Promise<string> {
+    const { text } = await this.generateDetailed(
+      seedText,
+      maxLen,
+      temperature,
+      topK,
+      topP,
+      frequencyPenalty,
+      presencePenalty,
+      typicalTau,
+      mirostatTau,
+      mirostatEta
+    );
+    return text;
+  }
+
+  /**
+   * `generate` that also reports how many tokens were sampled and why it stopped ('eos' when the
+   * model produced the end-of-sequence token, 'length' when `maxLen` was reached).
+   */
+  async generateDetailed(
+    seedText: string,
+    maxLen = 25,
+    temperature = 0.9,
+    topK = 0,
+    topP = 0,
+    frequencyPenalty = 0,
+    presencePenalty = 0,
+    typicalTau = 0,
+    mirostatTau = 0,
+    mirostatEta = 0.1
+  ): Promise<{ text: string; tokens: number; finishReason: 'eos' | 'length' }> {
     const seedToks = this.tokenize(seedText).map((t) => this.toIndex(t));
     const ctx: number[] = new Array(this.contextSize).fill(this.toIndex(this.bos));
     for (const t of seedToks) ctx.push(t);
@@ -1289,6 +1320,7 @@ export class ProNeuralLM {
     const generatedTokenIds: number[] = [];
 
     let mirostatState: MirostatV2State | undefined;
+    let finishReason: 'eos' | 'length' = 'length';
     while (out.length < maxLen) {
       const window = ctx.slice(-this.contextSize);
       const { logits } = await this.forward(window, false);
@@ -1307,12 +1339,15 @@ export class ProNeuralLM {
       );
       mirostatState = state;
       const tok = this.idxToWord.get(idx)!;
-      if (tok === this.eos) break;
+      if (tok === this.eos) {
+        finishReason = 'eos';
+        break;
+      }
       out.push(tok);
       ctx.push(idx);
       generatedTokenIds.push(idx); // Track for repetition penalty
     }
-    return this.joinTokens(out);
+    return { text: this.joinTokens(out), tokens: out.length, finishReason };
   }
 
   /**

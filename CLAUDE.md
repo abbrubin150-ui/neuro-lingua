@@ -66,7 +66,9 @@ src/
 ├── components/                # React UI panels (26+ components)
 ├── contexts/                  # React Context (BrainContext, ProjectContext)
 ├── types/                     # TypeScript interfaces
-├── data/                      # Dataset management
+├── data/                      # Dataset management, corpusPrep.ts (offline corpus cleaning/split)
+├── factory/                   # Offline model factory pipeline (+ node/ files & local server)
+├── pwa/                       # Offline service worker template + registration
 ├── generation/                # Text generation (sampling.ts)
 ├── losses/                    # Loss functions
 ├── math/                      # Mathematical analysis (258KB)
@@ -74,7 +76,7 @@ src/
 ├── explainability/            # Interpretability tools
 ├── integrations/              # External services (mock implementations)
 ├── autodiff/                  # Automatic differentiation
-├── tokenizer/                 # BPE tokenization
+├── tokenizer/                 # subword.ts (BPE used by the models), BPETokenizer.ts (library)
 └── visualization/             # Embedding visualization
 
 tests/                         # 135+ test files mirroring src/ structure
@@ -181,7 +183,14 @@ pnpm test:parity:wasm          # WASM parity tests
 pnpm train                     # Run training script
 pnpm benchmark:gpu             # GPU performance benchmark
 pnpm benchmark:models          # Held-out comparison of the three architectures
+pnpm lm train --data <dir>     # Offline model factory → models/<name>/model.nlm.json
+pnpm lm eval|generate|serve|info --model <package>
 ```
+
+The factory (`scripts/lm.ts`, `src/factory/`) is documented in
+`docs/guides/OFFLINE_MODEL_FACTORY.md`. Nothing in the app, CLI or desktop code may call an
+external AI service or make network requests; `tests/offline/noExternalServices.test.ts` enforces
+it (the service worker's same-origin cache handler is the only allowed `fetch`).
 
 ## Architecture Patterns
 
@@ -203,6 +212,10 @@ const mlp = ProNeuralLM.fromJSON(json);
 const advanced = AdvancedNeuralLM.fromJSON(json); // json.architecture === 'advanced'
 const transformer = TransformerLM.fromJSON(json); // json.architecture === 'transformer'
 // Files chosen in the UI go through parseModelImport() (src/lib/modelImport.ts)
+// Compact packages (.nlm.json, base64 tensors + checksum + model card):
+const pkg = packModel(json, { precision: 'float32', card }); // src/lib/modelPackageCodec.ts
+const model = restoreModel(unpackModel(pkg));                // src/lib/modelPackage.ts
+// saveToLocalStorage() falls back to float32 / float16 packages when the JSON exceeds the quota
 ```
 
 Transformer models saved without `transformer.config.objective` are legacy models and load with
@@ -283,12 +296,27 @@ pnpm build                     # Production build
     grows equally); `InjectionEngine.propose` rounds k accordingly.
 11. **No fabricated metrics**: every number shown in the UI must come from the model or be
     labelled as simulated (e.g. the causal analysis panel).
+12. **Model packages**: `src/lib/modelPackageCodec.ts` (format, checksum, `storeModelCompactly`)
+    must not import the model classes — ProNeuralLM imports it, so the loaders that need
+    TransformerLM / AdvancedNeuralLM live in `src/lib/modelPackage.ts` (`restoreModel`).
+13. **Subword tokenizer** (`mode: 'bpe'`): the merges live in the tokenizer config
+    (`config.bpe`) and are serialized with the model; the vocabulary is `buildVocabulary(text,
+    config)` (specials + every subword). Decoding a continuation keeps the leading space.
+14. **Interactive training**: `setInteractiveTraining(ms, signal)` makes `train()` yield and stop
+    on abort (the App uses it); it is off by default so the CLI and tests are unaffected. An
+    interrupted epoch is not added to the history.
+15. **Provenance**: exported model cards claim `offline: true` only for models initialised in the
+    app or whose imported card says so (`src/lib/modelExport.ts`); unknown history is `null`.
+16. **Transformer output layer**: `projectOutput` / `outputSoftmax` / `outputBackward` in
+    TransformerLM.ts are the hot path (keep them module-level and monomorphic); their accumulation
+    order is part of the bit-identical-results guarantee.
 
 ## Documentation
 
 - **docs/INDEX.md** - Documentation hub
 - **docs/guides/CLAUDE_ASSISTANT_GUIDE.md** - Detailed AI assistant guide (120KB)
 - **docs/guides/DEVELOPMENT_SETUP_GUIDE.md** - Setup instructions
+- **docs/guides/OFFLINE_MODEL_FACTORY.md** - Offline model production (CLI, packages, server, PWA)
 - **docs/architecture/** - System design documents
 - **docs/theory/** - Mathematical foundations
 

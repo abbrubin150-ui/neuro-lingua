@@ -14,6 +14,7 @@ import { AdvancedNeuralLM, type AdvancedConfig } from '../lib/AdvancedNeuralLM';
 import { TransformerLM, type TransformerConfig } from '../lib/TransformerLM';
 import {
   packModel,
+  restoreModel,
   type ModelCard,
   type ModelPackage,
   type TensorPrecision
@@ -326,12 +327,6 @@ export async function runModelFactory(
 
   // The returned model and package are the best checkpoint (lowest validation loss).
   const pkg = packModel(best!.json, { precision: config.precision ?? 'float32', card });
-  const architecture = architectureOf(model);
-  const bestModel =
-    architecture === 'transformer'
-      ? TransformerLM.fromJSON(best!.json)
-      : architecture === 'advanced'
-        ? AdvancedNeuralLM.fromJSON(best!.json)
-        : ProNeuralLM.fromJSON(best!.json);
+  const bestModel = restoreModel(best!.json, architectureOf(model));
   return { model: bestModel, package: pkg, card, history, bestEpoch: best!.epoch };
 }

@@ -35,6 +35,7 @@ import { stableSoftmax } from './MathUtils';
 import type { RMSNormState } from './RMSNorm';
 import type { GPUNeuralOps } from '../backend/gpu_neural_ops';
 import type { LossMaskConfig } from '../types/project';
+import { parseStoredModel } from './modelPackageCodec';
 import {
   blockBackward,
   blockForward,
@@ -560,7 +561,12 @@ export class TransformerLM extends ProNeuralLM {
       let pending = 0;
 
       let processed = 0;
+      let stopped = false;
       for (const { ctx, tgt, index } of items) {
+        if (await this.trainingShouldStop()) {
+          stopped = true;
+          break;
+        }
         this.reportTrainingProgress(++processed, items.length, e);
         const T = ctx.length;
         const lastMasked = (lossMask[index] ?? 1) === 1;
@@ -619,9 +625,11 @@ export class TransformerLM extends ProNeuralLM {
         }
       }
       if (pending > 0) this.applyAccumulatedGradients(pending);
+      if (stopped) break; // an interrupted epoch is not recorded
 
       const avgLoss = epochMaskedCount > 0 ? epochLoss / epochMaskedCount : 0;
-      const accuracy = epochCorrect / seqs.length;
+      // Over the windows of this epoch (fewer than the targets when trainingStride > 1).
+      const accuracy = epochCorrect / Math.max(1, items.length);
       trainingHistory.push({ loss: avgLoss, accuracy, timestamp: Date.now() });
     }
 
@@ -1302,10 +1310,8 @@ export class TransformerLM extends ProNeuralLM {
   static loadFromLocalStorage(key: string): TransformerLM | null {
     try {
       if (typeof localStorage === 'undefined') return null;
-      const raw = localStorage.getItem(key);
-      if (!raw) return null;
-      const data = JSON.parse(raw) as TransformerSerializedModel;
-      if (data.architecture !== 'transformer' || !data.transformer) return null;
+      const data = parseStoredModel(localStorage.getItem(key)) as TransformerSerializedModel | null;
+      if (!data || data.architecture !== 'transformer' || !data.transformer) return null;
       return TransformerLM.fromSerialized(data);
     } catch (error) {
       console.warn('Failed to load transformer model', error);

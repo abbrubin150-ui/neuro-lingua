@@ -24,6 +24,7 @@ import {
   type TokenizerConfig
 } from './ProNeuralLM';
 import { ParamOptimizer, type ParamOptimizerKind } from '../training/ParamOptimizer';
+import { parseStoredModel } from './modelPackageCodec';
 import {
   heInit,
   xavierInit,
@@ -817,9 +818,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   static loadFromLocalStorage(key: string): AdvancedNeuralLM | null {
     try {
       if (typeof localStorage === 'undefined') return null;
-      const raw = localStorage.getItem(key);
-      if (!raw) return null;
-      const data = JSON.parse(raw);
+      const data = parseStoredModel(localStorage.getItem(key));
       if (data?.architecture !== 'advanced') return null;
       return AdvancedNeuralLM.fromJSON(data);
     } catch (error) {

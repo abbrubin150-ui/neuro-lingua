@@ -12,7 +12,7 @@
  * detected architecture.
  */
 
-import { isModelPackage, unpackModel, type ModelCard } from './modelPackage';
+import { isModelPackage, unpackModel, type ModelCard } from './modelPackageCodec';
 
 export type ImportedArchitecture = 'feedforward' | 'advanced' | 'transformer';
 

@@ -198,6 +198,8 @@ interface TrainingPanelProps {
   onLoad: () => void;
   onApplyDefaults: () => void;
   onExport: () => void;
+  /** Export a compact model package (.nlm.json) with a model card. */
+  onExportPackage: () => void;
   onCompress: () => void;
   onImport: (ev: React.ChangeEvent<HTMLInputElement>) => void;
   onMessage: (message: string) => void;
@@ -2292,6 +2294,22 @@ export function TrainingPanel(props: TrainingPanelProps) {
             ⬇️ Export
           </button>
           <button
+            onClick={props.onExportPackage}
+            aria-label="Export model package"
+            title="Compact model package (.nlm.json) with a model card; loads here (Import) and in the offline command-line tools (pnpm lm)"
+            style={{
+              padding: '12px 16px',
+              background: '#0f766e',
+              border: 'none',
+              borderRadius: 10,
+              color: 'white',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            📦 Package
+          </button>
+          <button
             onClick={props.onCompress}
             aria-label="Compress and export model"
             title="Compress model using quantization, distillation, or low-rank approximation"
@@ -2325,7 +2343,7 @@ export function TrainingPanel(props: TrainingPanelProps) {
           <input
             ref={importRef}
             type="file"
-            accept="application/json"
+            accept="application/json,.json"
             onChange={props.onImport}
             style={{ display: 'none' }}
           />

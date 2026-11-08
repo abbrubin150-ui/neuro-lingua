@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import NeuroLinguaDomesticaV324 from './App';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { BrainProvider } from './contexts/BrainContext';
+import { registerOfflineSupport } from './pwa/register';
 
 // Add loading timeout to prevent stuck loading screen
 const LOADING_TIMEOUT = 10000; // 10 seconds
@@ -75,6 +76,9 @@ try {
 
   // Clear timeout if app loads successfully
   clearTimeout(timeoutId);
+
+  // Cache the app for offline use (production web builds only)
+  registerOfflineSupport();
 } catch (error) {
   console.error('Failed to initialize React app:', error);
   const root = document.getElementById('root');

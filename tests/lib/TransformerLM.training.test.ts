@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TransformerLM } from '../../src/lib/TransformerLM';
+import { ProNeuralLM } from '../../src/lib/ProNeuralLM';
 import { ParamOptimizer } from '../../src/training/ParamOptimizer';
 
 const VOCAB = ['<PAD>', '<BOS>', '<EOS>', '<UNK>', 'a', 'b', 'c', 'd', 'e'];
@@ -89,5 +90,58 @@ describe('ParamOptimizer weight decay', () => {
     opt.update('w', p, [[0, 0]], 0.1, undefined, { weightDecay: 0.5 });
     expect(p[0][0]).toBeCloseTo(0.95, 12);
     expect(p[0][1]).toBeCloseTo(-1.9, 12);
+  });
+});
+
+describe('interactive training (browser app)', () => {
+  const MLP_VOCAB = VOCAB;
+
+  it('yielding to the event loop does not change what is learned', async () => {
+    const plain = build();
+    const interactive = build();
+    interactive.setInteractiveTraining(1);
+    await plain.train(CORPUS, 1);
+    await interactive.train(CORPUS, 1);
+    // Everything but the wall-clock timestamps is identical.
+    const withoutTime = (model: TransformerLM) =>
+      JSON.stringify(model.toJSON(), (key, value) =>
+        key === 'timestamp' || key === 'lastUpdatedAt' ? undefined : value
+      );
+    expect(withoutTime(interactive)).toBe(withoutTime(plain));
+  });
+
+  it('gives the event loop a turn during an epoch', async () => {
+    const model = build();
+    model.setInteractiveTraining(1);
+    let ticks = 0;
+    const timer = setInterval(() => ticks++, 0);
+    await model.train(CORPUS, 1);
+    clearInterval(timer);
+    expect(ticks).toBeGreaterThan(0);
+  });
+
+  it('stops before the next window once aborted and does not record the interrupted epoch', async () => {
+    for (const model of [build(), new ProNeuralLM(MLP_VOCAB, 8, 0.01, 3, 'adam', 0.9, 0, 5)]) {
+      const controller = new AbortController();
+      model.setInteractiveTraining(1, controller.signal);
+      let windows = 0;
+      model.setTrainingProgressCallback((done) => {
+        windows = done;
+        if (done >= 3) controller.abort();
+      });
+      await model.train(CORPUS, 5);
+      expect(model.getTrainingHistory()).toHaveLength(0);
+      expect(windows).toBeLessThan(10);
+    }
+  });
+
+  it('reports epoch accuracy over the windows actually trained when striding', async () => {
+    const model = build({ trainingStride: 4 });
+    await model.train(CORPUS, 6);
+    const last = model.getTrainingHistory().at(-1)!;
+    // A periodic sequence is easy: accuracy over the strided windows approaches 1, which the
+    // old denominator (all targets) capped at 1/stride.
+    expect(last.accuracy).toBeGreaterThan(0.3);
+    expect(last.accuracy).toBeLessThanOrEqual(1);
   });
 });

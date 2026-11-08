@@ -20,6 +20,7 @@ import { GPUNeuralOps } from '../backend/gpu_neural_ops';
 import { SophiaOptimizer, type SophiaConfig } from '../training/SophiaOptimizer';
 import type { LossMaskConfig } from '../types/project';
 import { findRegExpMatches, buildCharMaskFromMatches } from '../losses/lossMask';
+import { parseStoredModel, storeModelCompactly } from './modelPackageCodec';
 import {
   decodeSubword,
   encodeSubword,
@@ -61,6 +62,8 @@ export type TokenizerConfig = {
   pattern?: string;
   /** Trained subword model (mode 'bpe'); see src/tokenizer/subword.ts. */
   bpe?: SubwordModel;
+  /** Requested subword vocabulary size when the merges are (re)trained from a corpus. */
+  bpeVocabSize?: number;
 };
 
 /** EMA decay of the Gauss-Newton curvature used by the 'newton' optimizer. */
@@ -180,6 +183,9 @@ export class ProNeuralLM {
   };
   private secondOrderState: SecondOrderState = createSecondOrderState();
   private progressCallback: ((done: number, total: number, epoch: number) => void) | null = null;
+  private yieldIntervalMs = 0;
+  private lastYieldAt = 0;
+  private trainingSignal: AbortSignal | null = null;
 
   private bos = '<BOS>';
   private eos = '<EOS>';
@@ -519,6 +525,30 @@ export class ProNeuralLM {
     callback: ((done: number, total: number, epoch: number) => void) | null
   ): void {
     this.progressCallback = callback;
+  }
+
+  /**
+   * Interactive use (the browser app): make train() hand control back to the event loop at least
+   * every `intervalMs` milliseconds, so that the page stays responsive and can show progress, and
+   * stop before the next training window once `signal` is aborted (an interrupted epoch is not
+   * added to the training history). 0 disables yielding — the default, used by the CLI and tests.
+   */
+  setInteractiveTraining(intervalMs: number, signal: AbortSignal | null = null): void {
+    this.yieldIntervalMs = Math.max(0, intervalMs);
+    this.trainingSignal = signal;
+    this.lastYieldAt = Date.now();
+  }
+
+  /**
+   * Checked before every training window: yields to the event loop when the interval has elapsed
+   * and returns true when training was asked to stop.
+   */
+  protected async trainingShouldStop(): Promise<boolean> {
+    if (this.yieldIntervalMs > 0 && Date.now() - this.lastYieldAt >= this.yieldIntervalMs) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      this.lastYieldAt = Date.now();
+    }
+    return this.trainingSignal?.aborted === true;
   }
 
   protected reportTrainingProgress(done: number, total: number, epoch: number): void {
@@ -1146,7 +1176,12 @@ export class ProNeuralLM {
       let epochMaskedCount = 0;
 
       let processed = 0;
+      let stopped = false;
       for (const [ctx, tgt, maskValue] of seqsWithMask) {
+        if (await this.trainingShouldStop()) {
+          stopped = true;
+          break;
+        }
         this.reportTrainingProgress(++processed, seqsWithMask.length, e);
         const cache = await this.forward(ctx, true);
         const pred = cache.probs.indexOf(Math.max(...cache.probs));
@@ -1169,6 +1204,7 @@ export class ProNeuralLM {
         }
         count++;
       }
+      if (stopped) break; // an interrupted epoch is not recorded
 
       // Average loss over masked positions only
       const avgLoss = epochMaskedCount > 0 ? epochLoss / epochMaskedCount : 0;
@@ -1619,11 +1655,22 @@ export class ProNeuralLM {
     } as const;
   }
 
-  saveToLocalStorage(key: string) {
+  /**
+   * Save to localStorage. Models whose plain JSON exceeds the storage quota (e.g. a default
+   * transformer, ~23 MB) are stored as a compact package instead (float32, then float16).
+   * Returns the encoding used, or null when the model could not be stored.
+   */
+  saveToLocalStorage(key: string): 'json' | 'float32' | 'float16' | null {
     try {
-      localStorage.setItem(key, JSON.stringify(this.toJSON()));
+      const encoding = storeModelCompactly(
+        (value) => localStorage.setItem(key, value),
+        this.toJSON() as unknown as Record<string, unknown>
+      );
+      if (!encoding) console.warn('Failed to save model: it does not fit in localStorage');
+      return encoding;
     } catch (e) {
       console.warn('Failed to save model', e);
+      return null;
     }
   }
 
@@ -1686,9 +1733,9 @@ export class ProNeuralLM {
 
   static loadFromLocalStorage(key: string): ProNeuralLM | null {
     try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return null;
-      return ProNeuralLM.fromJSON(JSON.parse(raw));
+      const data = parseStoredModel(localStorage.getItem(key));
+      if (!data) return null;
+      return ProNeuralLM.fromJSON(data);
     } catch (e) {
       console.warn('Failed to load model', e);
       return null;

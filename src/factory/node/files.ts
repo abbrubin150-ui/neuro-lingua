@@ -6,10 +6,9 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { parseDocuments, type CorpusDocument } from '../../data/corpusPrep';
-import { isModelPackage, loadModelFromPackage, type ModelPackage } from '../../lib/modelPackage';
-import { ProNeuralLM } from '../../lib/ProNeuralLM';
-import { AdvancedNeuralLM } from '../../lib/AdvancedNeuralLM';
-import { TransformerLM } from '../../lib/TransformerLM';
+import { isModelPackage, restoreModel, type ModelPackage } from '../../lib/modelPackage';
+import { parseModelImport } from '../../lib/modelImport';
+import type { ProNeuralLM } from '../../lib/ProNeuralLM';
 
 export const CORPUS_EXTENSIONS = [
   '.txt',
@@ -59,9 +58,9 @@ export async function readCorpusDocuments(
 export async function loadModelFile(
   file: string
 ): Promise<{ model: ProNeuralLM; pkg?: ModelPackage }> {
-  const data = JSON.parse(await readFile(file, 'utf8'));
-  if (isModelPackage(data)) return { model: loadModelFromPackage(data), pkg: data };
-  if (data?.architecture === 'transformer') return { model: TransformerLM.fromJSON(data) };
-  if (data?.architecture === 'advanced') return { model: AdvancedNeuralLM.fromJSON(data) };
-  return { model: ProNeuralLM.fromJSON(data) };
+  // Packages (checksum verified), plain `toJSON()` exports and trace exports from the app.
+  const data: unknown = JSON.parse(await readFile(file, 'utf8'));
+  const parsed = parseModelImport(data);
+  const model = restoreModel(parsed.modelData, parsed.architecture);
+  return isModelPackage(data) ? { model, pkg: data } : { model };
 }

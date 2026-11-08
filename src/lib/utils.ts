@@ -12,8 +12,12 @@ export function parseTokenizerConfig(raw: unknown): TokenizerConfig {
   const mode = (raw as { mode?: unknown }).mode;
   if (mode === 'character') return { mode: 'character' };
   if (mode === 'bpe') {
-    const bpe = (raw as { bpe?: unknown }).bpe;
-    return isSubwordModel(bpe) ? { mode: 'bpe', bpe } : { mode: 'unicode' };
+    const { bpe, bpeVocabSize } = raw as { bpe?: unknown; bpeVocabSize?: unknown };
+    return {
+      mode: 'bpe',
+      ...(isSubwordModel(bpe) ? { bpe } : {}),
+      ...(typeof bpeVocabSize === 'number' && bpeVocabSize > 0 ? { bpeVocabSize } : {})
+    };
   }
   if (mode === 'ascii') return { mode: 'ascii' };
   if (mode === 'custom') {

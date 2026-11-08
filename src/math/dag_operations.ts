@@ -1100,22 +1100,31 @@ export function computeRosenbaumBounds(
  * that an unmeasured confounder would need to have with both treatment and outcome
  * to fully explain away the observed effect.
  *
+ * The confidence-interval E-value uses the CI limit closest to the null (VanderWeele & Ding,
+ * 2017): for RR > 1 the lower limit, for RR < 1 the upper limit; it is 1 when the interval
+ * contains 1 (no confounding is needed to move the interval to the null).
+ *
  * @param riskRatio - Observed risk ratio (or odds ratio for rare outcomes)
- * @param ciLower - Lower bound of confidence interval (optional)
+ * @param ciLower - Lower bound of the confidence interval (optional)
+ * @param ciUpper - Upper bound of the confidence interval (optional; needed when RR < 1)
  * @returns E-value result
  */
-export function computeEValue(riskRatio: number, ciLower?: number): EValue {
-  // E-value formula: E = RR + sqrt(RR * (RR - 1))
+export function computeEValue(riskRatio: number, ciLower?: number, ciUpper?: number): EValue {
+  // E-value formula: E = RR + sqrt(RR * (RR - 1)), with RR inverted for protective effects
   const computeE = (rr: number): number => {
     if (rr <= 1) {
-      // For protective effect, use reciprocal
       rr = 1 / rr;
     }
     return rr + Math.sqrt(rr * (rr - 1));
   };
 
   const ePoint = computeE(riskRatio);
-  const eCi = ciLower !== undefined ? computeE(ciLower) : 1;
+  let eCi = 1;
+  if (riskRatio > 1 && ciLower !== undefined) {
+    eCi = ciLower > 1 ? computeE(ciLower) : 1;
+  } else if (riskRatio < 1 && ciUpper !== undefined) {
+    eCi = ciUpper < 1 ? computeE(ciUpper) : 1;
+  }
 
   let interpretation: string;
   if (ePoint > 3) {

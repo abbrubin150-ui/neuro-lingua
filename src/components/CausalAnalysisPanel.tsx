@@ -268,10 +268,23 @@ export function CausalAnalysisPanel({
         );
         setRosenbaumBounds(bounds);
 
-        // E-value (convert to approximate risk ratio)
+        // E-value for a continuous outcome: convert the effect to a standardised mean
+        // difference d = effect / σ_Y and use RR ≈ exp(0.91·d) (VanderWeele, 2017).
+        // exp(ATE) would depend on the units of the outcome.
         const ate = engine.getOnlineState()?.runningATE.estimate ?? 0;
-        const rr = Math.exp(ate); // Approximate for small effects
-        const ev = computeEValue(rr, Math.exp(result.confidenceInterval[0]));
+        const outcomes = (engine.getOnlineState()?.observations ?? []).map(
+          (o) => o.dequantizedOutcome
+        );
+        const meanY = outcomes.reduce((acc, y) => acc + y, 0) / Math.max(1, outcomes.length);
+        const sdY = Math.sqrt(
+          outcomes.reduce((acc, y) => acc + (y - meanY) ** 2, 0) / Math.max(1, outcomes.length - 1)
+        );
+        const toRiskRatio = (effect: number) => Math.exp((0.91 * effect) / (sdY > 0 ? sdY : 1));
+        const ev = computeEValue(
+          toRiskRatio(ate),
+          toRiskRatio(result.confidenceInterval[0]),
+          toRiskRatio(result.confidenceInterval[1])
+        );
         setEValue(ev);
       }
 

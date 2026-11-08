@@ -615,36 +615,28 @@ export function randomizedSVD(
     }
   }
 
-  // Compute Y = A * Ω
-  let Y = multiplyMatrices(A, Omega);
-
-  // Power iterations for improved accuracy
-  // Y = (A A^T)^q A Ω
+  // Range finder with subspace iteration (Halko, Martinsson & Tropp 2011, Alg. 4.4):
+  // re-orthonormalise after every product so that small singular directions are not lost to
+  // round-off in (A Aᵀ)^q A Ω.
+  let Q = qrOrthogonalize(multiplyMatrices(A, Omega));
+  const AT = transposeMatrix(A);
   for (let q = 0; q < powerIterations; q++) {
-    // Y = A^T Y
-    const AT = transposeMatrix(A);
-    Y = multiplyMatrices(AT, Y);
-    // Y = A Y
-    Y = multiplyMatrices(A, Y);
+    const W = qrOrthogonalize(multiplyMatrices(AT, Q));
+    Q = qrOrthogonalize(multiplyMatrices(A, W));
   }
-
-  // QR factorization of Y to get orthonormal basis Q
-  const Q = qrOrthogonalize(Y);
 
   // Form B = Q^T A
   const QT = transposeMatrix(Q);
   const B = multiplyMatrices(QT, A);
 
-  // SVD of B (smaller matrix, l x n)
-  const svdB = approximateSVD(B, rank);
+  // SVD of B (smaller matrix, l x n). One extra singular value estimates the error bound.
+  const svdB = approximateSVD(B, Math.min(rank + 1, l));
 
-  // U = Q * U_B
-  const U = multiplyMatrices(
-    Q,
-    svdB.U.map((u) => u.slice(0, l))
-  );
+  // U = Q · U_B, where U_B (l x rank) holds the left singular vectors of B as columns
+  // (approximateSVD returns them as a list of vectors).
+  const U = multiplyMatrices(Q, transposeMatrix(svdB.U.slice(0, rank)));
 
-  // Error bound: ||A - U Σ V^T||_F ≈ σ_{rank+1}
+  // Spectral-norm error of the best rank-k approximation: ||A − A_k||₂ = σ_{k+1}
   const errorBound = svdB.singularValues[rank] ?? 0;
 
   return {
@@ -704,12 +696,15 @@ function qrOrthogonalize(Y: number[][]): number[][] {
       v.push(Y[i][j]);
     }
 
-    // Subtract projections onto previous columns
-    for (let k = 0; k < j; k++) {
-      const qk = Q.map((row) => row[k]);
-      const proj = kahanSum(v.map((vi, i) => vi * qk[i]));
-      for (let i = 0; i < m; i++) {
-        v[i] -= proj * qk[i];
+    // Subtract projections onto previous columns (modified Gram-Schmidt, applied twice:
+    // "twice is enough" keeps the columns orthogonal to machine precision)
+    for (let pass = 0; pass < 2; pass++) {
+      for (let k = 0; k < j; k++) {
+        const qk = Q.map((row) => row[k]);
+        const proj = kahanSum(v.map((vi, i) => vi * qk[i]));
+        for (let i = 0; i < m; i++) {
+          v[i] -= proj * qk[i];
+        }
       }
     }
 

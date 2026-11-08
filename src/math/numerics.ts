@@ -445,59 +445,58 @@ export function precisionErrorBound(
 }
 
 /**
- * Compute condition number estimate using SVD-free method.
+ * 1-norm condition number κ₁(A) = ‖A‖₁ · ‖A⁻¹‖₁ (SVD-free).
  *
- * Uses Hager's algorithm (1-norm condition number estimation):
- * κ(A) = ||A|| * ||A^(-1)||
+ * ‖A⁻¹‖₁ is computed exactly from an LU factorisation with partial pivoting. (The previous
+ * "Hager" iteration multiplied by A instead of solving with A and therefore returned roughly
+ * ‖A‖₁ rather than the condition number.)
  *
- * @param A - Input matrix
- * @param maxIterations - Maximum iterations for estimation
- * @returns Condition number estimate
+ * @param A - Input matrix (square)
+ * @param _maxIterations - Unused; kept for API compatibility
+ * @returns Condition number (Infinity for a singular matrix)
  */
-export function estimateConditionNumber(A: number[][], maxIterations = 5): number {
+export function estimateConditionNumber(A: number[][], _maxIterations = 5): number {
   const n = A.length;
   if (n === 0 || n !== A[0]?.length) {
     return 1; // Non-square or empty
   }
 
-  // Compute ||A||_1
+  // κ₁(A) = ‖A‖₁ · ‖A⁻¹‖₁, with A⁻¹ obtained column by column from an LU factorisation with
+  // partial pivoting (exact up to round-off; O(n³), intended for the small matrices used here).
   const normA = stableMatrixNorm(A, { normType: '1' }).norm;
   if (normA === 0) return Infinity;
 
-  // Estimate ||A^(-1)||_1 using Hager's algorithm
-  // This is a simplified version; full version requires LU factorization
-  let x = new Array(n).fill(1 / n);
-
-  for (let iter = 0; iter < maxIterations; iter++) {
-    // y = A * x
-    const y = multiplyMatrixVector(A, x);
-
-    // z = A^T * sign(y)
-    const signY = y.map((v) => (v >= 0 ? 1 : -1));
-    const z = multiplyMatrixTransposeVector(A, signY);
-
-    // Find max component of z
-    let maxZ = 0;
-    let maxIdx = 0;
-    for (let i = 0; i < n; i++) {
-      if (Math.abs(z[i]) > maxZ) {
-        maxZ = Math.abs(z[i]);
-        maxIdx = i;
-      }
+  const LU = A.map((row) => [...row]);
+  const perm = Array.from({ length: n }, (_, i) => i);
+  for (let k = 0; k < n; k++) {
+    let pivot = k;
+    for (let i = k + 1; i < n; i++) if (Math.abs(LU[i][k]) > Math.abs(LU[pivot][k])) pivot = i;
+    if (Math.abs(LU[pivot][k]) < 1e-300) return Infinity; // singular
+    if (pivot !== k) {
+      [LU[k], LU[pivot]] = [LU[pivot], LU[k]];
+      [perm[k], perm[pivot]] = [perm[pivot], perm[k]];
     }
-
-    // Check convergence
-    const xNorm1 = kahanSum(x.map(Math.abs));
-    if (maxZ <= z.reduce((sum, zi, i) => sum + zi * x[i], 0)) {
-      return normA / xNorm1;
+    for (let i = k + 1; i < n; i++) {
+      const factor = LU[i][k] / LU[k][k];
+      LU[i][k] = factor;
+      for (let j = k + 1; j < n; j++) LU[i][j] -= factor * LU[k][j];
     }
-
-    // Update x to unit vector
-    x = new Array(n).fill(0);
-    x[maxIdx] = 1;
   }
 
-  return normA; // Lower bound
+  let normInv = 0;
+  for (let col = 0; col < n; col++) {
+    // Solve A x = e_col  ⇔  L U x = P e_col
+    const y = perm.map((p) => (p === col ? 1 : 0));
+    for (let i = 0; i < n; i++) for (let j = 0; j < i; j++) y[i] -= LU[i][j] * y[j];
+    for (let i = n - 1; i >= 0; i--) {
+      for (let j = i + 1; j < n; j++) y[i] -= LU[i][j] * y[j];
+      y[i] /= LU[i][i];
+    }
+    let colSum = 0;
+    for (const v of y) colSum += Math.abs(v);
+    if (colSum > normInv) normInv = colSum;
+  }
+  return normA * normInv;
 }
 
 /**

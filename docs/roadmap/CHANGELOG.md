@@ -60,6 +60,17 @@ covered by finite-difference gradient tests; quality changes are measured on hel
 - Fixed: the custom-RegExp loss mask drifted off the matching tokens on any text with spaces.
 - Fixed: importing a trace-format export always failed silently (`src/lib/modelImport.ts`).
 
+### Math and statistics ([audit](../audits/MATH_AUDIT.md))
+
+- Fixed: `knnEntropy` overestimated entropy by d·ln 2; `computeLaplacian` used directed weights
+  with inconsistent self-loops; the attention-graph eigen-solver missed λ₂ for graphs with more than
+  10 nodes and mismatched the Fiedler vector (now cyclic Jacobi); `estimateConditionNumber`
+  returned ≈ ‖A‖₁ (now exact κ₁ via LU); `randomizedSVD` threw on every input; `computeEValue`
+  overstated robustness for intervals containing 1; the causal panel's E-value depended on outcome
+  units.
+- Verified against numpy/scipy: propensity MLE, OLS outcome model, AIPW/IPW, power/MDE, KSG mutual
+  information, compensated sums and norms (`scripts/audit/`).
+
 ### Documentation
 
 - README implementation-status table (what runs, what is a library module, what is simulated),

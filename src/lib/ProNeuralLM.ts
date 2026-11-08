@@ -393,7 +393,7 @@ export class ProNeuralLM {
     return y;
   }
 
-  private async forward(inputs: number[], train = false) {
+  protected async forward(inputs: number[], train = false) {
     const emb = this.averageVectors(inputs.map((i) => this.embedding[i]));
 
     const hPreCore = await this.matrixVectorMul(this.wHidden, emb);

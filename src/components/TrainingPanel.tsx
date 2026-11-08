@@ -1540,7 +1540,7 @@ export function TrainingPanel(props: TrainingPanelProps) {
         >
           {props.gpuAvailable
             ? props.useGPU
-              ? 'WebGPU acceleration enabled. Expect 2-5x faster epochs on compatible hardware.'
+              ? 'WebGPU enabled for the MLP matrix-vector products (the Transformer always trains on the CPU). The speed-up depends on model size; small models are often as fast on the CPU.'
               : 'WebGPU detected. Enable the toggle to accelerate matrix operations during training.'
             : 'WebGPU is not available in this browser. Training will safely fall back to CPU.'}
         </div>

@@ -290,7 +290,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
    * γ and β are updated here with the same rule as the rest of the model (Adam / Lion /
    * momentum-SGD; second-order optimizers fall back to momentum-SGD for these two vectors).
    */
-  protected normalizeHiddenBackward(dZ: number[], preAct: number[]): number[] {
+  protected normalizeHiddenBackward(dZ: number[], preAct: number[], updateParams = true): number[] {
     if (!this.isLayerNormActive()) return dZ;
     const n = preAct.length;
     const { xhat, invStd } = this.layerNormStats(preAct);
@@ -304,6 +304,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
     meanG /= n;
     meanGX /= n;
     const dPreAct = g.map((gi, i) => invStd * (gi - meanG - xhat[i] * meanGX));
+    if (!updateParams) return dPreAct;
 
     const dGamma = dZ.map((d, i) => d * xhat[i]);
     const dBeta = dZ.slice();

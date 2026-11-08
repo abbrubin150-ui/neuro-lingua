@@ -983,8 +983,10 @@ export default function NeuroLinguaDomesticaV324() {
               setUseGPU(true); // Auto-enable GPU when available
               setGpuMetrics(ops.getMetrics());
               console.log('✅ WebGPU is available and GPUNeuralOps initialized');
-              console.log('⚡ GPU acceleration enabled automatically (2-5x speedup expected)');
-              addSystemMessage('⚡ GPU acceleration enabled automatically (2-5x speedup expected)');
+              console.log('⚡ WebGPU available and enabled');
+              addSystemMessage(
+                '⚡ WebGPU available: the MLP matrix-vector products will run on the GPU (each product uploads the weights, so check the GPU timings before assuming a speedup)'
+              );
             } else {
               setGpuAvailable(false);
               gpuOpsRef.current = null;
@@ -1422,10 +1424,23 @@ export default function NeuroLinguaDomesticaV324() {
       addSystemMessage('🔁 Continuing training on the current model…');
     }
 
+    // Apply the Sophia hyper-parameters chosen in the UI (no-op for other optimizers)
+    modelRef.current!.setSophiaConfig({
+      beta1: sophiaBeta1,
+      beta2: sophiaBeta2,
+      rho: sophiaRho,
+      hessianUpdateFreq: sophiaHessianFreq,
+      weightDecay: DEFAULT_SOPHIA_CONFIG.sophiaWeightDecay
+    });
+
     // Set GPU operations if enabled
     if (useGPU && gpuOpsRef.current) {
       modelRef.current!.setGPUOps(gpuOpsRef.current);
-      addSystemMessage('⚡ GPU acceleration enabled');
+      addSystemMessage(
+        modelRef.current instanceof TransformerLM
+          ? 'ℹ️ WebGPU is not used by the Transformer: it trains with exact backpropagation on the CPU'
+          : '⚡ WebGPU enabled for the MLP matrix-vector products (compare the GPU timings: small models are often as fast on the CPU)'
+      );
     } else {
       modelRef.current!.setGPUOps(null);
     }

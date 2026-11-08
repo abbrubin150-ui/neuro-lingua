@@ -687,15 +687,30 @@ export class TransformerLM extends ProNeuralLM {
     scored?: number[],
     useBatchDropConnect = false
   ): StackPass {
+    const embedding = (this as any).embedding as number[][];
+    return this.stackForwardFrom(
+      inputs.map((i) => embedding[i].slice()),
+      train,
+      scored,
+      useBatchDropConnect
+    );
+  }
+
+  /** Forward pass from explicit input rows X0 (token embeddings or interpolations of them). */
+  private stackForwardFrom(
+    X0: Matrix,
+    train: boolean,
+    scored?: number[],
+    useBatchDropConnect = false
+  ): StackPass {
     const self = this as any;
-    const embedding = self.embedding as number[][];
     const wOutput = self.wOutput as number[][];
     const bOutput = self.bOutput as number[];
     const dropout = self.dropout as number;
     const random = () => self.nextRandom() as number;
-    const positions = inputs.map((_, i) => i);
+    const positions = X0.map((_, i) => i);
     const config = this.blockConfig();
-    const T = inputs.length;
+    const T = X0.length;
 
     // Attention dropout is sampled per window; DropConnect uses the mini-batch masks (W̃ = W ⊙ M).
     const { attentionDropout } = this.transformerConfig;
@@ -705,7 +720,6 @@ export class TransformerLM extends ProNeuralLM {
         : undefined;
     const dropConnect = train && useBatchDropConnect ? this.batchDropConnect : null;
 
-    const X0 = inputs.map((i) => embedding[i].slice());
     const caches: BlockCache[] = [];
     let hidden = X0;
     for (let l = 0; l < this.transformerConfig.numLayers; l++) {
@@ -774,7 +788,6 @@ export class TransformerLM extends ProNeuralLM {
 
   private ensureGradBuffers(): GradBuffers {
     const self = this as any;
-    const wOutput = self.wOutput as number[][];
     const H = this.getHiddenSize();
     const V = (self.bOutput as number[]).length;
     const g = this.gradBuffers;
@@ -792,14 +805,21 @@ export class TransformerLM extends ProNeuralLM {
     ) {
       return g;
     }
-    this.gradBuffers = {
-      wOutput: zeros(wOutput.length, V),
+    this.gradBuffers = this.createGradBuffers();
+    return this.gradBuffers;
+  }
+
+  private createGradBuffers(): GradBuffers {
+    const self = this as any;
+    const H = this.getHiddenSize();
+    const V = (self.bOutput as number[]).length;
+    return {
+      wOutput: zeros((self.wOutput as number[][]).length, V),
       bOutput: new Array(V).fill(0),
       finalGamma: this.isCausal() ? new Array(H).fill(0) : null,
       layers: this.attentionWeights.map((_, l) => createBlockGrads(this.blockParams(l))),
       embedding: new Map()
     };
-    return this.gradBuffers;
   }
 
   /**
@@ -807,16 +827,38 @@ export class TransformerLM extends ProNeuralLM {
    * skipped) and add the gradients to the accumulators. Returns that mean loss.
    */
   private accumulateGradients(inputs: number[], pass: StackPass, targets: number[]): number {
+    const H = this.getHiddenSize();
+    const g = this.ensureGradBuffers();
+    const { loss, dInputs } = this.backpropagate(pass, targets, g);
+    inputs.forEach((tok, t) => {
+      let row = g.embedding.get(tok);
+      if (!row) {
+        row = new Array(H).fill(0);
+        g.embedding.set(tok, row);
+      }
+      for (let i = 0; i < H; i++) row[i] += dInputs[t][i];
+    });
+    return loss;
+  }
+
+  /**
+   * Backpropagate the mean cross-entropy over the scored entries (targets < 0 are skipped),
+   * adding parameter gradients to `g`; returns the loss and the gradient w.r.t. each input row.
+   */
+  private backpropagate(
+    pass: StackPass,
+    targets: number[],
+    g: GradBuffers
+  ): { loss: number; dInputs: Matrix } {
     const self = this as any;
     const wOutput = self.wOutput as number[][];
     const H = this.getHiddenSize();
     const V = (self.bOutput as number[]).length;
-    const T = inputs.length;
+    const T = pass.X0.length;
     const config = this.blockConfig();
-    const g = this.ensureGradBuffers();
 
     const active = targets.filter((t) => t >= 0).length;
-    if (active === 0) return 0;
+    if (active === 0) return { loss: 0, dInputs: zeros(T, H) };
     const w = 1 / active;
 
     let loss = 0;
@@ -873,16 +915,41 @@ export class TransformerLM extends ProNeuralLM {
         g.layers[l]
       );
     }
+    return { loss, dInputs: dHidden };
+  }
 
-    inputs.forEach((tok, t) => {
-      let row = g.embedding.get(tok);
-      if (!row) {
-        row = new Array(H).fill(0);
-        g.embedding.set(tok, row);
-      }
-      for (let i = 0; i < H; i++) row[i] += dHidden[t][i];
-    });
-    return loss;
+  // ---------------------------------------------------------------------------
+  // Explainability
+  // ---------------------------------------------------------------------------
+
+  /**
+   * log p(target | context) from explicit input rows (no dropout, no parameter updates) and its
+   * exact gradient with respect to every row.
+   */
+  explainLogProb(
+    contextEmbeddings: number[][],
+    target: number
+  ): { logProb: number; gradient: number[][] } {
+    const pass = this.stackForwardFrom(
+      contextEmbeddings.map((row) => row.slice()),
+      false
+    );
+    const probs = pass.probs[pass.probs.length - 1];
+    const targets = pass.scored.map((_, k) => (k === pass.scored.length - 1 ? target : -1));
+    const { dInputs } = this.backpropagate(pass, targets, this.createGradBuffers());
+    return {
+      logProb: Math.log(Math.max(probs[target], 1e-300)),
+      gradient: dInputs.map((row) => row.map((v) => -v)) // ∂ log p = −∂ CE
+    };
+  }
+
+  /**
+   * Attention probabilities of every layer and head for a context window
+   * ([layer][head][query position][key position]).
+   */
+  getAttentionMaps(context: number[]): number[][][][] {
+    const pass = this.stackForward(context, false);
+    return pass.caches.map((cache) => cache.attn.map((head) => head.map((row) => row.slice())));
   }
 
   private getParamOptimizer(): ParamOptimizer {

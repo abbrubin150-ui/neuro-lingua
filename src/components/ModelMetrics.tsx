@@ -223,7 +223,8 @@ function GPUStatusPanel({ metrics }: { metrics: GPUMetrics }) {
       </div>
 
       <div style={{ fontSize: 10, color: '#64748b', marginTop: 8 }}>
-        💡 Tip: Use Chrome or Edge for 2-5x faster training with GPU acceleration.
+        💡 WebGPU needs Chrome or Edge 113+. Each GPU product uploads the weights and waits for the
+        result, so for small models the CPU is often as fast — compare the timings above.
       </div>
     </div>
   );

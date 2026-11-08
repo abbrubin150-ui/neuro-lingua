@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { ProNeuralLM } from '../lib/ProNeuralLM';
 import { TransformerLM } from '../lib/TransformerLM';
-import { estimateShapValues } from '../explainability/shap';
-import { integratedGradients } from '../explainability/integratedGradients';
+import { explainNextToken } from '../explainability/modelAttribution';
 
 interface ExplainabilityPanelProps {
   model: ProNeuralLM | null;
@@ -22,6 +21,11 @@ export function ExplainabilityPanel({ model }: ExplainabilityPanelProps) {
   const [attributions, setAttributions] = useState<TokenAttribution[]>([]);
   const [isComputing, setIsComputing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [explained, setExplained] = useState<{
+    target: string;
+    probability: number;
+    totalEffect?: number;
+  } | null>(null);
 
   const isTransformer = model instanceof TransformerLM;
 
@@ -42,120 +46,33 @@ export function ExplainabilityPanel({ model }: ExplainabilityPanelProps) {
         setIsComputing(false);
         return;
       }
-
-      let scores: number[] = [];
-
-      if (method === 'shap') {
-        scores = await computeSHAPValues(tokens);
-      } else if (method === 'integrated-gradients') {
-        scores = await computeIntegratedGradients(tokens);
-      } else if (method === 'attention-rollout') {
-        if (!isTransformer) {
-          setError('Attention Rollout is only available for Transformer models');
-          setIsComputing(false);
-          return;
-        }
-        scores = await computeAttentionRollout(tokens);
+      if (method === 'attention-rollout' && !isTransformer) {
+        setError('Attention Rollout is only available for Transformer models');
+        setIsComputing(false);
+        return;
       }
 
-      // Normalize scores for visualization
-      const absMax = Math.max(...scores.map(Math.abs), 1e-6);
-      const normalized: TokenAttribution[] = tokens.map((token, i) => ({
-        token,
-        score: scores[i] || 0,
-        normalized: (scores[i] || 0) / absMax
-      }));
-
-      setAttributions(normalized);
+      // Attributions of the model's next-token prediction to the tokens of its context window
+      const explanation = await explainNextToken(model, inputText, method);
+      const absMax = Math.max(...explanation.scores.map(Math.abs), 1e-12);
+      setAttributions(
+        explanation.tokens.map((token, i) => ({
+          token,
+          score: explanation.scores[i] ?? 0,
+          normalized: (explanation.scores[i] ?? 0) / absMax
+        }))
+      );
+      setExplained({
+        target: explanation.target,
+        probability: explanation.targetProbability,
+        totalEffect: explanation.totalEffect
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Computation failed');
       console.error('Explainability error:', err);
     } finally {
       setIsComputing(false);
     }
-  };
-
-  const computeSHAPValues = async (tokens: string[]): Promise<number[]> => {
-    if (!model) return [];
-
-    // Create predict function that takes token indices and returns probability
-    const predictFn = (tokenIndices: number[]): number => {
-      try {
-        // Average probability across all tokens
-        let totalProb = 0;
-        for (let i = 0; i < tokenIndices.length; i++) {
-          if (tokenIndices[i] < 0 || tokenIndices[i] >= model.getVocabSize()) {
-            continue;
-          }
-          // Simple prediction: use the token's embedding magnitude as proxy
-          // In a full implementation, this would use forward pass
-          totalProb += tokenIndices[i] / model.getVocabSize();
-        }
-        return totalProb / Math.max(tokenIndices.length, 1);
-      } catch {
-        return 0;
-      }
-    };
-
-    // Convert tokens to indices
-    const tokenIndices = tokens.map((t) => model.getTokenIndex(t)).filter((idx) => idx !== -1);
-
-    if (tokenIndices.length === 0) return [];
-
-    // Compute SHAP values
-    const shapValues = estimateShapValues(predictFn, tokenIndices, {
-      baseline: new Array(tokenIndices.length).fill(0),
-      permutations: Math.max(50, tokenIndices.length * 8)
-    });
-
-    return shapValues;
-  };
-
-  const computeIntegratedGradients = async (tokens: string[]): Promise<number[]> => {
-    if (!model) return [];
-
-    // Create gradient function
-    const gradientFn = (tokenIndices: number[]): number[] => {
-      try {
-        // Finite differences approximation of gradients
-        const epsilon = 0.01;
-        const gradients = new Array(tokenIndices.length).fill(0);
-
-        for (let i = 0; i < tokenIndices.length; i++) {
-          const perturbed = [...tokenIndices];
-          perturbed[i] = Math.min(model.getVocabSize() - 1, Math.max(0, tokenIndices[i] + epsilon));
-
-          // Compute finite difference
-          const baseProb = tokenIndices[i] / model.getVocabSize();
-          const perturbedProb = perturbed[i] / model.getVocabSize();
-          gradients[i] = (perturbedProb - baseProb) / epsilon;
-        }
-
-        return gradients;
-      } catch {
-        return new Array(tokenIndices.length).fill(0);
-      }
-    };
-
-    // Convert tokens to indices
-    const tokenIndices = tokens.map((t) => model.getTokenIndex(t)).filter((idx) => idx !== -1);
-
-    if (tokenIndices.length === 0) return [];
-
-    // Compute Integrated Gradients
-    const result = integratedGradients(gradientFn, tokenIndices, {
-      baseline: new Array(tokenIndices.length).fill(0),
-      steps: 50
-    });
-
-    return result.attributions;
-  };
-
-  const computeAttentionRollout = async (tokens: string[]): Promise<number[]> => {
-    // Placeholder for attention rollout
-    // This would require extracting attention weights from TransformerLM
-    // For now, return uniform scores
-    return new Array(tokens.length).fill(1.0 / tokens.length);
   };
 
   const getColorForScore = (normalized: number): string => {
@@ -175,11 +92,11 @@ export function ExplainabilityPanel({ model }: ExplainabilityPanelProps) {
   const getMethodDescription = (m: ExplainabilityMethod): string => {
     switch (m) {
       case 'shap':
-        return 'SHAP (SHapley Additive exPlanations) assigns each token an importance score based on game-theoretic principles. Positive scores indicate tokens that increase the model output, while negative scores decrease it.';
+        return 'Shapley values of the context tokens for log p(predicted next token): exact over all token subsets for windows of up to 10 tokens, with a removed token replaced by BOS padding. Positive scores raise the probability of the prediction; the scores sum to the log-probability change from an all-padding context.';
       case 'integrated-gradients':
-        return 'Integrated Gradients attributes the model prediction to input tokens by integrating gradients along the path from a baseline to the actual input. This method satisfies axiomatic properties like completeness and symmetry.';
+        return 'Integrated Gradients in embedding space, from an all-padding baseline to the actual context, using the model’s exact gradient of log p(predicted next token). Per-token scores sum to the same log-probability change (completeness).';
       case 'attention-rollout':
-        return 'Attention Rollout visualizes how attention flows through transformer layers, showing which input tokens the model focuses on when making predictions. This reveals the information pathway through the network.';
+        return 'Attention Rollout over the transformer’s attention maps (heads averaged, residual connection modelled as ½A + ½I): the share of each context token in the representation that predicts the next token. Scores sum to 1.';
       default:
         return '';
     }
@@ -327,6 +244,15 @@ export function ExplainabilityPanel({ model }: ExplainabilityPanelProps) {
       {attributions.length > 0 && (
         <div>
           <h3 style={{ marginBottom: '15px' }}>Token Attribution Scores</h3>
+          {explained && (
+            <p style={{ fontSize: '14px', color: '#444', marginBottom: '12px' }}>
+              Explaining the prediction <strong>“{explained.target}”</strong> (p ={' '}
+              {explained.probability.toFixed(3)}) from the model&apos;s context window
+              {explained.totalEffect !== undefined &&
+                ` · total effect ${explained.totalEffect.toFixed(3)} nats`}
+              .
+            </p>
+          )}
           <div
             style={{
               display: 'flex',

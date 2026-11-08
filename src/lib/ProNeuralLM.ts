@@ -17,7 +17,7 @@ import {
   typicalSample
 } from '../generation/sampling';
 import { GPUNeuralOps } from '../backend/gpu_neural_ops';
-import { SophiaOptimizer } from '../training/SophiaOptimizer';
+import { SophiaOptimizer, type SophiaConfig } from '../training/SophiaOptimizer';
 import type { LossMaskConfig } from '../types/project';
 import { findRegExpMatches, buildCharMaskFromMatches } from '../losses/lossMask';
 
@@ -435,9 +435,13 @@ export class ProNeuralLM {
 
   /**
    * Backpropagate through normalizeHidden: maps ∂L/∂z to ∂L/∂preAct. Implementations that own
-   * parameters (e.g. LayerNorm γ/β) update them here.
+   * parameters (e.g. LayerNorm γ/β) update them here unless `updateParams` is false.
    */
-  protected normalizeHiddenBackward(dZ: number[], _preAct: number[]): number[] {
+  protected normalizeHiddenBackward(
+    dZ: number[],
+    _preAct: number[],
+    _updateParams = true
+  ): number[] {
     return dZ;
   }
 
@@ -457,6 +461,15 @@ export class ProNeuralLM {
 
   /** Called after each epoch inside train(). */
   protected onEpochEnd(_epoch: number, _epochs: number, _metrics: EpochMetrics): void {}
+
+  /**
+   * Configure the Sophia optimizer (β₁, β₂, ρ, weight decay, Hessian refresh interval).
+   * Recreates its state; ignored unless the model was created with optimizer 'sophia'.
+   */
+  setSophiaConfig(config: Omit<SophiaConfig, 'lr'>): void {
+    if (this.optimizer !== 'sophia') return;
+    this.sophiaOptimizer = new SophiaOptimizer({ ...config, lr: this.learningRate });
+  }
 
   /** Current (possibly scheduled) learning rate. */
   getLearningRate(): number {
@@ -1430,6 +1443,65 @@ export class ProNeuralLM {
       labels.push(tgt);
     }
     return { representations, labels };
+  }
+
+  /**
+   * Token indices of the context window that would be used to predict the token following
+   * `text` (the last `contextSize` tokens, left-padded with BOS).
+   */
+  getContextWindow(text: string): number[] {
+    const ids = this.tokenize(text).map((t) => this.toIndex(t));
+    const bos = this.toIndex(this.bos);
+    const padded = [...new Array(this.contextSize).fill(bos), ...ids];
+    return padded.slice(-this.contextSize);
+  }
+
+  /** Copies of the embedding rows of `indices`. */
+  getEmbeddingRows(indices: number[]): number[][] {
+    return indices.map((i) => this.embedding[i].slice());
+  }
+
+  /**
+   * log p(target | context) computed from explicit context embedding rows (no dropout, no
+   * parameter updates), together with its exact gradient with respect to those rows.
+   * Used by the explainability tools (integrated gradients, Shapley values).
+   */
+  explainLogProb(
+    contextEmbeddings: number[][],
+    target: number
+  ): { logProb: number; gradient: number[][] } {
+    const H = this.hiddenSize;
+    const n = Math.max(1, contextEmbeddings.length);
+    const emb = new Array(H).fill(0);
+    for (const row of contextEmbeddings) for (let i = 0; i < H; i++) emb[i] += row[i] / n;
+
+    const preAct = this.wHidden.map(
+      (row, a) => row.reduce((sum, w, c) => sum + w * emb[c], 0) + this.bHidden[a]
+    );
+    const z = this.normalizeHidden(preAct);
+    const h = z.map((v) => this.activate(v));
+    const V = this.vocab.length;
+    const logits = new Array(V);
+    for (let j = 0; j < V; j++) {
+      let s = this.bOutput[j];
+      for (let a = 0; a < H; a++) s += this.wOutput[a][j] * h[a];
+      logits[j] = s;
+    }
+    const probs = stableSoftmax(logits);
+    const logProb = Math.log(Math.max(probs[target], 1e-300));
+
+    // ∂ log p_target / ∂ logits = onehot − p
+    const dLogits = probs.map((p, j) => (j === target ? 1 : 0) - p);
+    const dZ = this.wOutput.map(
+      (row, a) => row.reduce((sum, w, j) => sum + w * dLogits[j], 0) * this.activateDerivative(z[a])
+    );
+    const dPre = this.normalizeHiddenBackward(dZ, preAct, false);
+    const dEmb = new Array(H).fill(0);
+    for (let a = 0; a < H; a++) {
+      const row = this.wHidden[a];
+      for (let c = 0; c < H; c++) dEmb[c] += row[c] * dPre[a];
+    }
+    return { logProb, gradient: contextEmbeddings.map(() => dEmb.map((v) => v / n)) };
   }
 
   async getLogitsForContext(context: number[]): Promise<number[]> {

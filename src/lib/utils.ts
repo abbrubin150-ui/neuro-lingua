@@ -1,4 +1,5 @@
 import { ProNeuralLM, type TokenizerConfig } from './ProNeuralLM';
+import { isSubwordModel } from '../tokenizer/subword';
 import { SPECIAL_TOKENS } from '../config/constants';
 
 /**
@@ -10,6 +11,10 @@ export function parseTokenizerConfig(raw: unknown): TokenizerConfig {
   if (!raw || typeof raw !== 'object') return { mode: 'unicode' };
   const mode = (raw as { mode?: unknown }).mode;
   if (mode === 'character') return { mode: 'character' };
+  if (mode === 'bpe') {
+    const bpe = (raw as { bpe?: unknown }).bpe;
+    return isSubwordModel(bpe) ? { mode: 'bpe', bpe } : { mode: 'unicode' };
+  }
   if (mode === 'ascii') return { mode: 'ascii' };
   if (mode === 'custom') {
     const pattern = (raw as { pattern?: unknown }).pattern;
@@ -59,9 +64,9 @@ export function isValidRegex(pattern: string): boolean {
  * @returns Array of unique vocabulary tokens with special tokens
  */
 export function buildVocab(text: string, tokenizerConfig: TokenizerConfig): string[] {
-  const tokens = ProNeuralLM.tokenizeText(text, tokenizerConfig);
-  const uniq = Array.from(new Set(tokens));
-  return Array.from(new Set([...SPECIAL_TOKENS, ...uniq]));
+  // Special tokens first, then the corpus tokens (or the full subword vocabulary for 'bpe').
+  const vocab = ProNeuralLM.buildVocabulary(text, tokenizerConfig);
+  return Array.from(new Set([...SPECIAL_TOKENS, ...vocab]));
 }
 
 /**

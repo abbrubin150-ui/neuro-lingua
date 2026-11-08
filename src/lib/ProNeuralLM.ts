@@ -20,6 +20,13 @@ import { GPUNeuralOps } from '../backend/gpu_neural_ops';
 import { SophiaOptimizer, type SophiaConfig } from '../training/SophiaOptimizer';
 import type { LossMaskConfig } from '../types/project';
 import { findRegExpMatches, buildCharMaskFromMatches } from '../losses/lossMask';
+import {
+  decodeSubword,
+  encodeSubword,
+  isSubwordModel,
+  subwordVocabulary,
+  type SubwordModel
+} from '../tokenizer/subword';
 
 export type EpochMetrics = { loss: number; accuracy: number };
 
@@ -47,11 +54,13 @@ export type ForwardCache = {
 };
 
 export type Optimizer = 'momentum' | 'adam' | 'newton' | 'bfgs' | 'lion' | 'sophia';
-export type TokenizerMode = 'unicode' | 'ascii' | 'custom' | 'character';
+export type TokenizerMode = 'unicode' | 'ascii' | 'custom' | 'character' | 'bpe';
 
 export type TokenizerConfig = {
   mode: TokenizerMode;
   pattern?: string;
+  /** Trained subword model (mode 'bpe'); see src/tokenizer/subword.ts. */
+  bpe?: SubwordModel;
 };
 
 /** EMA decay of the Gauss-Newton curvature used by the 'newton' optimizer. */
@@ -213,6 +222,12 @@ export class ProNeuralLM {
   protected static normalizeTokenizerConfig(config?: TokenizerConfig): TokenizerConfig {
     if (!config) return { ...DEFAULT_TOKENIZER_CONFIG };
     if (config.mode === 'character') return { mode: 'character' };
+    if (config.mode === 'bpe') {
+      // Keep the same object so that the encoder cache (keyed by model identity) is reused.
+      return isSubwordModel(config.bpe)
+        ? { mode: 'bpe', bpe: config.bpe }
+        : { ...DEFAULT_TOKENIZER_CONFIG };
+    }
     if (config.mode === 'ascii') return { mode: 'ascii' };
     if (config.mode === 'custom') {
       if (config.pattern && config.pattern.length > 0) {
@@ -258,6 +273,10 @@ export class ProNeuralLM {
     const normalized = ProNeuralLM.normalizeTokenizerConfig(config);
     const out: { token: string; start: number; end: number }[] = [];
 
+    if (normalized.mode === 'bpe' && normalized.bpe) {
+      return encodeSubword(text, normalized.bpe);
+    }
+
     if (normalized.mode === 'character') {
       let i = 0;
       let pendingSpace: { start: number; end: number } | null = null;
@@ -300,9 +319,28 @@ export class ProNeuralLM {
     return ProNeuralLM.tokenizeWithOffsets(text, config).map((t) => t.token);
   }
 
-  /** Join generated tokens back into text (characters are concatenated, words space-separated). */
+  /**
+   * Join generated tokens back into text: characters are concatenated, subwords are decoded
+   * (word markers become spaces) and words are space-separated.
+   */
   protected joinTokens(tokens: string[]): string {
+    if (this.tokenizerConfig.mode === 'bpe') return decodeSubword(tokens);
     return this.tokenizerConfig.mode === 'character' ? tokens.join('') : tokens.join(' ');
+  }
+
+  /**
+   * Model vocabulary for a corpus: the four special tokens followed by the tokens of `text`
+   * (in order of first appearance) or, for a subword tokenizer, its full subword vocabulary
+   * (so that any text made of known characters has no out-of-vocabulary tokens).
+   */
+  static buildVocabulary(text: string, config?: TokenizerConfig): string[] {
+    const normalized = ProNeuralLM.normalizeTokenizerConfig(config);
+    const specials = ['<PAD>', '<BOS>', '<EOS>', '<UNK>'];
+    const tokens =
+      normalized.mode === 'bpe' && normalized.bpe
+        ? subwordVocabulary(normalized.bpe)
+        : ProNeuralLM.tokenizeText(text, normalized);
+    return Array.from(new Set([...specials, ...tokens]));
   }
 
   setTokenizerConfig(config: TokenizerConfig) {

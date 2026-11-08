@@ -91,6 +91,23 @@ export type TransformerConfig = {
    * (DropConnect masks are shared within a mini-batch). 1 reproduces per-window updates.
    */
   batchSize?: number;
+  /**
+   * Causal objective only: train on every `trainingStride`-th context window. With every
+   * position of a window trained, a stride equal to the context size visits each target once per
+   * epoch (non-overlapping chunks, as in GPT-style training) instead of contextSize times.
+   * 1 keeps every overlapping window (default).
+   */
+  trainingStride?: number;
+  /** Decoupled (AdamW-style) weight decay for weight matrices and embeddings; 0 disables it. */
+  weightDecay?: number;
+};
+
+/** Per-optimizer-step learning-rate schedule: linear warm-up, then cosine decay. */
+export type LearningRateSchedule = {
+  warmupSteps: number;
+  totalSteps: number;
+  /** Final learning rate as a fraction of the base rate (default 0.1). */
+  minFactor?: number;
 };
 
 const DEFAULT_TRANSFORMER_CONFIG: Required<TransformerConfig> = {
@@ -103,7 +120,9 @@ const DEFAULT_TRANSFORMER_CONFIG: Required<TransformerConfig> = {
   numKVHeads: 4,
   objective: 'causal',
   ropeBase: ROPE_BASE_CAUSAL,
-  batchSize: 8
+  batchSize: 8,
+  trainingStride: 1,
+  weightDecay: 0
 };
 
 type BaseModelJson = ReturnType<ProNeuralLM['toJSON']>;
@@ -240,6 +259,10 @@ export class TransformerLM extends ProNeuralLM {
   // Optimizer state and gradient accumulators (not serialized; rebuilt lazily)
   private paramOptimizer: ParamOptimizer | null = null;
   private gradBuffers: GradBuffers | null = null;
+  /** Optional per-step learning-rate schedule (not serialized; set per training run). */
+  private lrSchedule: LearningRateSchedule | null = null;
+  private scheduleStep = 0;
+
   /** DropConnect masks and masked Q/K/V weights of the current mini-batch (one per layer). */
   private batchDropConnect: LayerDropConnect[] | null = null;
 
@@ -505,7 +528,21 @@ export class TransformerLM extends ProNeuralLM {
     const lossMask: number[] = lossMaskConfig
       ? self.buildTrainingLossMask(text, lossMaskConfig)
       : new Array(seqs.length).fill(1);
-    const items = seqs.map(([ctx, tgt], index) => ({ ctx, tgt, index }));
+    const stride = this.isCausal()
+      ? Math.max(1, Math.floor(this.transformerConfig.trainingStride ?? 1))
+      : 1;
+    const allItems = seqs.map(([ctx, tgt], index) => ({ ctx, tgt, index }));
+    // Chunked training: one window every `stride` targets. The chunk alignment is re-drawn every
+    // epoch so that each target is, over the epochs, predicted from every position (and hence
+    // every context length) of the window; a fixed alignment would train some targets only with
+    // a short context.
+    const epochItems = () => {
+      if (stride === 1) return allItems.slice();
+      const offset = Math.floor(self.nextRandom() * stride);
+      return allItems.filter(
+        ({ index }) => (index + offset) % stride === stride - 1 || index === allItems.length - 1
+      );
+    };
     const batchSize = Math.max(1, Math.floor(this.transformerConfig.batchSize));
     const causal = this.isCausal();
 
@@ -515,6 +552,7 @@ export class TransformerLM extends ProNeuralLM {
     let maskedCount = 0;
 
     for (let e = 0; e < epochs; e++) {
+      const items = epochItems();
       self.shuffleInPlace(items);
       let epochLoss = 0;
       let epochCorrect = 0;
@@ -952,6 +990,38 @@ export class TransformerLM extends ProNeuralLM {
     return pass.caches.map((cache) => cache.attn.map((head) => head.map((row) => row.slice())));
   }
 
+  /**
+   * Use a per-optimizer-step schedule relative to the model's learning rate (null restores a
+   * constant rate). The step counter restarts whenever a schedule is set.
+   */
+  setLearningRateSchedule(schedule: LearningRateSchedule | null): void {
+    this.lrSchedule = schedule;
+    this.scheduleStep = 0;
+  }
+
+  /** Learning rate the next optimizer step will use. */
+  getScheduledLearningRate(): number {
+    return this.scheduledLearningRate(this.scheduleStep);
+  }
+
+  private scheduledLearningRate(step: number): number {
+    const base = (this as any).learningRate as number;
+    const schedule = this.lrSchedule;
+    if (!schedule) return base;
+    const warmup = Math.max(0, Math.floor(schedule.warmupSteps));
+    const total = Math.max(warmup + 1, Math.floor(schedule.totalSteps));
+    const minFactor = schedule.minFactor ?? 0.1;
+    if (step < warmup) return (base * (step + 1)) / warmup;
+    const progress = Math.min(1, (step - warmup) / Math.max(1, total - warmup));
+    return base * (minFactor + (1 - minFactor) * 0.5 * (1 + Math.cos(Math.PI * progress)));
+  }
+
+  private nextScheduledLearningRate(): number {
+    const lr = this.scheduledLearningRate(this.scheduleStep);
+    this.scheduleStep++;
+    return lr;
+  }
+
   private getParamOptimizer(): ParamOptimizer {
     const optimizer = (this as any).optimizer as Optimizer;
     const momentum = (this as any).momentum as number;
@@ -999,7 +1069,8 @@ export class TransformerLM extends ProNeuralLM {
     const g = this.gradBuffers;
     if (!g || count <= 0) return;
     const self = this as any;
-    const lr = self.learningRate as number;
+    const lr = this.nextScheduledLearningRate();
+    const weightDecay = Math.max(0, this.transformerConfig.weightDecay ?? 0);
 
     this.finalizeDropConnectGradients(g);
 
@@ -1016,10 +1087,12 @@ export class TransformerLM extends ProNeuralLM {
     const gradScale =
       (1 / count) * (norm > TRANSFORMER_GRAD_CLIP ? TRANSFORMER_GRAD_CLIP / norm : 1);
     const opts = { gradScale, zeroGrad: true };
+    // Weight decay applies to weight matrices and embeddings, not to norm gains or biases.
+    const decayed = { ...opts, weightDecay };
 
     const opt = this.getParamOptimizer();
     opt.step();
-    opt.update('wOutput', self.wOutput, g.wOutput, lr, undefined, opts);
+    opt.update('wOutput', self.wOutput, g.wOutput, lr, undefined, decayed);
     opt.update('bOutput', self.bOutput, g.bOutput, lr, undefined, opts);
     if (g.finalGamma && this.isCausal()) {
       opt.update('finalGamma', this.finalNorm.gamma, g.finalGamma, lr, undefined, opts);
@@ -1027,17 +1100,17 @@ export class TransformerLM extends ProNeuralLM {
     for (let l = 0; l < g.layers.length; l++) {
       const p = this.blockParams(l);
       const lg = g.layers[l];
-      opt.update(`L${l}.query`, p.attention.query, lg.query, lr, undefined, opts);
-      opt.update(`L${l}.key`, p.attention.key, lg.key, lr, undefined, opts);
-      opt.update(`L${l}.value`, p.attention.value, lg.value, lr, undefined, opts);
-      opt.update(`L${l}.ff1`, p.ff1, lg.ff1, lr, undefined, opts);
-      opt.update(`L${l}.ff2`, p.ff2, lg.ff2, lr, undefined, opts);
+      opt.update(`L${l}.query`, p.attention.query, lg.query, lr, undefined, decayed);
+      opt.update(`L${l}.key`, p.attention.key, lg.key, lr, undefined, decayed);
+      opt.update(`L${l}.value`, p.attention.value, lg.value, lr, undefined, decayed);
+      opt.update(`L${l}.ff1`, p.ff1, lg.ff1, lr, undefined, decayed);
+      opt.update(`L${l}.ff2`, p.ff2, lg.ff2, lr, undefined, decayed);
       opt.update(`L${l}.attnGamma`, p.attnGamma, lg.attnGamma, lr, undefined, opts);
       opt.update(`L${l}.ffnGamma`, p.ffnGamma, lg.ffnGamma, lr, undefined, opts);
     }
     const sparse: number[][] = [];
     for (const [tok, row] of g.embedding) sparse[tok] = row;
-    opt.update('embedding', self.embedding, sparse, lr, g.embedding.keys(), opts);
+    opt.update('embedding', self.embedding, sparse, lr, g.embedding.keys(), decayed);
     g.embedding.clear();
   }
 

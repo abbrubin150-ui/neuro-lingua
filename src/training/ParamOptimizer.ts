@@ -70,6 +70,7 @@ export class ParamOptimizer {
    * @param rows      update only these rows of a matrix (sparse embedding updates)
    * @param options.gradScale multiply the gradient by this factor first (e.g. 1/batch · clip)
    * @param options.zeroGrad  reset the used gradient entries to 0 (fused accumulator reset)
+   * @param options.weightDecay decoupled weight decay λ (AdamW-style): θ ← θ − η·λ·θ
    */
   update(
     name: string,
@@ -77,10 +78,11 @@ export class ParamOptimizer {
     grad: Tensor,
     lr: number,
     rows?: Iterable<number>,
-    options: { gradScale?: number; zeroGrad?: boolean } = {}
+    options: { gradScale?: number; zeroGrad?: boolean; weightDecay?: number } = {}
   ): void {
     const gradScale = options.gradScale ?? 1;
     const zeroGrad = options.zeroGrad ?? false;
+    const decay = 1 - lr * (options.weightDecay ?? 0);
     let slot = this.slots.get(name);
     if (!slot || !shapeMatches(slot.m, param)) {
       slot = { m: zerosLike(param), v: zerosLike(param) };
@@ -93,7 +95,7 @@ export class ParamOptimizer {
       const Vs = slot.v as number[][];
       const rowIter = rows ?? P.keys();
       for (const i of rowIter) {
-        this.updateRow(P[i], G[i], M[i], Vs[i], lr, gradScale, zeroGrad);
+        this.updateRow(P[i], G[i], M[i], Vs[i], lr, gradScale, zeroGrad, decay);
       }
     } else {
       this.updateRow(
@@ -103,7 +105,8 @@ export class ParamOptimizer {
         slot.v as number[],
         lr,
         gradScale,
-        zeroGrad
+        zeroGrad,
+        decay
       );
     }
   }
@@ -115,10 +118,12 @@ export class ParamOptimizer {
     v: number[],
     lr: number,
     gradScale: number,
-    zeroGrad: boolean
+    zeroGrad: boolean,
+    decay = 1
   ): void {
     const t = Math.max(1, this.t);
     const n = p.length;
+    if (decay !== 1) for (let j = 0; j < n; j++) p[j] *= decay;
     if (this.kind === 'adam') {
       const b1 = this.beta1;
       const b2 = this.beta2;

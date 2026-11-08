@@ -32,6 +32,13 @@ pnpm lm train --data ./my-texts --name my-model
 pnpm lm generate --model models/my-model/model.nlm.json --prompt "שלום"
 ```
 
+**ליבות ועצירות:** האימון מתחלק אוטומטית בין כל ליבות המעבד. אם ריצה נעצרה באמצע (כיבוי, Ctrl-C),
+ממשיכים בדיוק מאותה נקודה — התוצאה זהה לריצה שלא נעצרה:
+
+```bash
+pnpm lm train --resume models/my-model
+```
+
 **4. הערכה על טקסט שהמודל לא ראה:**
 
 ```bash
@@ -73,6 +80,7 @@ bits per character על טקסט מוחזק בצד — ככל שהוא נמוך 
 
 ```text
 pnpm lm train    --data <file|dir> [--data …] [--out models/<name>] [options]
+pnpm lm train    --resume <dir>
 pnpm lm eval     --model <package> --data <file|dir>
 pnpm lm generate --model <package> --prompt "text" [--max-tokens 60] [--temperature 0.8]
 pnpm lm serve    --model <package> [--port 8787] [--host 127.0.0.1] [--cors]
@@ -138,6 +146,25 @@ train the MLP models, which see the context as a bag of words.
 - `--init <package>` continues training an existing model on new data (its tokenizer is kept).
 - `--seed` makes the whole run reproducible.
 
+**Multi-core training** (`--workers <n|auto>`, default one per CPU core, at most 8). Every
+mini-batch is split over worker threads that hold copies of the model; they write their gradients
+into shared memory, the main thread adds them up and takes the optimizer step (schedule, clipping
+and optimizer state stay in one place), and the new parameters go back through shared memory.
+Windows, batches and learning-rate steps are exactly those of single-thread training. Dropout noise
+comes from one seeded stream per worker, so a run is reproducible for a given `--seed` and
+`--workers` — pass `--workers` explicitly to reproduce a run on a machine with another number of
+cores. Without dropout the result equals single-thread training up to floating-point summation
+order. Validation and `pnpm lm eval` are split over the workers as well. Larger `--batch` values
+parallelise better (more windows per synchronisation).
+
+**Resuming** (`--resume <dir>`). After every epoch the run writes a lossless checkpoint (see
+Output). `pnpm lm train --resume models/my-model` continues from it with the original data and
+settings, and the final model is bit-identical to an uninterrupted run with the same `--workers`.
+The checkpoint is written to a temporary file and renamed, so an interruption in the middle of a
+write leaves the previous checkpoint intact. A resumed run refuses training data that differs from
+the original (fingerprint of the prepared text). `--epochs`, `--patience` and `--workers` may be
+changed on resume (another worker count changes the remaining dropout noise).
+
 ### Output
 
 | File | Content |
@@ -145,7 +172,7 @@ train the MLP models, which see the context as a bag of words.
 | `model.nlm.json` | the best model as a package, with its model card |
 | `model-card.md` | the card as Markdown: sizes, tokenizer, data statistics, training settings, per-epoch metrics, environment, provenance |
 | `training-log.jsonl` | one JSON line per epoch (train/validation loss, perplexity, bits per character, learning rate, seconds) |
-| `checkpoint.nlm.json` | the latest epoch including the optimizer state (for inspection or manual recovery) |
+| `checkpoint.nlm.json` | lossless state after the latest epoch for `--resume`: float64 weights, optimizer moments and schedule position, random streams, the best model so far and the run settings (≈ 70 bytes per parameter) |
 
 **Bits per character** (validation loss × tokens ÷ characters ÷ ln 2) is the headline metric: it
 does not depend on the tokenizer, so models with different vocabularies can be compared.
@@ -235,7 +262,7 @@ pnpm lm train --data data/corpus.txt \
 | Training | early stop after epoch 12 (3 epochs without improvement), best epoch 9 kept; ≈ 95 s per epoch (≈ 68 s of training on ≈ 61 K tokens + ≈ 27 s of validation); 19 min in total |
 | Validation (held-out paragraphs) | **2.307 bits per character** (perplexity 94.8 per subword) |
 | Files never used in training: README.md + CLAUDE.md (25,339 characters) | **2.241 bits per character**. For orientation only, on the same text: gzip -9 3.384, brotli -11 2.813 (compressors start without training data; these files share topics and phrasing with the docs) |
-| Package | 1.86 MB float32; the checkpoint with optimizer state is 6.06 MB |
+| Package | 1.86 MB (float32) |
 
 Validation bits per character per epoch: 3.07 → 2.62 → 2.46 → 2.38 → 2.35 → 2.32 → 2.31 → 2.32 →
 **2.31** → 2.33 → 2.34 → 2.36, while the training loss kept falling (6.82 → 2.95 nats per token):
@@ -255,12 +282,24 @@ text are the levers.
 The same package then served completions and chat completions on `127.0.0.1` (`pnpm lm serve`)
 and loaded in the browser app through ⬆️ Import.
 
+The run above used one core. Multi-core training was added afterwards; on the same 4-core machine,
+one epoch of the same model (training + validation, on the same documents plus this guide: 955
+training paragraphs) took:
+
+| `--workers` | 1 | 2 | 4 |
+| --- | --- | --- | --- |
+| Seconds per epoch | 99.4 | 55.8 (1.8×) | 38.6 (2.6×) |
+
+`pnpm lm eval` on the held-out files took 31.4 s with one worker and 12.5 s with four, with the
+same result to 15 significant digits.
+
 ### Limitations
 
-- CPU-only JavaScript on one core: the `tiny` preset trains at ≈ 900 tokens per second with a
+- CPU-only JavaScript: on one core the `tiny` preset trains at ≈ 900 tokens per second with a
   2,000-subword vocabulary, and scoring (validation, `eval`) costs ≈ 4 ms per token because every
-  token is predicted from a full context window. `small` and `base` are several times slower.
-  Corpora of a few megabytes are practical; hundreds of megabytes are not.
+  token is predicted from a full context window. Worker threads multiply this by about 2.6 on
+  4 cores (measured below). `small` and `base` are several times slower per token. Corpora of a
+  few megabytes are practical; hundreds of megabytes are not.
 - Small models learn the style, vocabulary and local structure of the training text. They do not
   have world knowledge, follow instructions or reason; judge them by held-out bits per character
   and by reading their samples.
@@ -273,6 +312,7 @@ and loaded in the browser app through ⬆️ Import.
 | `scripts/lm.ts` | CLI |
 | `src/factory/pipeline.ts` | documents → corpus → tokenizer → model → validated package |
 | `src/factory/node/files.ts`, `src/factory/node/server.ts` | Node-only file reading and the local server |
+| `src/factory/node/parallel.ts`, `src/factory/node/trainingWorker.ts` | multi-core training and evaluation (coordinator and replica threads) |
 | `src/data/corpusPrep.ts` | parsing, cleaning, de-duplication, hash split |
 | `src/tokenizer/subword.ts` | BPE training, encoding with exact offsets, decoding |
 | `src/lib/modelPackageCodec.ts`, `src/lib/modelPackage.ts` | package format, checksums, loaders |

@@ -184,8 +184,13 @@ pnpm train                     # Run training script
 pnpm benchmark:gpu             # GPU performance benchmark
 pnpm benchmark:models          # Held-out comparison of the three architectures
 pnpm lm train --data <dir>     # Offline model factory → models/<name>/model.nlm.json
+pnpm lm train --resume <dir>   # continue an interrupted run exactly
 pnpm lm eval|generate|serve|info --model <package>
 ```
+
+`pnpm lm train|eval` use all CPU cores (`--workers`, `src/factory/node/parallel.ts`): replicas in
+worker threads load the TypeScript sources through tsx's CommonJS hook registered inside the
+thread (tsx 3 does not load in worker threads otherwise, and Node 20 cannot strip types).
 
 The factory (`scripts/lm.ts`, `src/factory/`) is documented in
 `docs/guides/OFFLINE_MODEL_FACTORY.md`. Nothing in the app, CLI or desktop code may call an
@@ -310,6 +315,13 @@ pnpm build                     # Production build
 16. **Transformer output layer**: `projectOutput` / `outputSoftmax` / `outputBackward` in
     TransformerLM.ts are the hot path (keep them module-level and monomorphic); their accumulation
     order is part of the bit-identical-results guarantee.
+17. **Training state**: `toJSON()` holds weights, the random stream and the history, but not the
+    transformer's optimizer moments or schedule position — use `getTrainingState()` /
+    `setTrainingState()` (after `setLearningRateSchedule`, which resets the step). Exact resume
+    is tested in `tests/factory/resume.test.ts`; keep it passing when adding training state.
+18. **Single-thread vs data-parallel training share code**: `TransformerLM.train` and the
+    replicas both go through `prepareTrainingWindows` / `planEpoch` / `trainWindow`; change the
+    training step there, not in one path only (`tests/factory/parallel.test.ts` compares them).
 
 ## Documentation
 

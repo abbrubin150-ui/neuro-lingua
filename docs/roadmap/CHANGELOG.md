@@ -47,6 +47,16 @@ API or network service.
   vocabulary, freezing the page). Projections now run on request over a bounded selection —
   words and subwords first, specials excluded — with UMAP as the default method.
 - **No-external-AI guard** (`tests/offline/noExternalServices.test.ts`).
+- **Multi-core training and evaluation** (`pnpm lm train|eval --workers <n|auto>`): every
+  mini-batch is split over worker threads holding replicas of the transformer; gradients and
+  parameters travel through shared memory and the optimizer step stays on the main thread. Same
+  windows, batches and LR steps as single-thread training; without dropout the same result up to
+  summation order, with dropout reproducible per seed and worker count. 2.6× faster per epoch on
+  4 cores (99.4 → 38.6 s on the docs corpus); evaluation 31.4 → 12.5 s with the same result.
+- **Exact resume** (`pnpm lm train --resume <dir>`): a lossless checkpoint after every epoch
+  (float64 weights, optimizer moments, schedule position, random streams, best model, run
+  settings), written atomically; a resumed run is bit-identical to an uninterrupted one. Before,
+  the transformer's optimizer state and schedule position were not saved anywhere.
 
 ### Models
 

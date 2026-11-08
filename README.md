@@ -39,7 +39,7 @@ architectures are checked against finite differences in the test suite.
 | Cerebro neuron injection | Works for all architectures; function-preserving for the MLP; rollback restores the exact model. |
 | WebGPU | Offloads the MLP's matrix-vector products only; no measured speedup is claimed. |
 | Subword tokenizer (BPE) | Learned from the corpus (deterministic, keeps Hebrew niqqud attached, exact offsets); used by all architectures in the app and the CLI. |
-| Offline model factory | `pnpm lm train / eval / generate / serve / info`: corpus preparation, tokenizer, transformer training with validation and early stopping, packages with model cards, a local completions / chat server. |
+| Offline model factory | `pnpm lm train / eval / generate / serve / info`: corpus preparation, tokenizer, transformer training on all CPU cores with validation and early stopping, exact resume of interrupted runs, packages with model cards, a local completions / chat server. |
 | Offline web app | Service worker pre-caches every build file; packages export/import with checksums; localStorage saves fall back to compact packages; training keeps the page responsive and Stop acts mid-epoch. |
 | No external AI | `tests/offline/noExternalServices.test.ts` fails on AI-service clients, hosted AI endpoints or network calls in the app, CLI and desktop code. |
 | Causal analysis panel | Runs on data from the engine's built-in simulator (labelled in the UI). |
@@ -266,6 +266,7 @@ pnpm electron:build  # Build NSIS installer
 
 # 8) Offline model factory: your own model from local files, no external AI
 pnpm lm train --data ./my-texts --name my-model      # → models/my-model/model.nlm.json
+pnpm lm train --resume models/my-model               # continue an interrupted run exactly
 pnpm lm generate --model models/my-model/model.nlm.json --prompt "Once upon a time"
 pnpm lm serve --model models/my-model/model.nlm.json # local completions / chat API on 127.0.0.1
 ```

@@ -10,13 +10,20 @@
  * - Beam search for generation
  * - Improved numerical stability
  *
- * Note: Uses (this as any) to access private fields from ProNeuralLM parent class.
- * This is intentional for extending functionality without modifying the base class.
+ * All options act through ProNeuralLM's protected hooks (activate, normalizeHidden,
+ * getGradientClipNorm, onEpochStart, ...), so they apply to the standard train() path.
+ * Weight tensors owned by the base class are still reached via (this as any).
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { ProNeuralLM, type Optimizer, type TokenizerConfig } from './ProNeuralLM';
+import {
+  ProNeuralLM,
+  type EpochMetrics,
+  type Optimizer,
+  type TokenizerConfig
+} from './ProNeuralLM';
+import { ParamOptimizer, type ParamOptimizerKind } from '../training/ParamOptimizer';
 import {
   heInit,
   xavierInit,
@@ -30,7 +37,6 @@ import {
   exponentialDecayLR,
   warmupCosineAnnealingLR,
   stableSoftmax,
-  logSoftmax,
   beamSearch,
   nucleusSampling
 } from './MathUtils';
@@ -82,20 +88,43 @@ const DEFAULT_ADVANCED_CONFIG: Required<AdvancedConfig> = {
   beamWidth: 4
 };
 
+/** Numerical-stability constant for the hidden-layer LayerNorm. */
+const LAYER_NORM_EPSILON = 1e-5;
+
+type EpochCallback = (
+  epoch: number,
+  metrics: { loss: number; accuracy: number; lr: number }
+) => void;
+
 /**
- * AdvancedNeuralLM - Extended neural language model with state-of-the-art techniques
+ * AdvancedNeuralLM - Extended neural language model with state-of-the-art techniques.
+ *
+ * Every option is wired into the regular ProNeuralLM training/inference path through the base
+ * class hooks, so `train()` (used by the UI, one epoch per call) and `trainAdvanced()` behave the
+ * same way:
+ * - activation: φ in the forward pass and φ' in backprop
+ * - useLayerNorm: LayerNorm on the hidden pre-activation with exact backward and learned γ/β
+ * - lrSchedule: per-epoch learning rate over a horizon declared with setTrainingHorizon()
+ * - weightDecay: decoupled L2 shrinkage of wHidden/wOutput after every step
+ * - gradientClipNorm: global L2 clipping of each step's gradients
  */
 export class AdvancedNeuralLM extends ProNeuralLM {
   private advancedConfig: Required<AdvancedConfig>;
   private baseLearningRate: number;
-  private currentEpoch = 0;
-  private totalEpochs = 1;
+
+  // Learning-rate schedule state. The schedule spans `scheduleHorizon` epochs and `scheduleEpoch`
+  // counts completed epochs. When a horizon is declared with setTrainingHorizon() the counter
+  // persists across train() calls (the UI trains one epoch per call); otherwise every train()
+  // call is treated as a complete schedule.
+  private scheduleEpoch = 0;
+  private scheduleHorizon = 0;
+  private horizonExplicit = false;
+  private epochCallback: EpochCallback | null = null;
 
   // Layer normalization parameters (if enabled)
   private layerNormGamma: number[] = [];
   private layerNormBeta: number[] = [];
-  private layerNormGammaGrad: number[] = [];
-  private layerNormBetaGrad: number[] = [];
+  private layerNormOptimizer: ParamOptimizer | null = null;
 
   constructor(
     vocab: string[],
@@ -188,20 +217,20 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   }
 
   /**
-   * Initialize layer normalization parameters
+   * Initialize layer normalization parameters (γ = 1, β = 0).
    */
   private initializeLayerNorm(): void {
-    const H = (this as any).hiddenSize;
+    const H = this.getHiddenSize();
     this.layerNormGamma = new Array(H).fill(1.0);
     this.layerNormBeta = new Array(H).fill(0.0);
-    this.layerNormGammaGrad = new Array(H).fill(0.0);
-    this.layerNormBetaGrad = new Array(H).fill(0.0);
+    this.layerNormOptimizer?.reset();
   }
 
-  /**
-   * Apply activation function based on config
-   */
-  private applyActivation(x: number): number {
+  // ---------------------------------------------------------------------------
+  // Hook: activation function
+  // ---------------------------------------------------------------------------
+
+  protected activate(x: number): number {
     switch (this.advancedConfig.activation) {
       case 'leaky_relu':
         return leakyRelu(x, this.advancedConfig.leakyReluAlpha);
@@ -211,14 +240,11 @@ export class AdvancedNeuralLM extends ProNeuralLM {
         return gelu(x);
       case 'relu':
       default:
-        return Math.max(0, x);
+        return x > 0 ? x : 0;
     }
   }
 
-  /**
-   * Apply activation derivative
-   */
-  private applyActivationDerivative(x: number): number {
+  protected activateDerivative(x: number): number {
     switch (this.advancedConfig.activation) {
       case 'leaky_relu':
         return leakyReluDerivative(x, this.advancedConfig.leakyReluAlpha);
@@ -232,36 +258,142 @@ export class AdvancedNeuralLM extends ProNeuralLM {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Hook: LayerNorm on the hidden pre-activation  z = γ ⊙ (a − μ)/σ + β
+  // ---------------------------------------------------------------------------
+
+  private isLayerNormActive(): boolean {
+    return this.advancedConfig.useLayerNorm && this.layerNormGamma.length === this.getHiddenSize();
+  }
+
+  private layerNormStats(x: number[]): { xhat: number[]; invStd: number } {
+    const n = x.length;
+    let mean = 0;
+    for (const v of x) mean += v;
+    mean /= n;
+    let variance = 0;
+    for (const v of x) variance += (v - mean) * (v - mean);
+    variance /= n;
+    const invStd = 1 / Math.sqrt(variance + LAYER_NORM_EPSILON);
+    return { xhat: x.map((v) => (v - mean) * invStd), invStd };
+  }
+
+  protected normalizeHidden(preAct: number[]): number[] {
+    if (!this.isLayerNormActive()) return preAct;
+    const { xhat } = this.layerNormStats(preAct);
+    return xhat.map((v, i) => v * this.layerNormGamma[i] + this.layerNormBeta[i]);
+  }
+
   /**
-   * Get current learning rate based on schedule
+   * Exact LayerNorm backward. With x̂ = (a − μ)/σ and g = ∂L/∂x̂ = ∂L/∂z ⊙ γ:
+   *   ∂L/∂a = (g − mean(g) − x̂ · mean(g ⊙ x̂)) / σ,   ∂L/∂γ = ∂L/∂z ⊙ x̂,   ∂L/∂β = ∂L/∂z.
+   * γ and β are updated here with the same rule as the rest of the model (Adam / Lion /
+   * momentum-SGD; second-order optimizers fall back to momentum-SGD for these two vectors).
+   */
+  protected normalizeHiddenBackward(dZ: number[], preAct: number[]): number[] {
+    if (!this.isLayerNormActive()) return dZ;
+    const n = preAct.length;
+    const { xhat, invStd } = this.layerNormStats(preAct);
+    const g = dZ.map((d, i) => d * this.layerNormGamma[i]);
+    let meanG = 0;
+    let meanGX = 0;
+    for (let i = 0; i < n; i++) {
+      meanG += g[i];
+      meanGX += g[i] * xhat[i];
+    }
+    meanG /= n;
+    meanGX /= n;
+    const dPreAct = g.map((gi, i) => invStd * (gi - meanG - xhat[i] * meanGX));
+
+    const dGamma = dZ.map((d, i) => d * xhat[i]);
+    const dBeta = dZ.slice();
+    const opt = this.getLayerNormOptimizer();
+    const lr = this.getLearningRate();
+    opt.step();
+    opt.update('gamma', this.layerNormGamma, dGamma, lr);
+    opt.update('beta', this.layerNormBeta, dBeta, lr);
+    return dPreAct;
+  }
+
+  private getLayerNormOptimizer(): ParamOptimizer {
+    const optimizer = (this as any).optimizer as Optimizer;
+    const momentum = (this as any).momentum as number;
+    const kind: ParamOptimizerKind =
+      optimizer === 'adam' ? 'adam' : optimizer === 'lion' ? 'lion' : 'momentum';
+    if (!this.layerNormOptimizer) {
+      this.layerNormOptimizer = new ParamOptimizer(kind, momentum);
+    } else {
+      this.layerNormOptimizer.setKind(kind, momentum);
+    }
+    return this.layerNormOptimizer;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Hook: global gradient clipping
+  // ---------------------------------------------------------------------------
+
+  protected getGradientClipNorm(): number {
+    return this.advancedConfig.gradientClipNorm > 0 ? this.advancedConfig.gradientClipNorm : 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Hooks: learning-rate schedule and weight decay
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Declare the length of the upcoming training run so that the learning-rate schedule spans it
+   * even when train() is called one epoch at a time (as the UI does).
+   */
+  setTrainingHorizon(totalEpochs: number, startEpoch = 0): void {
+    this.scheduleHorizon = Math.max(1, Math.floor(totalEpochs));
+    this.scheduleEpoch = Math.max(0, Math.floor(startEpoch));
+    this.horizonExplicit = true;
+  }
+
+  protected onTrainStart(epochs: number): void {
+    // Without a declared horizon (or once it is exhausted) each train() call is a full schedule.
+    if (!this.horizonExplicit || this.scheduleEpoch >= this.scheduleHorizon) {
+      this.horizonExplicit = false;
+      this.scheduleEpoch = 0;
+      this.scheduleHorizon = Math.max(1, epochs);
+    }
+  }
+
+  protected onEpochStart(): void {
+    this.setLearningRateInternal(this.getCurrentLearningRate());
+  }
+
+  protected onTrainingStep(): void {
+    if (this.advancedConfig.weightDecay > 0) {
+      const lr = this.getLearningRate();
+      this.applyL2Regularization((this as any).wHidden, lr);
+      this.applyL2Regularization((this as any).wOutput, lr);
+    }
+  }
+
+  protected onEpochEnd(_epoch: number, _epochs: number, metrics: EpochMetrics): void {
+    this.epochCallback?.(this.scheduleEpoch, { ...metrics, lr: this.getLearningRate() });
+    this.scheduleEpoch++;
+  }
+
+  /**
+   * Learning rate for the current schedule position.
    */
   private getCurrentLearningRate(): number {
-    const schedule = this.advancedConfig.lrSchedule;
-
-    switch (schedule) {
+    const epoch = this.scheduleEpoch;
+    const total = this.scheduleHorizon;
+    switch (this.advancedConfig.lrSchedule) {
       case 'cosine':
-        return cosineAnnealingLR(
-          this.currentEpoch,
-          this.totalEpochs,
-          this.baseLearningRate,
-          this.advancedConfig.lrMin
-        );
-
+        return cosineAnnealingLR(epoch, total, this.baseLearningRate, this.advancedConfig.lrMin);
       case 'exponential':
-        return exponentialDecayLR(
-          this.currentEpoch,
-          this.baseLearningRate,
-          this.advancedConfig.lrDecayRate
-        );
-
+        return exponentialDecayLR(epoch, this.baseLearningRate, this.advancedConfig.lrDecayRate);
       case 'warmup_cosine':
         return warmupCosineAnnealingLR(
-          this.currentEpoch,
-          this.totalEpochs,
+          epoch,
+          total,
           this.baseLearningRate,
           this.advancedConfig.warmupEpochs
         );
-
       case 'constant':
       default:
         return this.baseLearningRate;
@@ -269,149 +401,39 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   }
 
   /**
-   * Apply L2 regularization (weight decay) to parameters
+   * Decoupled weight decay: w ← w − η·λ·w
    */
   private applyL2Regularization(weights: number[][], learningRate: number): void {
     const lambda = this.advancedConfig.weightDecay;
     if (lambda <= 0) return;
-
+    const factor = 1 - learningRate * lambda;
     for (let i = 0; i < weights.length; i++) {
-      for (let j = 0; j < weights[i].length; j++) {
-        // w = w - lr * λ * w
-        weights[i][j] -= learningRate * lambda * weights[i][j];
-      }
+      const row = weights[i];
+      for (let j = 0; j < row.length; j++) row[j] *= factor;
     }
   }
 
   /**
-   * Clip gradients by global norm
-   */
-  private clipGradientsByNorm(gradients: number[][]): void {
-    const maxNorm = this.advancedConfig.gradientClipNorm;
-    if (maxNorm <= 0) return;
-
-    // Calculate global norm
-    let globalNorm = 0;
-    for (const grad of gradients) {
-      for (const g of grad) {
-        globalNorm += g * g;
-      }
-    }
-    globalNorm = Math.sqrt(globalNorm);
-
-    // Clip if necessary
-    if (globalNorm > maxNorm) {
-      const scale = maxNorm / globalNorm;
-      for (const grad of gradients) {
-        for (let i = 0; i < grad.length; i++) {
-          grad[i] *= scale;
-        }
-      }
-    }
-  }
-
-  /**
-   * Enhanced training with advanced features
+   * Train for `epochs` epochs over one complete learning-rate schedule, reporting per-epoch
+   * metrics through `callbacks.onEpochEnd`. Equivalent to setTrainingHorizon(epochs) + train().
    */
   async trainAdvanced(
     text: string,
     epochs = 10,
     callbacks?: {
-      onEpochEnd?: (epoch: number, metrics: { loss: number; accuracy: number; lr: number }) => void;
+      onEpochEnd?: EpochCallback;
     },
     lossMaskConfig?: LossMaskConfig
   ): Promise<{ loss: number; accuracy: number; history: any[] }> {
-    this.totalEpochs = epochs;
-    const seqs = (this as any).createTrainingSequences(text);
-
-    if (seqs.length === 0) {
-      return { loss: 0, accuracy: 0, history: this.getTrainingHistory() };
+    this.setTrainingHorizon(epochs, 0);
+    this.epochCallback = callbacks?.onEpochEnd ?? null;
+    try {
+      const result = await this.train(text, epochs, lossMaskConfig);
+      return { loss: result.loss, accuracy: result.accuracy, history: [...result.history] };
+    } finally {
+      this.epochCallback = null;
+      this.horizonExplicit = false;
     }
-
-    // Build loss mask if config provided
-    const lossMask = lossMaskConfig
-      ? (this as any).buildTrainingLossMask(text, lossMaskConfig)
-      : new Array(seqs.length).fill(1);
-
-    // Pair sequences with their mask values for shuffling
-    const seqsWithMask: [number[], number, number][] = seqs.map(
-      (seq: [number[], number], i: number) => [seq[0], seq[1], lossMask[i] ?? 1]
-    );
-
-    let totalLoss = 0;
-    let correct = 0;
-    let count = 0;
-    let maskedCount = 0;
-
-    for (let e = 0; e < epochs; e++) {
-      this.currentEpoch = e;
-
-      // Update learning rate based on schedule
-      const currentLR = this.getCurrentLearningRate();
-      (this as any).learningRate = currentLR;
-
-      // Shuffle sequences with mask
-      (this as any).shuffleInPlace(seqsWithMask);
-
-      let epochLoss = 0;
-      let epochCorrect = 0;
-      let epochMaskedCount = 0;
-
-      for (const [ctx, tgt, maskValue] of seqsWithMask) {
-        // Forward pass (use parent's forward with modifications)
-        const cache = await (this as any).forward(ctx, true);
-
-        // Apply advanced activation if needed (stored in cache)
-        // Note: For full integration, we'd override forward() method
-
-        // Calculate loss with numerical stability
-        const probs = stableSoftmax(cache.logits, 1.0);
-        const pred = probs.indexOf(Math.max(...probs));
-
-        // Only compute loss and backprop for unmasked positions
-        if (maskValue === 1) {
-          const loss = -Math.log(probs[tgt] + 1e-10);
-          epochLoss += loss;
-          totalLoss += loss;
-          epochMaskedCount++;
-          maskedCount++;
-
-          // Backward pass with regularization
-          await (this as any).backward(ctx, tgt, { ...cache, probs });
-
-          // Apply L2 regularization
-          if (this.advancedConfig.weightDecay > 0) {
-            this.applyL2Regularization((this as any).wHidden, currentLR);
-            this.applyL2Regularization((this as any).wOutput, currentLR);
-          }
-        }
-
-        // Still track accuracy for all positions
-        if (pred === tgt) {
-          epochCorrect++;
-          correct++;
-        }
-        count++;
-      }
-
-      const avgLoss = epochMaskedCount > 0 ? epochLoss / epochMaskedCount : 0;
-      const accuracy = epochCorrect / seqs.length;
-
-      // Store history
-      const history = this.getTrainingHistory();
-      history.push({ loss: avgLoss, accuracy, timestamp: Date.now() });
-
-      // Call epoch callback
-      if (callbacks?.onEpochEnd) {
-        callbacks.onEpochEnd(e, { loss: avgLoss, accuracy, lr: currentLR });
-      }
-    }
-
-    return {
-      loss: maskedCount > 0 ? totalLoss / maskedCount : 0,
-      accuracy: correct / Math.max(1, count),
-      history: this.getTrainingHistory()
-    };
   }
 
   /**
@@ -659,7 +681,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
     }
 
     // Initialize layer norm if enabled
-    if (config.useLayerNorm && this.layerNormGamma.length === 0) {
+    if (config.useLayerNorm && this.layerNormGamma.length !== this.getHiddenSize()) {
       this.initializeLayerNorm();
     }
   }
@@ -685,9 +707,7 @@ export class AdvancedNeuralLM extends ProNeuralLM {
   setAdvancedWeights(weights: { layerNormGamma: number[]; layerNormBeta: number[] }): void {
     this.layerNormGamma = [...weights.layerNormGamma];
     this.layerNormBeta = [...weights.layerNormBeta];
-    // Reset gradients for new dimensions
-    this.layerNormGammaGrad = new Array(this.layerNormGamma.length).fill(0);
-    this.layerNormBetaGrad = new Array(this.layerNormBeta.length).fill(0);
+    this.layerNormOptimizer?.reset();
   }
 
   /**
@@ -696,102 +716,120 @@ export class AdvancedNeuralLM extends ProNeuralLM {
    * Used by Cerebro neuron injection system.
    */
   expandHiddenLayer(k: number, useHeInit = true): void {
-    // Call parent method to expand base weights
     super.expandHiddenLayer(k, useHeInit);
 
-    // Expand layer normalization parameters if enabled
     if (this.advancedConfig.useLayerNorm && this.layerNormGamma.length > 0) {
-      // Add k new gamma values (initialized to 1.0)
       for (let i = 0; i < k; i++) {
         this.layerNormGamma.push(1.0);
         this.layerNormBeta.push(0.0);
-        this.layerNormGammaGrad.push(0.0);
-        this.layerNormBetaGrad.push(0.0);
       }
+      this.layerNormOptimizer?.reset();
     }
   }
 
+  getParametersCount(): number {
+    const ln = this.isLayerNormActive() ? 2 * this.getHiddenSize() : 0;
+    return super.getParametersCount() + ln;
+  }
+
   /**
-   * Export model with advanced config
+   * Serialize the model including its advanced configuration, LayerNorm parameters and the
+   * learning-rate schedule position. `learningRate` stores the *base* rate (the scheduled value
+   * is kept separately) so that reloading a model does not freeze its schedule at the last value.
    */
-  toJSONAdvanced() {
-    const baseJSON = this.toJSON();
+  toJSON() {
+    const base = super.toJSON();
     return {
-      ...baseJSON,
-      advancedConfig: this.advancedConfig,
-      layerNormGamma: this.layerNormGamma,
-      layerNormBeta: this.layerNormBeta,
-      currentEpoch: this.currentEpoch,
-      baseLearningRate: this.baseLearningRate
+      ...base,
+      architecture: 'advanced' as const,
+      learningRate: this.baseLearningRate,
+      currentLearningRate: this.getLearningRate(),
+      advancedConfig: { ...this.advancedConfig },
+      layerNormGamma: [...this.layerNormGamma],
+      layerNormBeta: [...this.layerNormBeta],
+      schedule: { epoch: this.scheduleEpoch, horizon: this.scheduleHorizon }
     };
   }
 
   /**
-   * Load model from JSON with advanced config
+   * Export model with advanced config (alias of toJSON, kept for backwards compatibility).
    */
-  static loadFromJSONAdvanced(data: any): AdvancedNeuralLM {
+  toJSONAdvanced() {
+    return this.toJSON();
+  }
+
+  /**
+   * Rebuild an AdvancedNeuralLM from toJSON() output (also accepts exports from older versions,
+   * which stored the scheduled rate in `learningRate` and the base rate in `baseLearningRate`).
+   */
+  static fromJSON(data: any): AdvancedNeuralLM {
+    const baseLR =
+      typeof data.baseLearningRate === 'number'
+        ? data.baseLearningRate
+        : (data.learningRate ?? 0.08);
     const model = new AdvancedNeuralLM(
       data.vocab,
       data.hiddenSize,
-      data.learningRate,
-      data.contextSize,
-      data.optimizer,
-      data.momentum,
-      data.dropout,
-      data.rngSeed,
-      data.tokenizerConfig,
+      baseLR,
+      data.contextSize ?? 3,
+      (data.optimizer as Optimizer) ?? 'momentum',
+      data.momentum ?? 0.9,
+      data.dropout ?? 0,
+      typeof data.rngSeed === 'number' ? data.rngSeed : undefined,
+      ProNeuralLM.normalizeTokenizerConfig(data.tokenizerConfig),
       data.advancedConfig
     );
 
-    // Restore weights and optimizer state
-    (model as any).embedding = data.embedding;
-    (model as any).wHidden = data.wHidden;
-    (model as any).wOutput = data.wOutput;
-    (model as any).bHidden = data.bHidden;
-    (model as any).bOutput = data.bOutput;
+    AdvancedNeuralLM.restoreSerializedState(model, data);
 
-    if (data.adamT) (model as any).adamT = data.adamT;
-    if (data.mEmbedding) (model as any).mEmbedding = data.mEmbedding;
-    if (data.mWHidden) (model as any).mWHidden = data.mWHidden;
-    if (data.mWOutput) (model as any).mWOutput = data.mWOutput;
-    if (data.mBHidden) (model as any).mBHidden = data.mBHidden;
-    if (data.mBOutput) (model as any).mBOutput = data.mBOutput;
-
-    if (data.aEmbedding) (model as any).aEmbedding = data.aEmbedding;
-    if (data.aWHidden) (model as any).aWHidden = data.aWHidden;
-    if (data.aWOutput) (model as any).aWOutput = data.aWOutput;
-    if (data.aBHidden) (model as any).aBHidden = data.aBHidden;
-    if (data.aBOutput) (model as any).aBOutput = data.aBOutput;
-
-    // Restore advanced-specific state
-    if (data.layerNormGamma) model.layerNormGamma = data.layerNormGamma;
-    if (data.layerNormBeta) model.layerNormBeta = data.layerNormBeta;
-    if (data.currentEpoch) model.currentEpoch = data.currentEpoch;
-    if (data.baseLearningRate) model.baseLearningRate = data.baseLearningRate;
-
+    if (typeof data.currentLearningRate === 'number') {
+      model.setLearningRateInternal(data.currentLearningRate);
+    }
+    if (Array.isArray(data.layerNormGamma) && Array.isArray(data.layerNormBeta)) {
+      if (data.layerNormGamma.length > 0) {
+        model.layerNormGamma = [...data.layerNormGamma];
+        model.layerNormBeta = [...data.layerNormBeta];
+      }
+    }
+    if (data.schedule && typeof data.schedule.epoch === 'number') {
+      model.scheduleEpoch = data.schedule.epoch;
+      model.scheduleHorizon = data.schedule.horizon ?? 0;
+    } else if (typeof data.currentEpoch === 'number') {
+      model.scheduleEpoch = data.currentEpoch;
+    }
     return model;
   }
 
   /**
-   * Calculate perplexity on test text
+   * Load model from JSON with advanced config (alias of fromJSON).
+   */
+  static loadFromJSONAdvanced(data: any): AdvancedNeuralLM {
+    return AdvancedNeuralLM.fromJSON(data);
+  }
+
+  /**
+   * Load an AdvancedNeuralLM saved with saveToLocalStorage(). Returns null when the stored model
+   * is missing or is not an advanced model.
+   */
+  static loadFromLocalStorage(key: string): AdvancedNeuralLM | null {
+    try {
+      if (typeof localStorage === 'undefined') return null;
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (data?.architecture !== 'advanced') return null;
+      return AdvancedNeuralLM.fromJSON(data);
+    } catch (error) {
+      console.warn('Failed to load advanced model', error);
+      return null;
+    }
+  }
+
+  /**
+   * Calculate perplexity on text (exp of the mean next-token cross-entropy).
    */
   async calculatePerplexity(text: string): Promise<number> {
-    // Check if text is empty or contains no tokens
-    const tokens = (this as any).tokenize(text);
-    if (tokens.length === 0) return Infinity;
-
-    const seqs = (this as any).createTrainingSequences(text);
-    if (seqs.length === 0) return Infinity;
-
-    let totalLogProb = 0;
-
-    for (const [ctx, tgt] of seqs) {
-      const { logits } = await (this as any).forward(ctx, false);
-      const logProbs = logSoftmax(logits);
-      totalLogProb += logProbs[tgt];
-    }
-
-    const avgLogProb = totalLogProb / seqs.length;
-    return Math.exp(-avgLogProb);
+    const result = await this.evaluate(text);
+    return result.tokens === 0 ? Infinity : result.perplexity;
   }
 }

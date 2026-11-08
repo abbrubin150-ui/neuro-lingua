@@ -87,6 +87,7 @@ import { useProjects } from './contexts/ProjectContext';
 import { useBrainTraining, useBrainGeneration } from './contexts/BrainContext';
 import { calculateDiversityScore } from './lib/BrainEngine';
 import { createTraceExport, generateTraceFilename } from './lib/traceExport';
+import { parseModelImport } from './lib/modelImport';
 import { createDecisionLedger } from './types/project';
 import type { TrainingConfig, ScenarioResult } from './types/project';
 import type { ModelMeta, ModelMetaStore } from './types/modelMeta';
@@ -353,6 +354,11 @@ function loadLatestModel(architecture: Architecture = 'feedforward'): ProNeuralL
   if (architecture === 'transformer') {
     return TransformerLM.loadFromLocalStorage(TRANSFORMER_MODEL_STORAGE_KEY);
   }
+
+  // Feed-forward and advanced models share a storage key; the serialized `architecture` field
+  // decides which class restores it (an advanced model must keep its activation/LayerNorm).
+  const advanced = AdvancedNeuralLM.loadFromLocalStorage(MODEL_STORAGE_KEY);
+  if (advanced) return advanced;
 
   const primary = ProNeuralLM.loadFromLocalStorage(MODEL_STORAGE_KEY);
   if (primary) return primary;
@@ -1430,6 +1436,11 @@ export default function NeuroLinguaDomesticaV324() {
     }
 
     const total = Math.max(1, epochs);
+    // The UI trains one epoch per train() call; declare the run length so that learning-rate
+    // schedules (cosine, warmup, exponential) span the whole run.
+    if (modelRef.current instanceof AdvancedNeuralLM) {
+      modelRef.current.setTrainingHorizon(total);
+    }
     let aggLoss = 0;
     let aggAcc = 0;
     let lossEMA = 0;
@@ -1759,43 +1770,30 @@ export default function NeuroLinguaDomesticaV324() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const data = JSON.parse(String(reader.result));
+        const parsed = parseModelImport(JSON.parse(String(reader.result)));
+        const importedArchitecture: Architecture = parsed.architecture;
+        const modelData = parsed.modelData;
 
-        // Check if this is a trace export format
-        let modelData: unknown;
-        let importedArchitecture: Architecture = 'feedforward';
-
-        if (data.architecture === 'transformer' || data?.config?.architecture === 'transformer') {
-          importedArchitecture = 'transformer';
-        } else if (data.architecture === 'advanced' || data?.config?.architecture === 'advanced') {
-          importedArchitecture = 'advanced';
-        }
-
-        if (data.modelWeights && data.config && data.tokenizer) {
-          // New trace export format
-          modelData = {
-            weights: data.modelWeights,
-            config: data.config,
-            tokenizer: data.tokenizer
-          };
-
-          // Show trace metadata if available
-          if (data.projectMeta) {
+        if (parsed.format === 'trace') {
+          const { projectMeta, decisionLedger, trainingTrace } = parsed.trace ?? {};
+          if (projectMeta) {
             addSystemMessage(
-              `📥 Importing from Project: ${data.projectMeta.projectName}, Run: ${data.projectMeta.runName}`
+              `📥 Importing from Project: ${projectMeta.projectName}, Run: ${projectMeta.runName}`
             );
           }
-          if (data.decisionLedger) {
-            addSystemMessage(`📋 Rationale: ${data.decisionLedger.rationale}`);
+          if (decisionLedger?.rationale) {
+            addSystemMessage(`📋 Rationale: ${decisionLedger.rationale}`);
           }
-          if (data.trainingTrace) {
+          if (
+            trainingTrace &&
+            typeof trainingTrace.finalLoss === 'number' &&
+            typeof trainingTrace.finalAccuracy === 'number'
+          ) {
             addSystemMessage(
-              `📊 Training: ${data.trainingTrace.epochs} epochs, Loss: ${data.trainingTrace.finalLoss.toFixed(4)}, Accuracy: ${(data.trainingTrace.finalAccuracy * 100).toFixed(1)}%`
+              `📊 Training: ${trainingTrace.epochs} epochs, Loss: ${trainingTrace.finalLoss.toFixed(4)}, Accuracy: ${(trainingTrace.finalAccuracy * 100).toFixed(1)}%`
             );
           }
         } else {
-          // Standard format
-          modelData = data;
           addSystemMessage('📥 Importing standard format model...');
         }
 
@@ -1809,10 +1807,13 @@ export default function NeuroLinguaDomesticaV324() {
           syncTokenizerFromModel(m);
           applyModelMeta(m);
           addSystemMessage('✅ Model imported successfully');
+        } else {
+          addSystemMessage('❌ The model file could not be restored');
         }
       } catch (error) {
         console.error('Import error:', error);
-        addSystemMessage('❌ Failed to import model file');
+        const reason = error instanceof Error ? `: ${error.message}` : '';
+        addSystemMessage(`❌ Failed to import model file${reason}`);
       }
     };
     reader.readAsText(file);

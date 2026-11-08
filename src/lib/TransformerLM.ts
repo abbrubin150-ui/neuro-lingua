@@ -22,16 +22,18 @@ import {
   blockBackward,
   blockForward,
   createBlockGrads,
-  globalNorm,
-  scaleTensors,
-  StackOptimizer,
   zeros,
   type BlockCache,
   type BlockConfig,
   type BlockGrads,
-  type BlockParams,
-  type StackOptimizerKind
+  type BlockParams
 } from '../models/transformer_backprop';
+import {
+  globalNorm,
+  ParamOptimizer,
+  scaleTensors,
+  type ParamOptimizerKind
+} from '../training/ParamOptimizer';
 
 const TRANSFORMER_ROPE_BASE = 500000;
 /** Global-norm gradient clipping threshold for one training step. */
@@ -133,7 +135,7 @@ export class TransformerLM extends ProNeuralLM {
   private renormStates: TransformerRMSStates[] = [];
 
   // Optimizer state for the full transformer stack (not serialized; rebuilt lazily)
-  private stackOptimizer: StackOptimizer | null = null;
+  private paramOptimizer: ParamOptimizer | null = null;
 
   // Seeded RNG for transformer weight initialization (reproducible for a given seed)
   private initRng: TransformerRng | null = null;
@@ -216,7 +218,7 @@ export class TransformerLM extends ProNeuralLM {
     const kvDim = normalizedKVHeads * headDim;
 
     this.transformerLayers = [];
-    this.stackOptimizer?.reset();
+    this.paramOptimizer?.reset();
     this.attentionWeights = [];
     this.ffWeights1 = [];
     this.ffWeights2 = [];
@@ -582,19 +584,19 @@ export class TransformerLM extends ProNeuralLM {
     };
   }
 
-  private getStackOptimizer(): StackOptimizer {
+  private getParamOptimizer(): ParamOptimizer {
     const optimizer = (this as any).optimizer as Optimizer;
     const momentum = (this as any).momentum as number;
     // Second-order modes (newton/bfgs/sophia) are not implemented for the transformer stack;
     // they fall back to Adam, the most robust first-order method.
-    const kind: StackOptimizerKind =
+    const kind: ParamOptimizerKind =
       optimizer === 'momentum' ? 'momentum' : optimizer === 'lion' ? 'lion' : 'adam';
-    if (!this.stackOptimizer) {
-      this.stackOptimizer = new StackOptimizer(kind, momentum);
+    if (!this.paramOptimizer) {
+      this.paramOptimizer = new ParamOptimizer(kind, momentum);
     } else {
-      this.stackOptimizer.setKind(kind, momentum);
+      this.paramOptimizer.setKind(kind, momentum);
     }
-    return this.stackOptimizer;
+    return this.paramOptimizer;
   }
 
   /**
@@ -654,7 +656,7 @@ export class TransformerLM extends ProNeuralLM {
     const norm = globalNorm(allGrads);
     if (norm > TRANSFORMER_GRAD_CLIP) scaleTensors(allGrads, TRANSFORMER_GRAD_CLIP / norm);
 
-    const opt = this.getStackOptimizer();
+    const opt = this.getParamOptimizer();
     opt.step();
     opt.update('wOutput', wOutput, dWout, lr);
     opt.update('bOutput', bOutput, dBout, lr);
@@ -867,7 +869,7 @@ export class TransformerLM extends ProNeuralLM {
     this.ffWeights1 = weights.ffWeights1;
     this.ffWeights2 = weights.ffWeights2;
     this.positionEmbeddings = weights.positionEmbeddings;
-    this.stackOptimizer?.reset();
+    this.paramOptimizer?.reset();
     this.renormStates = weights.renormStates.map((state) =>
       this.normalizeRenormState(state as TransformerRMSStates | RMSNormState, this.getHiddenSize())
     );
@@ -901,6 +903,16 @@ export class TransformerLM extends ProNeuralLM {
       console.warn('Failed to load transformer model', error);
       return null;
     }
+  }
+
+  /**
+   * Rebuild a TransformerLM from the object produced by toJSON().
+   */
+  static fromJSON(data: any): TransformerLM {
+    if (data?.architecture !== 'transformer' || !data.transformer) {
+      throw new Error('Serialized data is not a transformer model');
+    }
+    return TransformerLM.fromSerialized(data as TransformerSerializedModel);
   }
 
   private static fromSerialized(data: TransformerSerializedModel): TransformerLM {

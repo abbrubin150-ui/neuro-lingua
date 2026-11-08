@@ -21,6 +21,31 @@ import { SophiaOptimizer } from '../training/SophiaOptimizer';
 import type { LossMaskConfig } from '../types/project';
 import { findRegExpMatches, buildCharMaskFromMatches } from '../losses/lossMask';
 
+export type EpochMetrics = { loss: number; accuracy: number };
+
+export type EvaluationResult = {
+  /** Mean cross-entropy in nats per scored token. */
+  loss: number;
+  perplexity: number;
+  accuracy: number;
+  /** Number of scored positions (including the final EOS). */
+  tokens: number;
+  /** Fraction of targets that were out-of-vocabulary. */
+  oovRate: number;
+};
+
+/** Activations produced by a forward pass and consumed by backward(). */
+export type ForwardCache = {
+  h: number[];
+  logits: number[];
+  probs: number[];
+  avgEmb: number[];
+  dropMask: number[] | null;
+  preAct: number[];
+  /** Hidden pre-activation after normalizeHidden (equals preAct when no normalisation). */
+  z?: number[];
+};
+
 export type Optimizer = 'momentum' | 'adam' | 'newton' | 'bfgs' | 'lion' | 'sophia';
 export type TokenizerMode = 'unicode' | 'ascii' | 'custom' | 'character';
 
@@ -180,7 +205,7 @@ export class ProNeuralLM {
     }
   }
 
-  private static normalizeTokenizerConfig(config?: TokenizerConfig): TokenizerConfig {
+  protected static normalizeTokenizerConfig(config?: TokenizerConfig): TokenizerConfig {
     if (!config) return { ...DEFAULT_TOKENIZER_CONFIG };
     if (config.mode === 'character') return { mode: 'character' };
     if (config.mode === 'ascii') return { mode: 'ascii' };
@@ -335,8 +360,58 @@ export class ProNeuralLM {
     this.secondOrderState = createSecondOrderState(maxHistory);
   }
 
-  private relu(x: number) {
-    return Math.max(0, x);
+  // ---------------------------------------------------------------------------
+  // Extension hooks (overridden by AdvancedNeuralLM). The base model is a ReLU MLP with no
+  // normalisation, no global gradient clipping and a constant learning rate.
+  // ---------------------------------------------------------------------------
+
+  /** Hidden-layer activation φ(z). */
+  protected activate(x: number): number {
+    return x > 0 ? x : 0;
+  }
+
+  /** Derivative φ'(z) of the hidden-layer activation. */
+  protected activateDerivative(x: number): number {
+    return x > 0 ? 1 : 0;
+  }
+
+  /** Transform applied to the hidden pre-activation before φ (identity in the base model). */
+  protected normalizeHidden(preAct: number[]): number[] {
+    return preAct;
+  }
+
+  /**
+   * Backpropagate through normalizeHidden: maps ∂L/∂z to ∂L/∂preAct. Implementations that own
+   * parameters (e.g. LayerNorm γ/β) update them here.
+   */
+  protected normalizeHiddenBackward(dZ: number[], _preAct: number[]): number[] {
+    return dZ;
+  }
+
+  /** Global L2 gradient-norm threshold for one step (≤ 0 disables global clipping). */
+  protected getGradientClipNorm(): number {
+    return 0;
+  }
+
+  /** Called at the start of every train() call. */
+  protected onTrainStart(_epochs: number): void {}
+
+  /** Called before each epoch inside train(). */
+  protected onEpochStart(_epoch: number, _epochs: number): void {}
+
+  /** Called after every optimisation step inside train(). */
+  protected onTrainingStep(): void {}
+
+  /** Called after each epoch inside train(). */
+  protected onEpochEnd(_epoch: number, _epochs: number, _metrics: EpochMetrics): void {}
+
+  /** Current (possibly scheduled) learning rate. */
+  getLearningRate(): number {
+    return this.learningRate;
+  }
+
+  protected setLearningRateInternal(lr: number): void {
+    this.learningRate = lr;
   }
 
   private async matrixVectorMul(A: number[][], x: number[]): Promise<number[]> {
@@ -393,12 +468,13 @@ export class ProNeuralLM {
     return y;
   }
 
-  protected async forward(inputs: number[], train = false) {
+  protected async forward(inputs: number[], train = false): Promise<ForwardCache> {
     const emb = this.averageVectors(inputs.map((i) => this.embedding[i]));
 
     const hPreCore = await this.matrixVectorMul(this.wHidden, emb);
     const preAct = hPreCore.map((v, i) => v + this.bHidden[i]);
-    let h = preAct.map((v) => this.relu(v));
+    const z = this.normalizeHidden(preAct);
+    let h = z.map((v) => this.activate(v));
 
     let dropMask: number[] | null = null;
     if (train && this.dropout > 0) {
@@ -413,7 +489,7 @@ export class ProNeuralLM {
       (v, i) => v + this.bOutput[i]
     );
     const probs = stableSoftmax(logits);
-    return { h, logits, probs, avgEmb: emb, dropMask, preAct };
+    return { h, logits, probs, avgEmb: emb, dropMask, preAct, z };
   }
 
   private applyMomentumMatrix(W: number[][], G: number[][], M: number[][]) {
@@ -576,18 +652,9 @@ export class ProNeuralLM {
     }
   }
 
-  private async backward(
-    inputs: number[],
-    target: number,
-    cache: {
-      h: number[];
-      probs: number[];
-      avgEmb: number[];
-      dropMask: number[] | null;
-      preAct: number[];
-    }
-  ) {
+  private async backward(inputs: number[], target: number, cache: Omit<ForwardCache, 'logits'>) {
     const { h, probs, avgEmb, dropMask, preAct } = cache;
+    const z = cache.z ?? preAct;
     const V = this.vocab.length;
     const H = this.hiddenSize;
 
@@ -602,12 +669,12 @@ export class ProNeuralLM {
     for (let j = 0; j < V; j++) dBout[j] += dLogits[j];
 
     const rawHiddenGrad = await this.matrixVectorMul(this.wOutput, dLogits);
-    const dHidden = rawHiddenGrad.map((value, i) => {
-      let s = value;
-      s *= preAct[i] > 0 ? 1 : 0;
+    const dZ = rawHiddenGrad.map((value, i) => {
+      let s = value * this.activateDerivative(z[i]);
       if (dropMask) s *= dropMask[i];
       return s;
     });
+    const dHidden = this.normalizeHiddenBackward(dZ, preAct);
 
     clipVectorInPlace(dHidden, 5);
 
@@ -634,6 +701,33 @@ export class ProNeuralLM {
     let dEmb = await this.matrixVectorMulTranspose(wHiddenSnap, dHidden);
     if (scale !== 1) {
       dEmb = dEmb.map((value) => value * scale);
+    }
+
+    // The context embedding is the mean of the input rows, so a token that occurs k times in the
+    // window receives k·dEmb.
+    const tokenCounts = new Map<number, number>();
+    for (const idx of inputs) tokenCounts.set(idx, (tokenCounts.get(idx) ?? 0) + 1);
+
+    // Optional global-norm clipping over every gradient of this step.
+    const maxGlobalNorm = this.getGradientClipNorm();
+    if (maxGlobalNorm > 0) {
+      let ss = 0;
+      for (const row of dWout) for (const v of row) ss += v * v;
+      for (const row of dWh) for (const v of row) ss += v * v;
+      for (const v of dBout) ss += v * v;
+      for (const v of dBh) ss += v * v;
+      let embSq = 0;
+      for (const v of dEmb) embSq += v * v;
+      for (const count of tokenCounts.values()) ss += count * count * embSq;
+      const norm = Math.sqrt(ss);
+      if (norm > maxGlobalNorm) {
+        const f = maxGlobalNorm / norm;
+        for (const row of dWout) for (let j = 0; j < row.length; j++) row[j] *= f;
+        for (const row of dWh) for (let j = 0; j < row.length; j++) row[j] *= f;
+        for (let j = 0; j < dBout.length; j++) dBout[j] *= f;
+        for (let j = 0; j < dBh.length; j++) dBh[j] *= f;
+        dEmb = dEmb.map((v) => v * f);
+      }
     }
     let adamB1t: number | null = null;
     let adamB2t: number | null = null;
@@ -695,40 +789,35 @@ export class ProNeuralLM {
       this.applyMomentumVector(this.bHidden, dBh, this.mBHidden);
     }
 
-    if (this.optimizer === 'adam' && adamB1t !== null && adamB2t !== null) {
-      for (const idx of inputs) {
+    // Aggregate per unique token and apply exactly one optimizer step to each row (applying the
+    // update once per occurrence would compound Adam/Lion/momentum state).
+    const rowGrad = (count: number) => (count === 1 ? dEmb : dEmb.map((v) => v * count));
+
+    for (const [idx, count] of tokenCounts) {
+      const g = rowGrad(count);
+      if (this.optimizer === 'adam' && adamB1t !== null && adamB2t !== null) {
         this.applyAdamRow(
           this.embedding,
           idx,
-          dEmb,
+          g,
           this.aEmbedding.m,
           this.aEmbedding.v,
           adamB1t,
           adamB2t
         );
-      }
-    } else if (this.optimizer === 'momentum') {
-      for (const idx of inputs) {
+      } else if (this.optimizer === 'momentum') {
         for (let i = 0; i < H; i++) {
           this.mEmbedding[idx][i] =
-            this.momentum * this.mEmbedding[idx][i] + this.learningRate * dEmb[i];
+            this.momentum * this.mEmbedding[idx][i] + this.learningRate * g[i];
           this.embedding[idx][i] -= this.mEmbedding[idx][i];
         }
-      }
-    } else if (this.optimizer === 'lion') {
-      // Lion embedding update
-      for (const idx of inputs) {
-        this.applyLionRow(this.embedding, idx, dEmb, this.mEmbedding);
-      }
-    } else if (this.optimizer === 'sophia' && this.sophiaOptimizer) {
-      // Sophia embedding update
-      for (const idx of inputs) {
-        this.sophiaOptimizer.updateRow(this.embedding, idx, dEmb, 'embedding');
-      }
-    } else if (this.optimizer === 'newton' || this.optimizer === 'bfgs') {
-      for (const idx of inputs) {
+      } else if (this.optimizer === 'lion') {
+        this.applyLionRow(this.embedding, idx, g, this.mEmbedding);
+      } else if (this.optimizer === 'sophia' && this.sophiaOptimizer) {
+        this.sophiaOptimizer.updateRow(this.embedding, idx, g, 'embedding');
+      } else if (this.optimizer === 'newton' || this.optimizer === 'bfgs') {
         for (let i = 0; i < H; i++) {
-          this.embedding[idx][i] -= this.learningRate * dEmb[i];
+          this.embedding[idx][i] -= this.learningRate * g[i];
         }
       }
     }
@@ -888,7 +977,9 @@ export class ProNeuralLM {
     let count = 0;
     let maskedCount = 0; // Track how many were actually trained
 
+    this.onTrainStart(epochs);
     for (let e = 0; e < epochs; e++) {
+      this.onEpochStart(e, epochs);
       this.shuffleInPlace(seqsWithMask);
       let epochLoss = 0;
       let epochCorrect = 0;
@@ -906,6 +997,7 @@ export class ProNeuralLM {
           epochMaskedCount++;
           maskedCount++;
           await this.backward(ctx, tgt, cache);
+          this.onTrainingStep();
         }
 
         // Still track accuracy for all positions
@@ -920,6 +1012,7 @@ export class ProNeuralLM {
       const avgLoss = epochMaskedCount > 0 ? epochLoss / epochMaskedCount : 0;
       const accuracy = epochCorrect / seqs.length;
       this.trainingHistory.push({ loss: avgLoss, accuracy, timestamp: Date.now() });
+      this.onEpochEnd(e, epochs, { loss: avgLoss, accuracy });
     }
 
     const payload = {
@@ -1022,6 +1115,41 @@ export class ProNeuralLM {
       generatedTokenIds.push(idx); // Track for repetition penalty
     }
     return out.join(' ');
+  }
+
+  /**
+   * Evaluate next-token prediction on `text` without changing any weights (no dropout).
+   *
+   * Uses the same windows as training (BOS-padded contexts, EOS as the final target) and reports
+   * the mean cross-entropy in nats/token, perplexity = exp(loss), top-1 accuracy, the number of
+   * scored positions and the fraction of targets that are out-of-vocabulary (mapped to <UNK>).
+   * Use it on held-out text to measure generalisation rather than memorisation.
+   */
+  async evaluate(text: string): Promise<EvaluationResult> {
+    if (this.tokenize(text).length === 0) {
+      return { loss: NaN, perplexity: NaN, accuracy: 0, tokens: 0, oovRate: 0 };
+    }
+    const seqs = this.createTrainingSequences(text);
+    const unkIdx = this.toIndex(this.unk);
+    let nll = 0;
+    let correct = 0;
+    let oov = 0;
+    for (const [ctx, tgt] of seqs) {
+      const { probs } = await this.forward(ctx, false);
+      nll -= Math.log(Math.max(probs[tgt], 1e-12));
+      let best = 0;
+      for (let i = 1; i < probs.length; i++) if (probs[i] > probs[best]) best = i;
+      if (best === tgt) correct++;
+      if (tgt === unkIdx) oov++;
+    }
+    const loss = nll / seqs.length;
+    return {
+      loss,
+      perplexity: Math.exp(loss),
+      accuracy: correct / seqs.length,
+      tokens: seqs.length,
+      oovRate: oov / seqs.length
+    };
   }
 
   getVocabSize() {
@@ -1267,57 +1395,68 @@ export class ProNeuralLM {
     }
   }
 
+  /**
+   * Rebuild a model from the object produced by toJSON().
+   */
+  static fromJSON(d: any): ProNeuralLM {
+    const m = new ProNeuralLM(
+      d.vocab,
+      d.hiddenSize,
+      d.learningRate ?? 0.08,
+      d.contextSize ?? 3,
+      (d.optimizer as Optimizer) ?? 'momentum',
+      d.momentum ?? 0.9,
+      d.dropout ?? 0,
+      typeof d.rngSeed === 'number' ? d.rngSeed : undefined,
+      ProNeuralLM.normalizeTokenizerConfig(d.tokenizerConfig)
+    );
+    ProNeuralLM.restoreSerializedState(m, d);
+    return m;
+  }
+
+  /**
+   * Copy weights, optimizer state, vocabulary maps, history and RNG state from serialized data
+   * into a freshly constructed model (shared by the loaders of every architecture).
+   */
+  protected static restoreSerializedState(m: ProNeuralLM, d: any): void {
+    m.embedding = d.embedding;
+    m.wHidden = d.wHidden;
+    m.wOutput = d.wOutput;
+    m.bHidden = d.bHidden;
+    m.bOutput = d.bOutput;
+    if (typeof d.adamT === 'number') m.adamT = d.adamT;
+    if (d.mEmbedding) m.mEmbedding = d.mEmbedding;
+    if (d.mWHidden) m.mWHidden = d.mWHidden;
+    if (d.mWOutput) m.mWOutput = d.mWOutput;
+    if (d.mBHidden) m.mBHidden = d.mBHidden;
+    if (d.mBOutput) m.mBOutput = d.mBOutput;
+    if (d.aEmbedding) m.aEmbedding = { m: d.aEmbedding.m, v: d.aEmbedding.v };
+    if (d.aWHidden) m.aWHidden = { m: d.aWHidden.m, v: d.aWHidden.v };
+    if (d.aWOutput) m.aWOutput = { m: d.aWOutput.m, v: d.aWOutput.v };
+    if (d.aBHidden) m.aBHidden = { m: d.aBHidden.m, v: d.aBHidden.v };
+    if (d.aBOutput) m.aBOutput = { m: d.aBOutput.m, v: d.aBOutput.v };
+    if (Array.isArray(d.wordToIdx)) m.wordToIdx = new Map(d.wordToIdx);
+    if (Array.isArray(d.idxToWord)) m.idxToWord = new Map(d.idxToWord);
+    m.trainingHistory = d.trainingHistory || [];
+    if (typeof d.lastUpdatedAt === 'number') {
+      m.lastUpdatedAt = d.lastUpdatedAt;
+    } else if (m.trainingHistory.length > 0) {
+      m.lastUpdatedAt = m.trainingHistory[m.trainingHistory.length - 1]?.timestamp ?? null;
+    }
+    if (typeof d.rngSeed === 'number') {
+      m.rngSeed = d.rngSeed >>> 0;
+    }
+    const state = typeof d.rngState === 'number' ? (d.rngState as number) >>> 0 : undefined;
+    m.rng = makeRng(m.rngSeed, state);
+    m.rngState = m.rng.getState();
+    m.resetSecondOrderState();
+  }
+
   static loadFromLocalStorage(key: string): ProNeuralLM | null {
     try {
       const raw = localStorage.getItem(key);
       if (!raw) return null;
-      const d = JSON.parse(raw);
-      const hasSeed = typeof d.rngSeed === 'number';
-      const hasState = typeof d.rngState === 'number';
-      const seed = hasSeed ? (d.rngSeed as number) : undefined;
-      const state = hasState ? (d.rngState as number) : undefined;
-      const m = new ProNeuralLM(
-        d.vocab,
-        d.hiddenSize,
-        d.learningRate ?? 0.08,
-        d.contextSize ?? 3,
-        (d.optimizer as Optimizer) ?? 'momentum',
-        d.momentum ?? 0.9,
-        d.dropout ?? 0,
-        seed,
-        ProNeuralLM.normalizeTokenizerConfig(d.tokenizerConfig)
-      );
-      m.embedding = d.embedding;
-      m.wHidden = d.wHidden;
-      m.wOutput = d.wOutput;
-      m.bHidden = d.bHidden;
-      m.bOutput = d.bOutput;
-      if (typeof d.adamT === 'number') m.adamT = d.adamT;
-      if (d.mEmbedding) m.mEmbedding = d.mEmbedding;
-      if (d.mWHidden) m.mWHidden = d.mWHidden;
-      if (d.mWOutput) m.mWOutput = d.mWOutput;
-      if (d.mBHidden) m.mBHidden = d.mBHidden;
-      if (d.mBOutput) m.mBOutput = d.mBOutput;
-      if (d.aEmbedding) m.aEmbedding = { m: d.aEmbedding.m, v: d.aEmbedding.v };
-      if (d.aWHidden) m.aWHidden = { m: d.aWHidden.m, v: d.aWHidden.v };
-      if (d.aWOutput) m.aWOutput = { m: d.aWOutput.m, v: d.aWOutput.v };
-      if (d.aBHidden) m.aBHidden = { m: d.aBHidden.m, v: d.aBHidden.v };
-      if (d.aBOutput) m.aBOutput = { m: d.aBOutput.m, v: d.aBOutput.v };
-      m.wordToIdx = new Map(d.wordToIdx);
-      m.idxToWord = new Map(d.idxToWord);
-      m.trainingHistory = d.trainingHistory || [];
-      if (typeof d.lastUpdatedAt === 'number') {
-        m.lastUpdatedAt = d.lastUpdatedAt;
-      } else if (m.trainingHistory.length > 0) {
-        m.lastUpdatedAt = m.trainingHistory[m.trainingHistory.length - 1]?.timestamp ?? null;
-      }
-      if (hasSeed) {
-        m.rngSeed = seed! >>> 0;
-      }
-      m.rng = makeRng(m.rngSeed, hasState ? state! >>> 0 : undefined);
-      m.rngState = m.rng.getState();
-      m.resetSecondOrderState();
-      return m;
+      return ProNeuralLM.fromJSON(JSON.parse(raw));
     } catch (e) {
       console.warn('Failed to load model', e);
       return null;

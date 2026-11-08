@@ -77,6 +77,7 @@ Experiment tracking and results.
 
 | Document | Description |
 |----------|-------------|
+| [Model Benchmark](./benchmarks/MODEL_BENCHMARK.md) | Held-out comparison of the three architectures (`pnpm benchmark:models`) |
 | [Logbook](./experiments/logbook.md) | Experiment log and notes |
 | [Experiment Runs](./experiments/runs/) | Individual experiment run data (JSON) |
 

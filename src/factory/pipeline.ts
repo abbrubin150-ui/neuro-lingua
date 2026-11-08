@@ -9,7 +9,12 @@
 
 import { prepareCorpus, type CorpusDocument, type CorpusPrepOptions } from '../data/corpusPrep';
 import { trainSubwordModel, subwordVocabulary } from '../tokenizer/subword';
-import { ProNeuralLM, type Optimizer, type TokenizerConfig } from '../lib/ProNeuralLM';
+import {
+  ProNeuralLM,
+  type EvaluationResult,
+  type Optimizer,
+  type TokenizerConfig
+} from '../lib/ProNeuralLM';
 import { AdvancedNeuralLM, type AdvancedConfig } from '../lib/AdvancedNeuralLM';
 import { TransformerLM, type TransformerConfig } from '../lib/TransformerLM';
 import {
@@ -73,6 +78,56 @@ export interface FactoryCallbacks {
   onEpoch?: (report: EpochReport, model: ProNeuralLM) => void | Promise<void>;
 }
 
+/**
+ * Where the epochs run. The default trains in-process; the Node CLI can supply a data-parallel
+ * backend that spreads every mini-batch over worker processes (src/factory/node/parallel.ts).
+ */
+export interface TrainingBackend {
+  /** Shown in the log, e.g. "in-process" or "4 worker processes". */
+  readonly description: string;
+  /** Train one epoch on the training text; returns the epoch's training loss. */
+  trainEpoch(
+    epoch: number,
+    onProgress?: (done: number, total: number, epoch: number) => void
+  ): Promise<{ loss: number }>;
+  /** Evaluate the current model on the validation text. */
+  evaluate(): Promise<EvaluationResult>;
+  dispose(): Promise<void>;
+}
+
+export interface TrainingBackendSetup {
+  model: ProNeuralLM;
+  trainText: string;
+  validationText: string;
+  seed: number;
+}
+
+export type TrainingBackendFactory = (setup: TrainingBackendSetup) => Promise<TrainingBackend>;
+
+/** Train and evaluate on the calling thread. */
+export function inProcessBackend({
+  model,
+  trainText,
+  validationText
+}: TrainingBackendSetup): TrainingBackend {
+  return {
+    description: 'in-process',
+    async trainEpoch(_epoch, onProgress) {
+      model.setTrainingProgressCallback(onProgress ?? null);
+      const result = await model.train(trainText, 1);
+      model.setTrainingProgressCallback(null);
+      return { loss: result.history[result.history.length - 1]?.loss ?? result.loss };
+    },
+    evaluate: () => model.evaluate(validationText),
+    dispose: async () => undefined
+  };
+}
+
+export interface FactoryOptions {
+  /** Training backend (default: in-process). */
+  backend?: TrainingBackendFactory;
+}
+
 export interface FactoryResult {
   model: ProNeuralLM;
   package: ModelPackage;
@@ -99,7 +154,14 @@ export async function evaluateText(
   model: ProNeuralLM,
   text: string
 ): Promise<{ loss: number; perplexity: number; bitsPerCharacter: number; tokens: number }> {
-  const result = await model.evaluate(text);
+  return withBitsPerCharacter(await model.evaluate(text), text);
+}
+
+/** Add bits per character (total information over the text's characters) to an evaluation. */
+export function withBitsPerCharacter(
+  result: EvaluationResult,
+  text: string
+): { loss: number; perplexity: number; bitsPerCharacter: number; tokens: number } {
   const characters = Math.max(1, text.length);
   const bitsPerCharacter =
     result.tokens > 0 ? (result.loss * result.tokens) / characters / Math.LN2 : NaN;
@@ -196,7 +258,8 @@ export async function runModelFactory(
   documents: CorpusDocument[],
   config: FactoryConfig,
   callbacks: FactoryCallbacks = {},
-  initialModel?: ProNeuralLM
+  initialModel?: ProNeuralLM,
+  options: FactoryOptions = {}
 ): Promise<FactoryResult> {
   const log = callbacks.onLog ?? (() => undefined);
   const started = Date.now();
@@ -224,7 +287,6 @@ export async function runModelFactory(
       `Model: ${config.architecture}, ${model.getParametersCount().toLocaleString('en-US')} parameters, vocabulary ${vocab.length}`
     );
   }
-  if (callbacks.onProgress) model.setTrainingProgressCallback(callbacks.onProgress);
 
   const epochs = Math.max(1, Math.floor(config.training.epochs));
   if (model instanceof TransformerLM) {
@@ -244,40 +306,53 @@ export async function runModelFactory(
   const history: EpochReport[] = [];
   let best: { loss: number; epoch: number; json: Record<string, unknown> } | null = null;
 
-  for (let epoch = 1; epoch <= epochs; epoch++) {
-    const t0 = Date.now();
-    const result = await model.train(corpus.train, 1);
-    const val = await evaluateText(model, corpus.validation);
-    const improved = !best || val.loss < best.loss;
-    if (improved) {
-      best = {
-        loss: val.loss,
+  const backend = await (options.backend ?? (async (setup) => inProcessBackend(setup)))({
+    model,
+    trainText: corpus.train,
+    validationText: corpus.validation,
+    seed: config.training.seed ?? 1337
+  });
+  const backendDescription = backend.description;
+  if (backendDescription !== 'in-process') log(`Training on ${backendDescription}`);
+  try {
+    for (let epoch = 1; epoch <= epochs; epoch++) {
+      const t0 = Date.now();
+      const result = await backend.trainEpoch(epoch - 1, callbacks.onProgress);
+      const val = withBitsPerCharacter(await backend.evaluate(), corpus.validation);
+      const improved = !best || val.loss < best.loss;
+      if (improved) {
+        best = {
+          loss: val.loss,
+          epoch,
+          json: JSON.parse(JSON.stringify(model.toJSON())) as Record<string, unknown>
+        };
+      }
+      const report: EpochReport = {
         epoch,
-        json: JSON.parse(JSON.stringify(model.toJSON())) as Record<string, unknown>
+        trainLoss: result.loss,
+        validationLoss: val.loss,
+        validationPerplexity: val.perplexity,
+        validationBitsPerCharacter: val.bitsPerCharacter,
+        learningRate:
+          model instanceof TransformerLM
+            ? model.getScheduledLearningRate()
+            : model.getLearningRate(),
+        seconds: (Date.now() - t0) / 1000,
+        improved
       };
+      history.push(report);
+      log(
+        `Epoch ${epoch}/${epochs}: train loss ${report.trainLoss.toFixed(3)} · validation loss ${val.loss.toFixed(3)} · ppl ${val.perplexity.toFixed(2)} · ${val.bitsPerCharacter.toFixed(3)} bpc · ${report.seconds.toFixed(1)}s${improved ? ' · best' : ''}`
+      );
+      await callbacks.onEpoch?.(report, model);
+      if (patience > 0 && best && epoch - best.epoch >= patience) {
+        log(`Early stopping: no validation improvement for ${patience} epochs`);
+        break;
+      }
     }
-    const report: EpochReport = {
-      epoch,
-      trainLoss: result.history[result.history.length - 1]?.loss ?? result.loss,
-      validationLoss: val.loss,
-      validationPerplexity: val.perplexity,
-      validationBitsPerCharacter: val.bitsPerCharacter,
-      learningRate:
-        model instanceof TransformerLM ? model.getScheduledLearningRate() : model.getLearningRate(),
-      seconds: (Date.now() - t0) / 1000,
-      improved
-    };
-    history.push(report);
-    log(
-      `Epoch ${epoch}/${epochs}: train loss ${report.trainLoss.toFixed(3)} · validation loss ${val.loss.toFixed(3)} · ppl ${val.perplexity.toFixed(2)} · ${val.bitsPerCharacter.toFixed(3)} bpc · ${report.seconds.toFixed(1)}s${improved ? ' · best' : ''}`
-    );
-    await callbacks.onEpoch?.(report, model);
-    if (patience > 0 && best && epoch - best.epoch >= patience) {
-      log(`Early stopping: no validation improvement for ${patience} epochs`);
-      break;
-    }
+  } finally {
+    await backend.dispose();
   }
-  model.setTrainingProgressCallback(null);
 
   const bestEntry = history[best!.epoch - 1];
   const card: ModelCard = {
@@ -308,6 +383,7 @@ export async function runModelFactory(
       hiddenSize: config.model.hiddenSize,
       contextSize: config.model.contextSize,
       ...(config.model.transformer ? { transformer: config.model.transformer } : {}),
+      execution: backendDescription,
       durationSeconds: Math.round((Date.now() - started) / 1000)
     },
     metrics: {

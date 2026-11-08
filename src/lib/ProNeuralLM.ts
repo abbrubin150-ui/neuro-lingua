@@ -42,6 +42,18 @@ export type EvaluationResult = {
   oovRate: number;
 };
 
+/** Sums over a range of prediction windows (see `evaluateSums` / `evaluationResult`). */
+export type EvaluationSums = {
+  /** Negative log-likelihood in nats. */
+  nll: number;
+  correct: number;
+  oov: number;
+  /** Windows scored in the range. */
+  count: number;
+  /** Windows in the whole text. */
+  total: number;
+};
+
 /** Activations produced by a forward pass and consumed by backward(). */
 export type ForwardCache = {
   h: number[];
@@ -1362,26 +1374,52 @@ export class ProNeuralLM {
     if (this.tokenize(text).length === 0) {
       return { loss: NaN, perplexity: NaN, accuracy: 0, tokens: 0, oovRate: 0 };
     }
+    return ProNeuralLM.evaluationResult([await this.evaluateSums(text)]);
+  }
+
+  /**
+   * The sums behind `evaluate` for the prediction windows [start, end) of `text`, so that an
+   * evaluation can be split into ranges (e.g. across worker threads) and combined with
+   * `evaluationResult`.
+   */
+  async evaluateSums(text: string, start = 0, end = Infinity): Promise<EvaluationSums> {
     const seqs = this.createTrainingSequences(text);
     const unkIdx = this.toIndex(this.unk);
+    const sums: EvaluationSums = { nll: 0, correct: 0, oov: 0, count: 0, total: seqs.length };
+    const last = Math.min(end, seqs.length);
+    for (let s = Math.max(0, start); s < last; s++) {
+      const [ctx, tgt] = seqs[s];
+      const { probs } = await this.forward(ctx, false);
+      sums.nll -= Math.log(Math.max(probs[tgt], 1e-12));
+      let best = 0;
+      for (let i = 1; i < probs.length; i++) if (probs[i] > probs[best]) best = i;
+      if (best === tgt) sums.correct++;
+      if (tgt === unkIdx) sums.oov++;
+      sums.count++;
+    }
+    return sums;
+  }
+
+  /** Combine the sums of consecutive ranges (in order) into an evaluation result. */
+  static evaluationResult(parts: EvaluationSums[]): EvaluationResult {
     let nll = 0;
     let correct = 0;
     let oov = 0;
-    for (const [ctx, tgt] of seqs) {
-      const { probs } = await this.forward(ctx, false);
-      nll -= Math.log(Math.max(probs[tgt], 1e-12));
-      let best = 0;
-      for (let i = 1; i < probs.length; i++) if (probs[i] > probs[best]) best = i;
-      if (best === tgt) correct++;
-      if (tgt === unkIdx) oov++;
+    let count = 0;
+    for (const p of parts) {
+      nll += p.nll;
+      correct += p.correct;
+      oov += p.oov;
+      count += p.count;
     }
-    const loss = nll / seqs.length;
+    if (count === 0) return { loss: NaN, perplexity: NaN, accuracy: 0, tokens: 0, oovRate: 0 };
+    const loss = nll / count;
     return {
       loss,
       perplexity: Math.exp(loss),
-      accuracy: correct / seqs.length,
-      tokens: seqs.length,
-      oovRate: oov / seqs.length
+      accuracy: correct / count,
+      tokens: count,
+      oovRate: oov / count
     };
   }
 

@@ -14,9 +14,20 @@
 import { mkdir, writeFile, appendFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { runModelFactory, evaluateText, type FactoryConfig } from '../src/factory/pipeline';
+import {
+  runModelFactory,
+  evaluateText,
+  withBitsPerCharacter,
+  type FactoryConfig
+} from '../src/factory/pipeline';
 import { readCorpusDocuments, loadModelFile } from '../src/factory/node/files';
 import { createInferenceServer } from '../src/factory/node/server';
+import {
+  DataParallelTrainer,
+  dataParallelBackend,
+  parseWorkerCount
+} from '../src/factory/node/parallel';
+import { TransformerLM } from '../src/lib/TransformerLM';
 import { packModel, renderModelCard } from '../src/lib/modelPackage';
 import { prepareCorpus } from '../src/data/corpusPrep';
 import type { Optimizer } from '../src/lib/ProNeuralLM';
@@ -85,6 +96,12 @@ train options
   --precision <p>        float32 | float16 package (default float32)
   --init <package>       continue training an existing model on the new data
   --seed <n>             random seed (default 1337)
+  --workers <n|auto>     processes for transformer training and evaluation (default auto: one
+                         per CPU core, at most 8; 1 trains in-process). Results are reproducible
+                         for a given seed and worker count.
+
+eval options
+  --workers <n|auto>     as for train
 
 generate / serve options
   --model <package>  --prompt <text>  --max-tokens <n>  --temperature <x>  --top-p <x>  --top-k <n>
@@ -161,6 +178,7 @@ async function train(a: Args) {
 
   const init = str(a, 'init');
   const initialModel = init ? (await loadModelFile(path.resolve(init))).model : undefined;
+  const workers = parseWorkerCount(str(a, 'workers'));
   let epochStarted = Date.now();
   const result = await runModelFactory(
     documents,
@@ -180,7 +198,8 @@ async function train(a: Args) {
         await writeFile(path.join(out, 'checkpoint.nlm.json'), JSON.stringify(checkpoint));
       }
     },
-    initialModel
+    initialModel,
+    { backend: dataParallelBackend({ workers }) }
   );
   result.card.environment = {
     runtime: `Node ${process.version}`,
@@ -202,7 +221,21 @@ async function evaluate(a: Args) {
   const { model } = await loadModelFile(path.resolve(str(a, 'model', '')!));
   const { documents } = await readCorpusDocuments(list(a, 'data'));
   const text = prepareCorpus(documents, { validationFraction: 0, minParagraphChars: 1 }).train;
-  const r = await evaluateText(model, text);
+  const workers = parseWorkerCount(str(a, 'workers'));
+  let r: Awaited<ReturnType<typeof evaluateText>>;
+  if (model instanceof TransformerLM && workers > 1) {
+    const pool = await DataParallelTrainer.start(
+      { model, trainText: '', validationText: text, seed: 0 },
+      { workers }
+    );
+    try {
+      r = withBitsPerCharacter(await pool.evaluate(), text);
+    } finally {
+      await pool.dispose();
+    }
+  } else {
+    r = await evaluateText(model, text);
+  }
   console.log(
     JSON.stringify(
       {

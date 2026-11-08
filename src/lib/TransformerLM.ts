@@ -192,6 +192,78 @@ type GradBuffers = {
   embedding: Map<number, number[]>;
 };
 
+/** One training window: the context, the next token and the target's position in the text. */
+export interface TrainingWindow {
+  ctx: number[];
+  tgt: number;
+  index: number;
+}
+
+/** The training windows of a text and their loss mask (see `prepareTrainingWindows`). */
+export interface TrainingWindows {
+  items: TrainingWindow[];
+  lossMask: number[];
+}
+
+/** Running totals over trained windows. */
+export interface WindowStats {
+  /** Sum of the last-position losses of the windows whose target is not masked. */
+  loss: number;
+  masked: number;
+  correct: number;
+  windows: number;
+  /** Windows that had at least one target to learn from (they count towards the batch). */
+  learned: number;
+}
+
+export const emptyWindowStats = (): WindowStats => ({
+  loss: 0,
+  masked: 0,
+  correct: 0,
+  windows: 0,
+  learned: 0
+});
+
+/** `into` += `stats`. */
+export function addWindowStats(into: WindowStats, stats: WindowStats): void {
+  into.loss += stats.loss;
+  into.masked += stats.masked;
+  into.correct += stats.correct;
+  into.windows += stats.windows;
+  into.learned += stats.learned;
+}
+
+type Tensor = number[] | number[][];
+
+function tensorSize(t: Tensor): number {
+  if (t.length === 0) return 0;
+  return Array.isArray(t[0])
+    ? (t as number[][]).reduce((n, row) => n + row.length, 0)
+    : (t as number[]).length;
+}
+
+/** Copy `t` into `out` at `offset` (optionally zeroing `t`); returns the next offset. */
+function writeTensor(out: Float64Array, offset: number, t: Tensor, zero: boolean): number {
+  const rows = Array.isArray(t[0]) ? (t as number[][]) : [t as number[]];
+  for (const row of rows) {
+    for (let j = 0; j < row.length; j++) {
+      out[offset++] = row[j];
+      if (zero) row[j] = 0;
+    }
+  }
+  return offset;
+}
+
+/** `t` (+)= `src[offset…]`; returns the next offset. */
+function readTensor(t: Tensor, src: Float64Array, offset: number, add: boolean): number {
+  const rows = Array.isArray(t[0]) ? (t as number[][]) : [t as number[]];
+  for (const row of rows) {
+    if (add) for (let j = 0; j < row.length; j++) row[j] += src[offset++];
+    else for (let j = 0; j < row.length; j++) row[j] = src[offset++];
+  }
+  return offset;
+}
+
 // ---------------------------------------------------------------------------
 // Index re-mapping helpers used when the model width grows (neuron injection)
 // ---------------------------------------------------------------------------
@@ -621,100 +693,25 @@ export class TransformerLM extends ProNeuralLM {
       timestamp: number;
     }>;
 
-    const seqs = self.createTrainingSequences(text) as [number[], number][];
-    if (seqs.length === 0) return { loss: 0, accuracy: 0, history: trainingHistory };
-
-    const lossMask: number[] = lossMaskConfig
-      ? self.buildTrainingLossMask(text, lossMaskConfig)
-      : new Array(seqs.length).fill(1);
-    const stride = this.isCausal()
-      ? Math.max(1, Math.floor(this.transformerConfig.trainingStride ?? 1))
-      : 1;
-    const allItems = seqs.map(([ctx, tgt], index) => ({ ctx, tgt, index }));
-    // Chunked training: one window every `stride` targets. The chunk alignment is re-drawn every
-    // epoch so that each target is, over the epochs, predicted from every position (and hence
-    // every context length) of the window; a fixed alignment would train some targets only with
-    // a short context.
-    const epochItems = () => {
-      if (stride === 1) return allItems.slice();
-      const offset = Math.floor(self.nextRandom() * stride);
-      return allItems.filter(
-        ({ index }) => (index + offset) % stride === stride - 1 || index === allItems.length - 1
-      );
-    };
+    const data = this.prepareTrainingWindows(text, lossMaskConfig);
+    if (!data) return { loss: 0, accuracy: 0, history: trainingHistory };
     const batchSize = Math.max(1, Math.floor(this.transformerConfig.batchSize));
-    const causal = this.isCausal();
-
-    let totalLoss = 0;
-    let correct = 0;
-    let count = 0;
-    let maskedCount = 0;
+    const total = emptyWindowStats();
 
     for (let e = 0; e < epochs; e++) {
-      const items = epochItems();
-      self.shuffleInPlace(items);
-      let epochLoss = 0;
-      let epochCorrect = 0;
-      let epochMaskedCount = 0;
+      const items = this.planEpoch(data);
+      const stats = emptyWindowStats();
       let pending = 0;
 
       let processed = 0;
       let stopped = false;
-      for (const { ctx, tgt, index } of items) {
+      for (const item of items) {
         if (await this.trainingShouldStop()) {
           stopped = true;
           break;
         }
         this.reportTrainingProgress(++processed, items.length, e);
-        const T = ctx.length;
-        const lastMasked = (lossMask[index] ?? 1) === 1;
-
-        // Scored entries: positions whose next token is a real (unmasked) target.
-        let scored: number[];
-        let targets: number[];
-        if (causal) {
-          scored = [];
-          targets = [];
-          if (this.causalLossOnAllPositions) {
-            for (let t = 0; t < T - 1; t++) {
-              // ctx[t + 1] is the target of training sequence (index + t + 1 − T);
-              // negative indices are the BOS padding, which is never predicted.
-              const seq = index + t + 1 - T;
-              if (seq >= 0 && (lossMask[seq] ?? 1) === 1) {
-                scored.push(t);
-                targets.push(ctx[t + 1]);
-              }
-            }
-          }
-          scored.push(T - 1);
-          targets.push(lastMasked ? tgt : -1);
-        } else {
-          scored = [-1];
-          targets = [lastMasked ? tgt : -1];
-        }
-
-        const learn = targets.some((t) => t >= 0);
-        if (learn && pending === 0) this.batchDropConnect = this.sampleBatchDropConnect();
-        const pass = this.stackForward(ctx, learn, scored, learn);
-        const lastProbs = pass.probs[pass.probs.length - 1];
-        let pred = 0;
-        for (let i = 1; i < lastProbs.length; i++) if (lastProbs[i] > lastProbs[pred]) pred = i;
-
-        if (lastMasked) {
-          const loss = -Math.log(lastProbs[tgt] + 1e-8);
-          epochLoss += loss;
-          totalLoss += loss;
-          epochMaskedCount++;
-          maskedCount++;
-        }
-        if (pred === tgt) {
-          epochCorrect++;
-          correct++;
-        }
-        count++;
-
-        if (learn) {
-          this.accumulateGradients(ctx, pass, targets);
+        if (this.trainWindow(item, data.lossMask, stats, pending === 0)) {
           pending++;
           if (pending === batchSize) {
             this.applyAccumulatedGradients(pending);
@@ -723,21 +720,259 @@ export class TransformerLM extends ProNeuralLM {
         }
       }
       if (pending > 0) this.applyAccumulatedGradients(pending);
+      addWindowStats(total, stats);
       if (stopped) break; // an interrupted epoch is not recorded
 
-      const avgLoss = epochMaskedCount > 0 ? epochLoss / epochMaskedCount : 0;
-      // Over the windows of this epoch (fewer than the targets when trainingStride > 1).
-      const accuracy = epochCorrect / Math.max(1, items.length);
-      trainingHistory.push({ loss: avgLoss, accuracy, timestamp: Date.now() });
+      // Accuracy over the windows of this epoch (fewer than the targets when trainingStride > 1).
+      this.recordEpoch(
+        stats.masked > 0 ? stats.loss / stats.masked : 0,
+        stats.correct / Math.max(1, items.length)
+      );
     }
 
     const payload = {
-      loss: maskedCount > 0 ? totalLoss / maskedCount : 0,
-      accuracy: correct / Math.max(1, count),
+      loss: total.masked > 0 ? total.loss / total.masked : 0,
+      accuracy: total.correct / Math.max(1, total.windows),
       history: trainingHistory
     } as const;
     self.lastUpdatedAt = Date.now();
     return payload;
+  }
+
+  /** The training windows of `text` and their loss mask; null when the text has no target. */
+  prepareTrainingWindows(text: string, lossMaskConfig?: LossMaskConfig): TrainingWindows | null {
+    const self = this as any;
+    const seqs = self.createTrainingSequences(text) as [number[], number][];
+    if (seqs.length === 0) return null;
+    const lossMask: number[] = lossMaskConfig
+      ? self.buildTrainingLossMask(text, lossMaskConfig)
+      : new Array(seqs.length).fill(1);
+    return { items: seqs.map(([ctx, tgt], index) => ({ ctx, tgt, index })), lossMask };
+  }
+
+  /**
+   * The windows of one epoch in training order. Chunked training keeps one window every
+   * `trainingStride` targets, with the chunk alignment re-drawn every epoch so that each target is,
+   * over the epochs, predicted from every position (and hence every context length) of the window;
+   * a fixed alignment would train some targets only with a short context. Uses the model's random
+   * stream.
+   */
+  planEpoch(data: TrainingWindows): TrainingWindow[] {
+    const self = this as any;
+    const all = data.items;
+    const stride = this.isCausal()
+      ? Math.max(1, Math.floor(this.transformerConfig.trainingStride ?? 1))
+      : 1;
+    let items: TrainingWindow[];
+    if (stride === 1) {
+      items = all.slice();
+    } else {
+      const offset = Math.floor(self.nextRandom() * stride);
+      items = all.filter(
+        ({ index }) => (index + offset) % stride === stride - 1 || index === all.length - 1
+      );
+    }
+    self.shuffleInPlace(items);
+    return items;
+  }
+
+  /**
+   * Forward and backward pass of one window: adds its gradients to the accumulators (no optimizer
+   * step) and its loss / accuracy to `stats`. `startsBatch` samples the mini-batch's DropConnect
+   * masks. Returns whether the window had a target to learn from.
+   */
+  private trainWindow(
+    { ctx, tgt, index }: TrainingWindow,
+    lossMask: number[],
+    stats: WindowStats,
+    startsBatch: boolean
+  ): boolean {
+    const T = ctx.length;
+    const lastMasked = (lossMask[index] ?? 1) === 1;
+
+    // Scored entries: positions whose next token is a real (unmasked) target.
+    let scored: number[];
+    let targets: number[];
+    if (this.isCausal()) {
+      scored = [];
+      targets = [];
+      if (this.causalLossOnAllPositions) {
+        for (let t = 0; t < T - 1; t++) {
+          // ctx[t + 1] is the target of training sequence (index + t + 1 − T);
+          // negative indices are the BOS padding, which is never predicted.
+          const seq = index + t + 1 - T;
+          if (seq >= 0 && (lossMask[seq] ?? 1) === 1) {
+            scored.push(t);
+            targets.push(ctx[t + 1]);
+          }
+        }
+      }
+      scored.push(T - 1);
+      targets.push(lastMasked ? tgt : -1);
+    } else {
+      scored = [-1];
+      targets = [lastMasked ? tgt : -1];
+    }
+
+    const learn = targets.some((t) => t >= 0);
+    if (learn && startsBatch) this.batchDropConnect = this.sampleBatchDropConnect();
+    const pass = this.stackForward(ctx, learn, scored, learn);
+    const lastProbs = pass.probs[pass.probs.length - 1];
+    let pred = 0;
+    for (let i = 1; i < lastProbs.length; i++) if (lastProbs[i] > lastProbs[pred]) pred = i;
+
+    if (lastMasked) {
+      stats.loss += -Math.log(lastProbs[tgt] + 1e-8);
+      stats.masked++;
+    }
+    if (pred === tgt) stats.correct++;
+    stats.windows++;
+    if (learn) {
+      this.accumulateGradients(ctx, pass, targets);
+      stats.learned++;
+    }
+    return learn;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Data-parallel training (see src/factory/node/parallel.ts). Replicas compute gradients for
+  // their share of a mini-batch; the coordinator sums them, takes the optimizer step and sends
+  // the new parameters back.
+  // ---------------------------------------------------------------------------
+
+  /** Number of values in exportParameters(). */
+  parameterCount(): number {
+    return this.parameterTensors().reduce((n, t) => n + tensorSize(t), 0);
+  }
+
+  /**
+   * Replica side: forward and backward of the windows `data.items[i]` (i in `indices`) as this
+   * replica's share of one mini-batch. The gradients stay in the accumulators, with this replica's
+   * DropConnect masks applied, until exportGradients().
+   */
+  accumulateWindows(data: TrainingWindows, indices: number[]): WindowStats {
+    const stats = emptyWindowStats();
+    for (const i of indices)
+      this.trainWindow(data.items[i], data.lossMask, stats, stats.learned === 0);
+    const g = this.gradBuffers;
+    if (g) this.finalizeDropConnectGradients(g);
+    return stats;
+  }
+
+  /**
+   * Size of the flat gradient layout used by exportGradients / addGradients: the dense gradients
+   * of every tensor except the embedding, followed by the whole embedding matrix.
+   */
+  gradientLayoutSize(): number {
+    const self = this as any;
+    const dense = this.denseGradientTensors(this.ensureGradBuffers()).reduce(
+      (n, t) => n + tensorSize(t),
+      0
+    );
+    return dense + (self.embedding as number[][]).length * this.getHiddenSize();
+  }
+
+  /**
+   * Replica side: write the accumulated gradients into `out` (gradientLayoutSize() values; the
+   * embedding rows that received a gradient are written at their row of the embedding block) and
+   * reset the accumulators. Returns the tokens of those embedding rows.
+   */
+  exportGradients(out: Float64Array): Int32Array {
+    const g = this.ensureGradBuffers();
+    let offset = 0;
+    for (const t of this.denseGradientTensors(g)) offset = writeTensor(out, offset, t, true);
+    const H = this.getHiddenSize();
+    const tokens = new Int32Array(g.embedding.size);
+    let k = 0;
+    for (const [tok, row] of g.embedding) {
+      tokens[k++] = tok;
+      out.set(row, offset + tok * H);
+    }
+    g.embedding.clear();
+    return tokens;
+  }
+
+  /** Coordinator side: add gradients written by a replica's exportGradients(). */
+  addGradients(src: Float64Array, tokens: Int32Array): void {
+    const g = this.ensureGradBuffers();
+    let offset = 0;
+    for (const t of this.denseGradientTensors(g)) offset = readTensor(t, src, offset, true);
+    const H = this.getHiddenSize();
+    for (const tok of tokens) {
+      let row = g.embedding.get(tok);
+      if (!row) {
+        row = new Array(H).fill(0);
+        g.embedding.set(tok, row);
+      }
+      const base = offset + tok * H;
+      for (let i = 0; i < H; i++) row[i] += src[base + i];
+    }
+  }
+
+  /** Coordinator side: one optimizer step with the gradients of `learnedWindows` windows. */
+  applyGradientStep(learnedWindows: number): void {
+    this.applyAccumulatedGradients(learnedWindows);
+  }
+
+  /** Write every trainable parameter into `out` (parameterCount() values, fixed order). */
+  writeParameters(out: Float64Array): void {
+    let offset = 0;
+    for (const t of this.parameterTensors()) offset = writeTensor(out, offset, t, false);
+  }
+
+  /** Every trainable parameter as one flat array (see importParameters). */
+  exportParameters(): Float64Array {
+    const out = new Float64Array(this.parameterCount());
+    this.writeParameters(out);
+    return out;
+  }
+
+  /** Overwrite every trainable parameter in place from the first parameterCount() values. */
+  importParameters(flat: Float64Array): void {
+    let offset = 0;
+    for (const t of this.parameterTensors()) offset = readTensor(t, flat, offset, false);
+    if (offset > flat.length) {
+      throw new Error(`Parameter size mismatch: need ${offset}, got ${flat.length}`);
+    }
+  }
+
+  /** Add an epoch to the training history (data-parallel training records its epochs here). */
+  recordEpoch(loss: number, accuracy: number): void {
+    const self = this as any;
+    (self.trainingHistory as Array<{ loss: number; accuracy: number; timestamp: number }>).push({
+      loss,
+      accuracy,
+      timestamp: Date.now()
+    });
+    self.lastUpdatedAt = Date.now();
+  }
+
+  private parameterTensors(): Tensor[] {
+    const self = this as any;
+    const tensors: Tensor[] = [self.embedding, self.wOutput, self.bOutput];
+    if (this.isCausal()) tensors.push(this.finalNorm.gamma);
+    for (let l = 0; l < this.transformerConfig.numLayers; l++) {
+      const p = this.blockParams(l);
+      tensors.push(
+        p.attention.query,
+        p.attention.key,
+        p.attention.value,
+        p.ff1,
+        p.ff2,
+        p.attnGamma,
+        p.ffnGamma
+      );
+    }
+    return tensors;
+  }
+
+  private denseGradientTensors(g: GradBuffers): Tensor[] {
+    const tensors: Tensor[] = [g.wOutput, g.bOutput];
+    if (g.finalGamma) tensors.push(g.finalGamma);
+    for (const lg of g.layers) {
+      tensors.push(lg.query, lg.key, lg.value, lg.ff1, lg.ff2, lg.attnGamma, lg.ffnGamma);
+    }
+    return tensors;
   }
 
   /**

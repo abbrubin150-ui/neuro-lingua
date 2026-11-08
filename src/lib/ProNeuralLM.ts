@@ -1361,6 +1361,28 @@ export class ProNeuralLM {
    * @param context - Array of token indices
    * @returns Promise<number[]> - Raw logit values for each vocabulary token
    */
+  /**
+   * Hidden representations Z (the vector fed to the output projection; no dropout) and the
+   * next-token targets Y for up to `maxSamples` evenly spaced training windows of `text`.
+   * Used for information-plane monitoring.
+   */
+  async collectRepresentations(
+    text: string,
+    maxSamples = 256
+  ): Promise<{ representations: number[][]; labels: number[] }> {
+    const seqs = this.createTrainingSequences(text);
+    const step = Math.max(1, Math.ceil(seqs.length / Math.max(1, maxSamples)));
+    const representations: number[][] = [];
+    const labels: number[] = [];
+    for (let i = 0; i < seqs.length; i += step) {
+      const [ctx, tgt] = seqs[i];
+      const { h } = await this.forward(ctx, false);
+      representations.push(h.slice());
+      labels.push(tgt);
+    }
+    return { representations, labels };
+  }
+
   async getLogitsForContext(context: number[]): Promise<number[]> {
     const { logits } = await this.forward(context, false);
     return logits;

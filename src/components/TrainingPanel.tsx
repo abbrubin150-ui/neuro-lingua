@@ -2029,7 +2029,7 @@ export function TrainingPanel(props: TrainingPanelProps) {
               checked={props.useIB}
               onChange={(e) => props.onUseIBChange(e.target.checked)}
             />
-            <span>📊 Enable Information Bottleneck Loss (Research)</span>
+            <span>📊 Track the information plane (research)</span>
           </label>
         </div>
       )}
@@ -2046,12 +2046,14 @@ export function TrainingPanel(props: TrainingPanelProps) {
           }}
         >
           <div style={{ fontSize: 13, fontWeight: 600, color: '#c4b5fd', marginBottom: 12 }}>
-            📊 Information Bottleneck Configuration
+            📊 Information-plane monitoring
           </div>
 
           <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 12, lineHeight: 1.5 }}>
-            IB loss balances compression I(X;Z) vs prediction I(Z;Y) using β annealing. Loss: L =
-            (1-α)·CE + α·[-I(Z;Y) + β·I(X;Z)]
+            Each epoch, I(X;Z) and I(Z;Y) of the model&apos;s hidden representation are estimated
+            with the binning estimator (Shwartz-Ziv &amp; Tishby, 2017) on up to 256 training
+            windows. Monitoring only: the training loss remains cross-entropy. β is used to report
+            the IB Lagrangian −I(Z;Y) + β·I(X;Z).
           </div>
 
           <div style={{ display: 'grid', gap: 12 }}>
@@ -2126,29 +2128,10 @@ export function TrainingPanel(props: TrainingPanelProps) {
               </div>
             )}
 
-            {/* IB Alpha (hybrid loss weight) */}
-            <div>
-              <label style={{ display: 'block', fontSize: 11, color: '#cbd5e1', marginBottom: 6 }}>
-                α (Hybrid Weight): {props.ibAlpha.toFixed(2)}
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={props.ibAlpha}
-                onChange={(e) => props.onIbAlphaChange(Number(e.target.value))}
-                style={{ width: '100%' }}
-              />
-              <div style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>
-                0 = pure CE loss, 1 = pure IB loss
-              </div>
-            </div>
-
             {/* Number of Bins */}
             <div>
               <label style={{ display: 'block', fontSize: 11, color: '#cbd5e1', marginBottom: 6 }}>
-                MI Estimation Bins: {props.numBins}
+                Bins per unit: {props.numBins}
               </label>
               <input
                 type="range"
@@ -2160,7 +2143,7 @@ export function TrainingPanel(props: TrainingPanelProps) {
                 style={{ width: '100%' }}
               />
               <div style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>
-                More bins = more accurate MI estimation (slower)
+                More bins = finer symbols; with many units I(X;Z) saturates at ln(samples)
               </div>
             </div>
           </div>
@@ -2176,8 +2159,9 @@ export function TrainingPanel(props: TrainingPanelProps) {
               lineHeight: 1.5
             }}
           >
-            💡 <strong style={{ color: '#c4b5fd' }}>Tip:</strong> Start with α=0.1, βStart=0.001,
-            βEnd=1.0, linear schedule. Higher β = more compression (simpler representations).
+            💡 <strong style={{ color: '#c4b5fd' }}>Tip:</strong> I(Z;Y) should rise as the model
+            learns; a later decrease of I(X;Z) indicates compression. Compare epochs of the same run
+            (the estimate depends on the number of bins).
           </div>
         </div>
       )}

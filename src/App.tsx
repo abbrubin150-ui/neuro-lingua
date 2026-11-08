@@ -80,7 +80,7 @@ import { ExportPanel } from './components/ExportPanel';
 import { DecisionEntry2Panel } from './components/DecisionEntry2Panel';
 
 import type { InformationMetrics } from './losses/information_bottleneck';
-import { getBetaSchedule } from './losses/information_bottleneck';
+import { estimateInformationPlane, getBetaSchedule } from './losses/information_bottleneck';
 import { validateRegExpPattern } from './losses/lossMask';
 
 import { useProjects } from './contexts/ProjectContext';
@@ -91,6 +91,9 @@ import { parseModelImport } from './lib/modelImport';
 import { createDecisionLedger } from './types/project';
 import type { TrainingConfig, ScenarioResult } from './types/project';
 import type { ModelMeta, ModelMetaStore } from './types/modelMeta';
+
+/** Training windows sampled per epoch for information-plane monitoring. */
+const IB_MONITOR_SAMPLES = 256;
 
 type UiSettings = {
   architecture: Architecture;
@@ -1441,8 +1444,8 @@ export default function NeuroLinguaDomesticaV324() {
     if (modelRef.current instanceof AdvancedNeuralLM) {
       modelRef.current.setTrainingHorizon(total);
     }
-    let aggLoss = 0;
-    let aggAcc = 0;
+    let lastLoss = 0;
+    let lastAcc = 0;
     let lossEMA = 0;
     const emaAlpha = 0.1; // EMA smoothing factor
     const tokens = ProNeuralLM.tokenizeText(trainingText, tokenizerConfig);
@@ -1474,9 +1477,6 @@ export default function NeuroLinguaDomesticaV324() {
         emaTrackerRef.current.update(modelRef.current!.getWeights());
       }
 
-      aggLoss += res.loss;
-      aggAcc += res.accuracy;
-
       // Calculate EMA of loss
       lossEMA = e === 0 ? res.loss : emaAlpha * res.loss + (1 - emaAlpha) * lossEMA;
 
@@ -1485,14 +1485,17 @@ export default function NeuroLinguaDomesticaV324() {
       const tokensPerSec = epochDuration > 0 ? totalTokens / epochDuration : 0;
       latestTokensPerSec = tokensPerSec;
 
-      const meanLoss = aggLoss / (e + 1);
+      // Report the current epoch (an average over all epochs so far would be dominated by the
+      // first, untrained epochs).
       setStats({
-        loss: meanLoss,
-        acc: aggAcc / (e + 1),
-        ppl: Math.exp(Math.max(1e-8, meanLoss)),
+        loss: res.loss,
+        acc: res.accuracy,
+        ppl: Math.exp(Math.max(1e-8, res.loss)),
         lossEMA: lossEMA,
         tokensPerSec: tokensPerSec
       });
+      lastLoss = res.loss;
+      lastAcc = res.accuracy;
 
       // Update GPU metrics periodically (every 5 epochs or less frequently)
       if (gpuOpsRef.current && useGPU && (e + 1) % Math.max(1, Math.floor(total / 10)) === 0) {
@@ -1505,33 +1508,16 @@ export default function NeuroLinguaDomesticaV324() {
       setTrainingHistory(modelRef.current!.getTrainingHistory());
       setProgress(((e + 1) / total) * 100);
 
-      // Collect Information Bottleneck metrics if enabled
-      // Note: This is a simplified approximation. Full IB metrics require
-      // model modifications to expose hidden activations during training.
-      if (useIB) {
+      // Information-plane monitoring: binning estimates of I(X;Z) and I(Z;Y) computed from the
+      // model's hidden representation on (a subsample of) the training windows.
+      if (useIB && modelRef.current) {
         const currentBeta = getBetaSchedule(betaSchedule, e, total, betaStart, betaEnd);
-
-        // Approximate IB metrics based on training progress
-        // I(X;Z) typically decreases as training progresses (compression)
-        // I(Z;Y) typically increases as training progresses (prediction improves)
-        const trainingProgress = (e + 1) / total;
-        const compressionMI = Math.max(0.5, 2.0 - trainingProgress * 1.5); // Decreasing
-        const predictionMI = Math.min(2.5, 0.5 + trainingProgress * 2.0); // Increasing
-        const representationEntropy = 1.5 + Math.sin(trainingProgress * Math.PI) * 0.5;
-        const conditionalEntropy = Math.max(0, representationEntropy - compressionMI);
-        const ibLoss = -predictionMI + currentBeta * compressionMI;
-
-        setIbMetricsHistory((prev) => [
-          ...prev,
-          {
-            compressionMI,
-            predictionMI,
-            ibLoss,
-            beta: currentBeta,
-            representationEntropy,
-            conditionalEntropy
-          }
-        ]);
+        const { representations, labels } = await modelRef.current.collectRepresentations(
+          trainingText,
+          IB_MONITOR_SAMPLES
+        );
+        const estimate = estimateInformationPlane(representations, labels, currentBeta, numBins);
+        setIbMetricsHistory((prev) => [...prev, estimate]);
       }
 
       await new Promise((r) => setTimeout(r, TRAINING_UI_UPDATE_DELAY));
@@ -1549,8 +1535,8 @@ export default function NeuroLinguaDomesticaV324() {
         }
       }
 
-      const finalLoss = aggLoss / Math.max(1, total);
-      const finalAccuracy = aggAcc / Math.max(1, total);
+      const finalLoss = lastLoss;
+      const finalAccuracy = lastAcc;
       const finalPerplexity = Math.exp(Math.max(1e-8, finalLoss));
       const trainingDurationMs = Date.now() - trainingStartTime;
       setInfo({ V: modelRef.current!.getVocabSize(), P: modelRef.current!.getParametersCount() });

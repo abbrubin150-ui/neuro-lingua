@@ -313,3 +313,102 @@ export function standardCrossEntropyLoss(logits: number[], targetIndex: number):
 export function hybridIBLoss(ceLoss: number, ibLoss: number, alpha: number): number {
   return (1 - alpha) * ceLoss + alpha * ibLoss;
 }
+
+/**
+ * Result of an information-plane estimate (all quantities in nats).
+ */
+export interface InformationPlaneEstimate extends InformationMetrics {
+  /** Number of (representation, label) samples used. */
+  samples: number;
+  /** Upper bound of the plug-in entropy estimate: ln(samples). */
+  maxEntropy: number;
+}
+
+function plugInEntropy(counts: Iterable<number>, n: number): number {
+  let h = 0;
+  for (const c of counts) {
+    if (c > 0) {
+      const p = c / n;
+      h -= p * Math.log(p);
+    }
+  }
+  return h;
+}
+
+/**
+ * Binning estimate of the information plane of a deterministic representation Z = f(X)
+ * (Shwartz-Ziv & Tishby, 2017).
+ *
+ * Every unit of Z is discretised into `bins` equal-width bins over the global activation range;
+ * each sample's bin vector is one discrete symbol T. Then
+ *   I(X;Z) ≈ H(T)            (Z is a deterministic function of the input, so H(T|X) = 0)
+ *   I(Z;Y) ≈ H(Y) − H(Y|T)
+ * with plug-in (empirical) entropies. The estimate depends on `bins` and saturates at ln(N)
+ * when every sample maps to a distinct symbol, which is common for wide layers; it is meant for
+ * comparing epochs of the same run, not as an absolute measurement.
+ *
+ * @param representations - Z for each sample [N x units]
+ * @param labels - discrete target Y for each sample (e.g. the next token id)
+ * @param beta - β used to report the IB Lagrangian −I(Z;Y) + β·I(X;Z)
+ */
+export function estimateInformationPlane(
+  representations: number[][],
+  labels: number[],
+  beta: number,
+  bins = 10
+): InformationPlaneEstimate {
+  const n = Math.min(representations.length, labels.length);
+  if (n === 0) {
+    return {
+      compressionMI: 0,
+      predictionMI: 0,
+      ibLoss: 0,
+      beta,
+      representationEntropy: 0,
+      conditionalEntropy: 0,
+      samples: 0,
+      maxEntropy: 0
+    };
+  }
+  const B = Math.max(2, Math.floor(bins));
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < n; i++) {
+    for (const v of representations[i]) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+  }
+  const width = max > min ? (max - min) / B : 1;
+
+  const symbolCounts = new Map<string, number>();
+  const labelCounts = new Map<number, number>();
+  const jointCounts = new Map<string, number>();
+  for (let i = 0; i < n; i++) {
+    const symbol = representations[i]
+      .map((v) => Math.min(B - 1, Math.floor((v - min) / width)))
+      .join(',');
+    const y = labels[i];
+    symbolCounts.set(symbol, (symbolCounts.get(symbol) ?? 0) + 1);
+    labelCounts.set(y, (labelCounts.get(y) ?? 0) + 1);
+    const joint = `${symbol}|${y}`;
+    jointCounts.set(joint, (jointCounts.get(joint) ?? 0) + 1);
+  }
+
+  const hT = plugInEntropy(symbolCounts.values(), n);
+  const hY = plugInEntropy(labelCounts.values(), n);
+  const hTY = plugInEntropy(jointCounts.values(), n);
+  const iTY = Math.max(0, hT + hY - hTY); // = H(Y) − H(Y|T)
+  const iXT = hT;
+
+  return {
+    compressionMI: iXT,
+    predictionMI: iTY,
+    ibLoss: -iTY + beta * iXT,
+    beta,
+    representationEntropy: hT,
+    conditionalEntropy: 0, // H(Z|X) = 0 for a deterministic encoder
+    samples: n,
+    maxEntropy: Math.log(n)
+  };
+}

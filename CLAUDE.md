@@ -138,6 +138,10 @@ pnpm test:parity:wasm          # WASM parity tests
 
 - `ProNeuralLM.parity.test.ts` - CPU/GPU numerical parity
 - `TransformerLM.parity.test.ts` - Transformer parity tests
+- `lib/ProNeuralLM.gradcheck.test.ts`, `lib/AdvancedNeuralLM.wiring.test.ts`,
+  `lib/TransformerLM.gradcheck.test.ts`, `models/transformer_backprop.test.ts` - finite-difference
+  gradient checks of every architecture (keep them passing when touching forward/backward code)
+- `lib/injection.integrity.test.ts` - Cerebro injection + rollback for all architectures
 - `GovernanceEngine.test.ts` - Decision logic verification
 - `MathUtils.test.ts` - Numerical stability tests
 - `App.test.tsx` - UI integration tests
@@ -156,9 +160,13 @@ pnpm test:parity:wasm          # WASM parity tests
 ### Modifying Neural Network Code
 
 - Core models are in `/src/lib/` (ProNeuralLM.ts, TransformerLM.ts, AdvancedNeuralLM.ts)
-- Attention mechanisms in `/src/models/attention.ts`
-- Optimizers in `/src/training/`
-- GPU operations in `/src/backend/`
+- Transformer forward/backward: `/src/models/transformer_backprop.ts` (exact gradients, dropout
+  masks, per-head RoPE). `MiniTransformerBlock` / `attention.ts` are the reference forward only.
+- AdvancedNeuralLM features act through ProNeuralLM's protected hooks (`activate`,
+  `normalizeHidden`, `getGradientClipNorm`, `onEpochStart`, ...); add new MLP features the same way
+  so that the UI's `train()` path uses them.
+- Optimizers in `/src/training/` (`ParamOptimizer.ts` serves the transformer stack and LayerNorm)
+- GPU operations in `/src/backend/` (only the MLP's matrix-vector products use WebGPU)
 
 ### Working with Components
 
@@ -172,6 +180,7 @@ pnpm test:parity:wasm          # WASM parity tests
 ```bash
 pnpm train                     # Run training script
 pnpm benchmark:gpu             # GPU performance benchmark
+pnpm benchmark:models          # Held-out comparison of the three architectures
 ```
 
 ## Architecture Patterns
@@ -189,9 +198,16 @@ pnpm benchmark:gpu             # GPU performance benchmark
 ```typescript
 // Export model
 const json = model.toJSON();
-// Import model
-const model = ProNeuralLM.fromJSON(json);
+// Import model (each class restores its own architecture)
+const mlp = ProNeuralLM.fromJSON(json);
+const advanced = AdvancedNeuralLM.fromJSON(json); // json.architecture === 'advanced'
+const transformer = TransformerLM.fromJSON(json); // json.architecture === 'transformer'
+// Files chosen in the UI go through parseModelImport() (src/lib/modelImport.ts)
 ```
+
+Transformer models saved without `transformer.config.objective` are legacy models and load with
+`objective: 'pooled'` (bidirectional, mean-pooled, full-row RoPE) so their predictions do not
+change; new models use `objective: 'causal'`.
 
 ### Error Handling
 
@@ -235,16 +251,19 @@ pnpm build                     # Production build
 
 ### WebGPU Acceleration
 
-- 2-5x speedup for training
+- Offloads only the MLP's matrix-vector products; each product flattens and uploads the weight
+  matrix and waits for a readback, so small models are often as fast on the CPU. No speedup has
+  been measured in this repository.
+- The Transformer always trains on the CPU (≈ 26 ms per context window with the UI defaults)
 - Automatic CPU fallback if unavailable
 - Browser support: Chrome/Edge 113+, Firefox 127+ (with flag)
 
 ### Optimization Techniques
 
-- Mixed precision training (FP16/FP32)
-- Sparse attention patterns (O(n) vs O(n²))
-- RMSNorm (20% less memory than LayerNorm)
-- Grouped-Query Attention (GQA) for efficient KV caching
+- Transformer mini-batches (`batchSize`, default 8) with one fused optimizer pass per batch and
+  DropConnect masks shared within a batch
+- Grouped-Query Attention (GQA) shrinks the K/V projections
+- Library-only (not used by training): mixed precision, sparse/linearized attention, K-FAC
 
 ## Gotchas & Tips
 
@@ -254,6 +273,16 @@ pnpm build                     # Production build
 4. **Strict TypeScript**: All types must be explicit, use discriminated unions
 5. **No React import needed**: JSX transform handles it (react-jsx)
 6. **Bilingual UI**: Components support English and Hebrew (en/he toggle)
+7. **The MLP is order-blind**: ProNeuralLM averages the context embeddings (bag of words).
+   Order-dependent behaviour needs the Transformer (see `docs/benchmarks/MODEL_BENCHMARK.md`).
+8. **Learning rates**: Adam ~0.003 (UI default); momentum SGD 0.005–0.01. Adam at 0.05+ does not
+   learn on the MLP.
+9. **Character tokenizer** keeps one `' '` token per whitespace run; generation joins characters
+   without separators (`joinTokens`). Use `tokenizeWithOffsets` when mapping text spans to tokens.
+10. **Cerebro injection on transformers** must add a multiple of `numHeads` neurons (each head
+    grows equally); `InjectionEngine.propose` rounds k accordingly.
+11. **No fabricated metrics**: every number shown in the UI must come from the model or be
+    labelled as simulated (e.g. the causal analysis panel).
 
 ## Documentation
 

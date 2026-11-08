@@ -46,6 +46,7 @@ Development roadmap, changelogs, and planning documents.
 
 | Document | Description |
 |----------|-------------|
+| [Changelog](./roadmap/CHANGELOG.md) | Unreleased changes (audit of real vs. claimed features) |
 | [Changelog v3.3](./roadmap/CHANGELOG_v3.3.md) | Version 3.3 changes |
 | [Development Roadmap](./roadmap/DEVELOPMENT_ROADMAP.md) | Future development plans |
 | [Immediate Actions](./roadmap/IMMEDIATE_ACTIONS.md) | Priority tasks |

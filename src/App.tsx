@@ -220,7 +220,7 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
     infoCards: [
       {
         title: '🎯 Training Tips',
-        body: '• 200–500 words • 20–50 epochs • LR: 0.05–0.1 • Context: 3–5 • Enable Resume to continue from last checkpoint'
+        body: '• 200–500 words • 20–50 epochs • LR: ~0.003 with Adam (0.005–0.01 with momentum) • Context: 3–5 • Enable Resume to continue from last checkpoint'
       },
       {
         title: '🎲 Text Generation',
@@ -296,7 +296,7 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
     infoCards: [
       {
         title: '🎯 Training Tips',
-        body: '• 200–500 words • 20–50 epochs • LR: 0.05–0.1 • Context: 3–5 • Enable Resume from the last checkpoint'
+        body: '• 200–500 words • 20–50 epochs • LR: ~0.003 with Adam (0.005–0.01 with momentum) • Context: 3–5 • Enable Resume from the last checkpoint'
       },
       {
         title: '🎲 Text Generation',

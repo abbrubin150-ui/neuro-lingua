@@ -1,11 +1,11 @@
 import {
   applyUpdateVector,
-  computeDiagonalHessian,
   createSecondOrderState,
   dampedNewtonStep,
   flattenGradients,
   flattenStructure,
   quasiNewtonStep,
+  updateCurvatureEMA,
   type SecondOrderConfig,
   type SecondOrderState
 } from '../training/optimizer';
@@ -53,6 +53,11 @@ export type TokenizerConfig = {
   mode: TokenizerMode;
   pattern?: string;
 };
+
+/** EMA decay of the Gauss-Newton curvature used by the 'newton' optimizer. */
+const NEWTON_CURVATURE_DECAY = 0.95;
+/** Lower bound of the Levenberg-Marquardt damping λ for the 'newton' optimizer. */
+const NEWTON_MIN_DAMPING = 0.1;
 
 const DEFAULT_TOKENIZER_CONFIG: TokenizerConfig = { mode: 'unicode' };
 
@@ -700,6 +705,42 @@ export class ProNeuralLM {
     }
   }
 
+  /**
+   * Exact diagonal of the Gauss-Newton matrix G = Jᵀ·A·J of the cross-entropy for one sample,
+   * where A = diag(p) − ppᵀ is the Hessian of the loss w.r.t. the logits and J = ∂logits/∂θ:
+   *   wOutput[i][j]: h_i²·p_j(1−p_j)          bOutput[j]: p_j(1−p_j)
+   *   wHidden[a][c]: s_a²·e_c²·c_a            bHidden[a]: s_a²·c_a
+   * with s_a = φ'(z_a)·dropMask_a, e = mean context embedding and
+   * c_a = Σ_k p_k·w_ak² − (Σ_k p_k·w_ak)². (A hidden normalisation such as LayerNorm couples the
+   * units; its Jacobian is ignored here, which makes the hidden-layer entries approximate.)
+   */
+  private gaussNewtonDiagonal(
+    h: number[],
+    probs: number[],
+    avgEmb: number[],
+    z: number[],
+    dropMask: number[] | null
+  ): { wOutput: number[][]; bOutput: number[]; wHidden: number[][]; bHidden: number[] } {
+    const pq = probs.map((p) => p * (1 - p));
+    const wOutput = h.map((hi) => pq.map((a) => hi * hi * a));
+    const wHidden: number[][] = [];
+    const bHidden: number[] = [];
+    for (let a = 0; a < this.wOutput.length; a++) {
+      const row = this.wOutput[a];
+      let m1 = 0;
+      let m2 = 0;
+      for (let k = 0; k < row.length; k++) {
+        m1 += probs[k] * row[k];
+        m2 += probs[k] * row[k] * row[k];
+      }
+      const sa = this.activateDerivative(z[a]) * (dropMask ? dropMask[a] : 1);
+      const base = sa * sa * Math.max(0, m2 - m1 * m1);
+      bHidden.push(base);
+      wHidden.push(avgEmb.map((e) => base * e * e));
+    }
+    return { wOutput, bOutput: pq, wHidden, bHidden };
+  }
+
   private async backward(inputs: number[], target: number, cache: Omit<ForwardCache, 'logits'>) {
     const { h, probs, avgEmb, dropMask, preAct } = cache;
     const z = cache.z ?? preAct;
@@ -796,9 +837,17 @@ export class ProNeuralLM {
       const { vector: paramVec, meta } = flattenStructure(paramStruct);
       const gradVec = flattenGradients(gradStruct, meta);
       if (this.optimizer === 'newton') {
-        const diag = computeDiagonalHessian(gradVec, this.secondOrderConfig.epsilon ?? 1e-9);
-        const step = dampedNewtonStep(gradVec, diag, {
+        // Damped Newton with the exact Gauss-Newton diagonal of the softmax cross-entropy,
+        // smoothed over steps: θ ← θ − η·g / (EMA(diag GGN) + λ).
+        const ggn = this.gaussNewtonDiagonal(h, probs, avgEmb, z, dropMask);
+        const curvature = updateCurvatureEMA(
+          this.secondOrderState,
+          flattenGradients(ggn, meta),
+          NEWTON_CURVATURE_DECAY
+        );
+        const step = dampedNewtonStep(gradVec, curvature, {
           ...this.secondOrderConfig,
+          damping: Math.max(this.secondOrderConfig.damping ?? 0, NEWTON_MIN_DAMPING),
           learningRate: this.learningRate
         });
         applyUpdateVector(paramStruct, step, meta);

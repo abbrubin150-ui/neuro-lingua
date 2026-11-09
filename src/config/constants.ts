@@ -82,11 +82,14 @@ export const DEFAULT_GENERATION = {
   beamWidth: 4,
   frequencyPenalty: 0,
   presencePenalty: 0,
-  /** CTRL repetition penalty over the last `repetitionWindow` tokens (1 = off). */
-  repetitionPenalty: 1.0,
-  repetitionWindow: 64,
-  /** Block repeated n-grams of this many tokens (0 = off); see recommendedNoRepeatNgram(). */
-  noRepeatNgramSize: 0
+  /**
+   * CTRL repetition penalty over the last `repetitionWindow` tokens (1 = off). Off by default:
+   * it lowered the share of real words in sampled text on character and BPE models and did
+   * not stop greedy loops in Hebrew (docs/benchmarks/GENERATION_REPETITION.md).
+   */
+  repetitionPenalty: 1,
+  repetitionWindow: 64
+  // The no-repeat n-gram default depends on the tokenizer: recommendedNoRepeatNgram().
 };
 
 /**

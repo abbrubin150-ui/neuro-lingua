@@ -195,13 +195,14 @@ export interface RepetitionControls {
 }
 
 /**
- * Default no-repeat n-gram length for a tokenizer: it has to span about two words, so it is
- * longer for characters than for words or subwords. 0 (off) until the values are measured.
+ * Default no-repeat n-gram length for a tokenizer (docs/benchmarks/GENERATION_REPETITION.md).
+ * Measured: 16 characters stopped every greedy loop in English and Hebrew character models
+ * (12 and 24 left some); 3 BPE tokens stopped them without breaking words (4 did). Word-level
+ * tokenizers use 3, the usual value for word trigrams; not measured here.
  */
 export function recommendedNoRepeatNgram(mode: string): number {
-  if (mode === 'character') return 0;
-  if (mode === 'bpe') return 0;
-  return 0;
+  if (mode === 'character') return 16;
+  return 3;
 }
 
 /** Tokens that would complete an n-gram (of `n` tokens) already present in `context`. */

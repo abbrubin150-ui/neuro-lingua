@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   applyRepetitionControls,
   bannedNgramTokens,
-  greedySample
+  greedySample,
+  recommendedNoRepeatNgram
 } from '../../src/generation/sampling';
 import { ProNeuralLM } from '../../src/lib/ProNeuralLM';
 
@@ -87,5 +88,13 @@ describe('generate() with repetition controls', () => {
       noRepeatNgramSize: 3
     });
     expect(repeatedTrigrams('the cat ' + blocked)).toBe(0);
+  });
+});
+
+describe('recommendedNoRepeatNgram', () => {
+  it('spans about two words for each tokenizer', () => {
+    expect(recommendedNoRepeatNgram('character')).toBe(16);
+    expect(recommendedNoRepeatNgram('bpe')).toBe(3);
+    expect(recommendedNoRepeatNgram('unicode')).toBe(3);
   });
 });

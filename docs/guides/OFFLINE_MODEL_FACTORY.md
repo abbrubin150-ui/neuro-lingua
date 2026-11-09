@@ -83,6 +83,7 @@ pnpm lm train    --data <file|dir> [--data …] [--out models/<name>] [options]
 pnpm lm train    --resume <dir>
 pnpm lm eval     --model <package> --data <file|dir>
 pnpm lm generate --model <package> --prompt "text" [--max-tokens 60] [--temperature 0.8]
+                 [--no-repeat-ngram <n>] [--repetition-penalty <x>]
 pnpm lm serve    --model <package> [--port 8787] [--host 127.0.0.1] [--cors]
 pnpm lm info     --model <package>
 pnpm lm help
@@ -226,6 +227,9 @@ curl -s http://127.0.0.1:8787/v1/completions \
   `--cors`. `max_tokens` is capped at 512 and request bodies at 1 MB.
 - Chat requests are turned into a plain prompt (system messages are ignored, the other contents
   are joined with newlines): these models are not instruction-tuned.
+- `no_repeat_ngram_size` (default 16 for character models, 3 otherwise) and
+  `repetition_penalty` (default 1 = off) control loops; see
+  [GENERATION_REPETITION.md](../benchmarks/GENERATION_REPETITION.md).
 
 ### Browser app
 

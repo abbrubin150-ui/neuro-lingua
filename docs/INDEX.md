@@ -81,6 +81,7 @@ Experiment tracking and results.
 | Document | Description |
 |----------|-------------|
 | [Model Benchmark](./benchmarks/MODEL_BENCHMARK.md) | Held-out comparison of the three architectures (`pnpm benchmark:models`) |
+| [Generation Repetition](./benchmarks/GENERATION_REPETITION.md) | Loops under greedy decoding: no-repeat n-grams vs. repetition penalty, measured defaults |
 | [Math Audit](./audits/MATH_AUDIT.md) | Numerical audit of `src/math` and the causal statistics against numpy/scipy |
 | [Logbook](./experiments/logbook.md) | Experiment log and notes |
 | [Experiment Runs](./experiments/runs/) | Individual experiment run data (JSON) |

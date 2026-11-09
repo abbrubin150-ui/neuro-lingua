@@ -120,8 +120,9 @@ eval options
 
 generate / serve options
   --model <package>  --prompt <text>  --max-tokens <n>  --temperature <x>  --top-p <x>  --top-k <n>
-  --repetition-penalty <x>  (default 1; 1 = off)
-  --no-repeat-ngram <n>     (default by tokenizer: character 0, bpe 0, words 0; 0 = off)
+  --repetition-penalty <x>  (default 1 = off)
+  --no-repeat-ngram <n>     never repeat a sequence of n tokens (default: 16 for character
+                            models, 3 otherwise; 0 = off)
   --seed <n>  --port <n> (default 8787)  --host <h> (default 127.0.0.1)  --cors
 `;
 

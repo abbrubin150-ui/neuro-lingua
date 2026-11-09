@@ -173,6 +173,99 @@ function applyRepetitionPenalty(
   return penalized;
 }
 
+/**
+ * Loop controls that act on the recent context (prompt + generated tokens), independent of the
+ * tokenizer granularity.
+ */
+export interface RepetitionControls {
+  /**
+   * Multiplicative repetition penalty (Keskar et al., 2019, "CTRL"): every token seen in the last
+   * `repetitionWindow` positions has a positive logit divided by θ and a negative one multiplied
+   * by θ. 1 disables it.
+   */
+  repetitionPenalty?: number;
+  /** How many of the most recent context tokens the repetition penalty looks at (default 64). */
+  repetitionWindow?: number;
+  /**
+   * Forbid any token that would complete an n-gram of this many tokens that already occurs in
+   * the context (Paulus et al., 2017). 0 disables it. With a character tokenizer n must span
+   * a word or two (≈ 12–20); with words or subwords 3–4 is typical.
+   */
+  noRepeatNgramSize?: number;
+}
+
+/**
+ * Default no-repeat n-gram length for a tokenizer: it has to span about two words, so it is
+ * longer for characters than for words or subwords. 0 (off) until the values are measured.
+ */
+export function recommendedNoRepeatNgram(mode: string): number {
+  if (mode === 'character') return 0;
+  if (mode === 'bpe') return 0;
+  return 0;
+}
+
+/** Tokens that would complete an n-gram (of `n` tokens) already present in `context`. */
+export function bannedNgramTokens(context: readonly number[], n: number): Set<number> {
+  const banned = new Set<number>();
+  if (!(n >= 1) || context.length < n - 1) return banned;
+  const n1 = n - 1;
+  const len = context.length;
+  if (n1 === 0) {
+    for (const t of context) banned.add(t);
+    return banned;
+  }
+  // Positions i where context[i .. i+n1-1] equals the current suffix of n1 tokens.
+  outer: for (let i = 0; i + n1 < len; i++) {
+    for (let j = 0; j < n1; j++) {
+      if (context[i + j] !== context[len - n1 + j]) continue outer;
+    }
+    banned.add(context[i + n1]);
+  }
+  return banned;
+}
+
+/**
+ * Apply `RepetitionControls` to `logits` given the context so far. Returns `logits` unchanged
+ * (same array) when every control is disabled. A banned n-gram continuation gets a logit 100
+ * below the lowest allowed one (probability < e^-100 of any allowed token; kept finite because
+ * the softmax helpers reject non-finite input), unless that would ban every token, in which
+ * case the n-gram rule is skipped for this step.
+ */
+export function applyRepetitionControls(
+  logits: number[],
+  context: readonly number[],
+  controls: RepetitionControls = {}
+): number[] {
+  const theta = controls.repetitionPenalty ?? 1;
+  const n = Math.floor(controls.noRepeatNgramSize ?? 0);
+  const usePenalty = theta > 0 && theta !== 1;
+  const useNgram = n > 0;
+  if ((!usePenalty && !useNgram) || context.length === 0) return logits;
+
+  const out = logits.slice();
+  if (usePenalty) {
+    const window = Math.max(1, Math.floor(controls.repetitionWindow ?? 64));
+    const seen = new Set<number>();
+    for (let i = Math.max(0, context.length - window); i < context.length; i++) {
+      seen.add(context[i]);
+    }
+    for (const t of seen) {
+      if (t >= 0 && t < out.length) out[t] = out[t] > 0 ? out[t] / theta : out[t] * theta;
+    }
+  }
+  if (useNgram) {
+    const banned = bannedNgramTokens(context, n);
+    let inRange = 0;
+    for (const t of banned) if (t >= 0 && t < out.length) inRange++;
+    if (inRange > 0 && inRange < out.length) {
+      let floor = Infinity;
+      for (let t = 0; t < out.length; t++) if (!banned.has(t) && out[t] < floor) floor = out[t];
+      for (const t of banned) if (t >= 0 && t < out.length) out[t] = floor - 100;
+    }
+  }
+  return out;
+}
+
 export function normalizeLogWeights(logWeights: number[]): number[] {
   if (logWeights.length === 0) return [];
   const norm = logSumExp(logWeights);

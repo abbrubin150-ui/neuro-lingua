@@ -4,7 +4,8 @@
  * Endpoints (OpenAI-compatible shapes so that local tools can talk to it):
  *   GET  /health                → { status: "ok" }
  *   GET  /v1/models             → the loaded model
- *   POST /v1/completions        { prompt, max_tokens?, temperature?, top_p?, top_k?, stop?, seed? }
+ *   POST /v1/completions        { prompt, max_tokens?, temperature?, top_p?, top_k?, stop?, seed?,
+ *                                 repetition_penalty?, no_repeat_ngram_size? }
  *   POST /v1/chat/completions   { messages: [{ role, content }], ...same options }
  *
  * The server only runs the local model: it never forwards requests anywhere. It listens on
@@ -13,6 +14,8 @@
 
 import http from 'node:http';
 import { ProNeuralLM } from '../../lib/ProNeuralLM';
+import { recommendedNoRepeatNgram } from '../../generation/sampling';
+import { DEFAULT_GENERATION } from '../../config/constants';
 
 export interface InferenceServerOptions {
   modelName: string;
@@ -30,6 +33,10 @@ interface CompletionRequest {
   top_p?: number;
   top_k?: number;
   stop?: string | string[];
+  /** CTRL repetition penalty (1 = off); default DEFAULT_GENERATION.repetitionPenalty. */
+  repetition_penalty?: number;
+  /** Block repeated n-grams of this many tokens (0 = off); default by tokenizer. */
+  no_repeat_ngram_size?: number;
   /** Reseed the sampler for a reproducible completion. */
   seed?: number;
 }
@@ -71,7 +78,25 @@ export async function complete(
     maxTokens,
     temperature,
     Math.max(0, Math.floor(request.top_k ?? 0)),
-    Math.min(1, Math.max(0, request.top_p ?? 0.9))
+    Math.min(1, Math.max(0, request.top_p ?? 0.9)),
+    0,
+    0,
+    0,
+    0,
+    0.1,
+    {
+      repetitionPenalty: Math.min(
+        2,
+        Math.max(1, request.repetition_penalty ?? DEFAULT_GENERATION.repetitionPenalty)
+      ),
+      repetitionWindow: DEFAULT_GENERATION.repetitionWindow,
+      noRepeatNgramSize: Math.max(
+        0,
+        Math.floor(
+          request.no_repeat_ngram_size ?? recommendedNoRepeatNgram(model.getTokenizerConfig().mode)
+        )
+      )
+    }
   );
   const { text, stopped } = cutAtStop(generated.text, request.stop);
   const config = model.getTokenizerConfig();

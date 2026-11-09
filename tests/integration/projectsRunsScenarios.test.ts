@@ -78,7 +78,7 @@ describe('Project Lifecycle', () => {
       expect(project.name).toBe('Test Project');
       expect(project.description).toBe('Description');
       expect(project.language).toBe('en');
-      expect(project.defaultArchitecture).toBe('feedforward');
+      expect(project.defaultArchitecture).toBe('transformer');
       expect(project.corpusType).toBe('plain-text');
       expect(project.scenarios).toEqual([]);
       expect(project.runIds).toEqual([]);

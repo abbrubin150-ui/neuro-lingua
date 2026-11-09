@@ -127,6 +127,10 @@ interface ChatInterfaceProps {
   onFrequencyPenaltyChange?: (value: number) => void;
   presencePenalty?: number;
   onPresencePenaltyChange?: (value: number) => void;
+  repetitionPenalty?: number;
+  onRepetitionPenaltyChange?: (value: number) => void;
+  noRepeatNgramSize?: number;
+  onNoRepeatNgramSizeChange?: (value: number) => void;
   useBeamSearch?: boolean;
   onUseBeamSearchChange?: (value: boolean) => void;
 }
@@ -172,6 +176,10 @@ export function ChatInterface({
   onFrequencyPenaltyChange,
   presencePenalty = 0,
   onPresencePenaltyChange,
+  repetitionPenalty = 1,
+  onRepetitionPenaltyChange,
+  noRepeatNgramSize = 0,
+  onNoRepeatNgramSizeChange,
   useBeamSearch = false,
   onUseBeamSearchChange
 }: ChatInterfaceProps) {
@@ -920,6 +928,60 @@ export function ChatInterface({
                 step="0.1"
                 value={presencePenalty}
                 onChange={(e) => onPresencePenaltyChange(Number(e.target.value))}
+                style={{ width: '100%' }}
+              />
+            </div>
+          )}
+
+          {/* Repetition Penalty (CTRL) */}
+          {onRepetitionPenaltyChange && (
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 11,
+                  color: '#94a3b8',
+                  marginBottom: 4,
+                  fontWeight: 600
+                }}
+                title="Lower the score of tokens used in the last 64 tokens, prompt included (1 = off)"
+              >
+                Repetition Penalty: {repetitionPenalty.toFixed(2)} ℹ️
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="2"
+                step="0.05"
+                value={repetitionPenalty}
+                onChange={(e) => onRepetitionPenaltyChange(Number(e.target.value))}
+                style={{ width: '100%' }}
+              />
+            </div>
+          )}
+
+          {/* No-repeat n-gram */}
+          {onNoRepeatNgramSizeChange && (
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: 11,
+                  color: '#94a3b8',
+                  marginBottom: 4,
+                  fontWeight: 600
+                }}
+                title="Never repeat a sequence of this many tokens (0 = off). Set from the tokenizer by default: longer for characters, shorter for words and subwords"
+              >
+                No-repeat n-gram: {noRepeatNgramSize === 0 ? 'off' : noRepeatNgramSize} ℹ️
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="32"
+                step="1"
+                value={noRepeatNgramSize}
+                onChange={(e) => onNoRepeatNgramSizeChange(Number(e.target.value))}
                 style={{ width: '100%' }}
               />
             </div>

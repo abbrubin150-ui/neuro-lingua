@@ -35,6 +35,13 @@ export const DEFAULT_TRAINING_TEXT =
 export const DEFAULT_CUSTOM_TOKENIZER_PATTERN = "[^\\p{L}\\d\\s'-]";
 
 /**
+ * Architecture selected on first launch. The Transformer is the only architecture that reads
+ * word order (the MLPs average the context embeddings) and the only one that beat a count-based
+ * n-gram baseline on held-out text in our measurements, so it is the default.
+ */
+export const DEFAULT_ARCHITECTURE = 'transformer' as 'feedforward' | 'advanced' | 'transformer';
+
+/**
  * Default hyperparameters for model training
  */
 export const DEFAULT_HYPERPARAMETERS = {
@@ -74,7 +81,12 @@ export const DEFAULT_GENERATION = {
   useBeamSearch: false,
   beamWidth: 4,
   frequencyPenalty: 0,
-  presencePenalty: 0
+  presencePenalty: 0,
+  /** CTRL repetition penalty over the last `repetitionWindow` tokens (1 = off). */
+  repetitionPenalty: 1.0,
+  repetitionWindow: 64,
+  /** Block repeated n-grams of this many tokens (0 = off); see recommendedNoRepeatNgram(). */
+  noRepeatNgramSize: 0
 };
 
 /**
@@ -321,6 +333,8 @@ export const HYPERPARAMETER_CONSTRAINTS = {
   beamWidth: { min: 1, max: 10 },
   frequencyPenalty: { min: 0, max: 2 },
   presencePenalty: { min: 0, max: 2 },
+  repetitionPenalty: { min: 1, max: 2 },
+  noRepeatNgramSize: { min: 0, max: 32 },
   maxTokens: { min: 1, max: 200 },
   leakyReluAlpha: { min: 0.01, max: 0.3 },
   eluAlpha: { min: 0.1, max: 2.0 },

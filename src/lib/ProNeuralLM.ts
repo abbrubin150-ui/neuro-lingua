@@ -11,8 +11,10 @@ import {
 } from '../training/optimizer';
 import { stableSoftmax } from './MathUtils';
 import {
+  applyRepetitionControls,
   mirostatV2Sample,
   type MirostatV2State,
+  type RepetitionControls,
   sampleFromLogits as drawToken,
   typicalSample
 } from '../generation/sampling';
@@ -1248,8 +1250,12 @@ export class ProNeuralLM {
     typicalTau = 0,
     mirostatTau = 0,
     mirostatEta = 0.1,
-    mirostatState?: MirostatV2State
+    mirostatState?: MirostatV2State,
+    context: readonly number[] = [],
+    controls: RepetitionControls = {}
   ): { index: number; state?: MirostatV2State } {
+    // Loop controls apply to every decoding mode below (greedy = temperature → 0 included).
+    logits = applyRepetitionControls(logits, context, controls);
     if (mirostatTau > 0) {
       const { index, state } = mirostatV2Sample(logits, {
         targetEntropy: mirostatTau,
@@ -1294,7 +1300,8 @@ export class ProNeuralLM {
     presencePenalty = 0,
     typicalTau = 0,
     mirostatTau = 0,
-    mirostatEta = 0.1
+    mirostatEta = 0.1,
+    repetition: RepetitionControls = {}
   ): Promise<string> {
     const { text } = await this.generateDetailed(
       seedText,
@@ -1306,7 +1313,8 @@ export class ProNeuralLM {
       presencePenalty,
       typicalTau,
       mirostatTau,
-      mirostatEta
+      mirostatEta,
+      repetition
     );
     return text;
   }
@@ -1314,6 +1322,9 @@ export class ProNeuralLM {
   /**
    * `generate` that also reports how many tokens were sampled and why it stopped ('eos' when the
    * model produced the end-of-sequence token, 'length' when `maxLen` was reached).
+   *
+   * `repetition` (repetition penalty / no-repeat n-grams) looks at the prompt and the generated
+   * tokens; the frequency and presence penalties count generated tokens only.
    */
   async generateDetailed(
     seedText: string,
@@ -1325,7 +1336,8 @@ export class ProNeuralLM {
     presencePenalty = 0,
     typicalTau = 0,
     mirostatTau = 0,
-    mirostatEta = 0.1
+    mirostatEta = 0.1,
+    repetition: RepetitionControls = {}
   ): Promise<{ text: string; tokens: number; finishReason: 'eos' | 'length' }> {
     const seedToks = this.tokenize(seedText).map((t) => this.toIndex(t));
     const ctx: number[] = new Array(this.contextSize).fill(this.toIndex(this.bos));
@@ -1350,7 +1362,9 @@ export class ProNeuralLM {
         typicalTau,
         mirostatTau,
         mirostatEta,
-        mirostatState
+        mirostatState,
+        ctx.slice(this.contextSize),
+        repetition
       );
       mirostatState = state;
       const tok = this.idxToWord.get(idx)!;

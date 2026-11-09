@@ -18,6 +18,9 @@ export interface ReplicaInit {
   model: Record<string, unknown>;
   trainText: string;
   validationText: string;
+  /** Per-token loss masks (Q&A training). */
+  trainMask?: number[];
+  validationMask?: number[];
   seed: number;
   /** Continue this random stream instead of seeding (resuming a run). */
   randomState?: RandomState;
@@ -41,7 +44,7 @@ const model = TransformerLM.fromJSON(init.model);
 // Each replica draws its own dropout / DropConnect noise.
 if (init.randomState) model.setRandomState(init.randomState);
 else model.reseed(init.seed);
-const data = init.trainText ? model.prepareTrainingWindows(init.trainText) : null;
+const data = init.trainText ? model.prepareTrainingWindows(init.trainText, init.trainMask) : null;
 const params = new Float64Array(init.params);
 const grads = new Float64Array(init.grads);
 const control = new Int32Array(init.control);
@@ -67,7 +70,7 @@ async function handle(m: ReplicaRequest): Promise<void> {
       tokens.buffer as ArrayBuffer
     ]);
   } else if (m.nl === 'eval') {
-    const sums = await model.evaluateSums(init.validationText, m.start, m.end);
+    const sums = await model.evaluateSums(init.validationText, m.start, m.end, init.validationMask);
     parentPort!.postMessage({ nl: 'sums', id: m.id, sums });
   } else {
     parentPort!.postMessage({ nl: 'rng', id: m.id, state: model.getRandomState() });

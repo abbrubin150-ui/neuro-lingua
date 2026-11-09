@@ -5,6 +5,7 @@
  *   pnpm lm eval     --model <package> --data <file|dir>
  *   pnpm lm generate --model <package> --prompt "text" [--max-tokens 60] [--temperature 0.8]
  *   pnpm lm serve    --model <package> [--port 8787] [--host 127.0.0.1] [--cors]
+ *   pnpm lm chat     --model <package>          (question–answer models; reads stdin when piped)
  *   pnpm lm info     --model <package>
  *
  * Everything runs locally on the CPU from local files: no network access, no external AI API.
@@ -14,6 +15,7 @@
 import { mkdir, writeFile, appendFile, readFile, rename } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import readline from 'node:readline';
 import {
   runModelFactory,
   evaluateText,
@@ -30,6 +32,10 @@ import {
   parseWorkerCount
 } from '../src/factory/node/parallel';
 import { TransformerLM } from '../src/lib/TransformerLM';
+import { DEFAULT_QA_TEMPLATE, qaLossMask, type QaTemplate } from '../src/data/qa';
+import { answerQuestion } from '../src/factory/answer';
+import { ProNeuralLM } from '../src/lib/ProNeuralLM';
+import type { ChatTemplate } from '../src/lib/modelPackage';
 import {
   decodeTensors,
   encodeTensors,
@@ -82,11 +88,18 @@ Commands
             write the best model as a package with a model card.
   eval      Loss, perplexity and bits per character of a model on local text.
   generate  Generate text from a prompt.
+  chat      Ask a model trained with --format qa questions on the console (one per line; reads
+            questions from stdin when it is not a terminal).
   serve     Serve a model on a local HTTP API (OpenAI-compatible completions / chat).
   info      Print a package's model card.
 
 train options
   --data <path>          file or directory (repeatable / comma-separated): .txt .md .jsonl .json .csv
+  --format <f>           text (default) | qa: question–answer pairs (jsonl/json: question/answer,
+                         prompt/completion or chat messages; csv: question/answer columns; text:
+                         "Q:" / "A:" blocks); the loss covers the answers only
+  --question-label <s>   --answer-label <s>  labels of the Q&A prompt (default "Question:" /
+                         "Answer:"; e.g. "שאלה:" / "תשובה:")
   --out <dir>            output directory (default models/<name>)
   --name <name>          model name (default local-model)
   --arch <a>             transformer | advanced | feedforward (default transformer)
@@ -115,6 +128,8 @@ train options
 
 eval options
   --workers <n|auto>     as for train
+  --format <f>           text | qa (default: qa for a model trained on Q&A pairs): qa scores the
+                         answers only, in bits per answer character
 
 generate / serve options
   --model <package>  --prompt <text>  --max-tokens <n>  --temperature <x>  --top-p <x>  --top-k <n>
@@ -192,7 +207,15 @@ function configFromArgs(a: Args, name: string): FactoryConfig {
       minParagraphChars: num(a, 'min-paragraph', 20),
       splitSeed: num(a, 'split-seed', 0)
     },
+    ...(str(a, 'format', 'text') === 'qa' ? { qa: qaTemplateFromArgs(a) } : {}),
     precision: str(a, 'precision', 'float32') === 'float16' ? 'float16' : 'float32'
+  };
+}
+
+function qaTemplateFromArgs(a: Args, fallback: QaTemplate = DEFAULT_QA_TEMPLATE): QaTemplate {
+  return {
+    questionLabel: str(a, 'question-label', fallback.questionLabel)!,
+    answerLabel: str(a, 'answer-label', fallback.answerLabel)!
   };
 }
 
@@ -254,9 +277,15 @@ async function train(a: Args) {
     };
   }
 
-  const { documents, files } = await readCorpusDocuments(run.data);
+  const { documents, files, pairs } = await readCorpusDocuments(run.data, {
+    ...(run.config.qa ? { qa: run.config.qa } : {})
+  });
   console.log(`Neuro-Lingua model factory — offline, no external AI services`);
-  console.log(`Read ${files.length} files (${documents.length} documents)`);
+  console.log(
+    run.config.qa
+      ? `Read ${files.length} files (${pairs} question–answer pairs)`
+      : `Read ${files.length} files (${documents.length} documents)`
+  );
   await mkdir(out, { recursive: true });
   const logFile = path.join(out, 'training-log.jsonl');
   // A resumed run keeps the log of the epochs that the checkpoint contains.
@@ -321,27 +350,42 @@ async function train(a: Args) {
 }
 
 async function evaluate(a: Args) {
-  const { model } = await loadModelFile(path.resolve(str(a, 'model', '')!));
-  const { documents } = await readCorpusDocuments(list(a, 'data'));
+  const { model, pkg } = await loadModelFile(path.resolve(str(a, 'model', '')!));
+  const chat = pkg?.card?.chat;
+  const format = str(a, 'format', chat ? 'qa' : 'text');
+  const qa = format === 'qa' ? qaTemplateFromArgs(a, chat ?? DEFAULT_QA_TEMPLATE) : undefined;
+  const { documents } = await readCorpusDocuments(list(a, 'data'), qa ? { qa } : {});
   const text = prepareCorpus(documents, { validationFraction: 0, minParagraphChars: 1 }).train;
+  // Q&A: score the answers only, per answer character.
+  const qaMask = qa
+    ? qaLossMask(text, ProNeuralLM.tokenizeWithOffsets(text, model.getTokenizerConfig()), qa)
+    : null;
+  const characters = qaMask ? qaMask.answerCharacters : text;
   const workers = parseWorkerCount(str(a, 'workers'));
   let r: Awaited<ReturnType<typeof evaluateText>>;
   if (model instanceof TransformerLM && workers > 1) {
     const pool = await DataParallelTrainer.start(
-      { model, trainText: '', validationText: text, seed: 0 },
+      {
+        model,
+        trainText: '',
+        validationText: text,
+        ...(qaMask ? { validationMask: qaMask.mask } : {}),
+        seed: 0
+      },
       { workers }
     );
     try {
-      r = withBitsPerCharacter(await pool.evaluate(), text);
+      r = withBitsPerCharacter(await pool.evaluate(), characters);
     } finally {
       await pool.dispose();
     }
   } else {
-    r = await evaluateText(model, text);
+    r = withBitsPerCharacter(await model.evaluate(text, qaMask?.mask), characters);
   }
   console.log(
     JSON.stringify(
       {
+        ...(qa ? { scored: 'answers' } : {}),
         tokens: r.tokens,
         loss: r.loss,
         perplexity: r.perplexity,
@@ -372,14 +416,65 @@ async function serve(a: Args) {
   const port = num(a, 'port', 8787);
   const host = str(a, 'host', '127.0.0.1')!;
   const name = pkg?.card?.name ?? path.basename(file);
-  const server = createInferenceServer(model, { modelName: name, cors: flag(a, 'cors') });
+  const chat = pkg?.card?.chat;
+  const server = createInferenceServer(model, {
+    modelName: name,
+    cors: flag(a, 'cors'),
+    ...(chat ? { chat } : {})
+  });
   server.listen(port, host, () => {
     console.log(
       `Serving "${name}" on http://${host}:${port} (local model only, no external calls)`
     );
     console.log(`  POST /v1/completions      {"prompt": "...", "max_tokens": 60}`);
     console.log(`  POST /v1/chat/completions {"messages": [{"role": "user", "content": "..."}]}`);
+    if (chat) console.log(`  chat requests use the model's Q&A prompt ("${chat.questionLabel}" …)`);
   });
+}
+
+/** Answer one question with a Q&A model; the answer ends where the next question would start. */
+async function answer(
+  model: Awaited<ReturnType<typeof loadModelFile>>['model'],
+  question: string,
+  chat: ChatTemplate,
+  a: Args
+): Promise<string> {
+  const result = await answerQuestion(model, question, chat, {
+    maxTokens: num(a, 'max-tokens', 60),
+    temperature: num(a, 'temperature', 0.7),
+    topK: num(a, 'top-k', 0),
+    topP: num(a, 'top-p', 0.9)
+  });
+  return result.text;
+}
+
+async function chatCommand(a: Args) {
+  const { model, pkg } = await loadModelFile(path.resolve(str(a, 'model', '')!));
+  const chat: ChatTemplate = pkg?.card?.chat ?? {
+    format: 'qa',
+    ...qaTemplateFromArgs(a)
+  };
+  if (!pkg?.card?.chat) {
+    console.error('This model was not trained on question–answer pairs; answers may be poor.');
+  }
+  if (a.options.has('seed')) model.reseed(num(a, 'seed', 1337));
+  const interactive = process.stdin.isTTY === true;
+  const rl = readline.createInterface({ input: process.stdin, terminal: interactive });
+  if (interactive) {
+    console.log(`Ask a question (empty line or Ctrl-D to quit). Model: ${pkg?.card?.name ?? ''}`);
+    process.stdout.write('> ');
+  }
+  for await (const line of rl) {
+    const question = line.trim();
+    if (!question) {
+      if (interactive) break;
+      continue;
+    }
+    const reply = await answer(model, question, chat, a);
+    console.log(interactive ? reply : `${question}\t${reply}`);
+    if (interactive) process.stdout.write('> ');
+  }
+  rl.close();
 }
 
 async function info(a: Args) {
@@ -399,6 +494,7 @@ async function main() {
     eval: evaluate,
     generate,
     serve,
+    chat: chatCommand,
     info
   };
   if (!commands[command]) {

@@ -13,9 +13,14 @@
 
 import http from 'node:http';
 import { ProNeuralLM } from '../../lib/ProNeuralLM';
+import type { ChatTemplate } from '../../lib/modelPackage';
+import { qaPrompt } from '../../data/qa';
+import { answerStopToken } from '../answer';
 
 export interface InferenceServerOptions {
   modelName: string;
+  /** Prompt layout of a model trained on question–answer pairs (from its model card). */
+  chat?: ChatTemplate;
   /** Allow browser pages from any origin to call the server (default false). */
   cors?: boolean;
   /** Upper bound for max_tokens (default 512). */
@@ -44,36 +49,59 @@ function cutAtStop(text: string, stop?: string | string[]): { text: string; stop
   return { text: text.slice(0, cut), stopped: cut < text.length };
 }
 
-/** Run one completion with the local model. */
+/**
+ * Run one completion with the local model. For a chat request to a Q&A model (`chat` given), the
+ * last user message is asked with the model's question / answer labels and the answer ends where
+ * the model starts the next question.
+ */
 export async function complete(
   model: ProNeuralLM,
   request: CompletionRequest,
-  maxTokensLimit = 512
+  maxTokensLimit = 512,
+  chat?: ChatTemplate
 ): Promise<{
   text: string;
   finishReason: 'stop' | 'length';
   promptTokens: number;
   completionTokens: number;
 }> {
+  const lastUser = [...(request.messages ?? [])].reverse().find((m) => m.role === 'user');
   const prompt =
     request.prompt ??
-    (request.messages ?? [])
-      .filter((m) => m.role !== 'system')
-      .map((m) => m.content)
-      .join('\n');
+    (chat && lastUser
+      ? qaPrompt(lastUser.content, chat)
+      : (request.messages ?? [])
+          .filter((m) => m.role !== 'system')
+          .map((m) => m.content)
+          .join('\n'));
+  const stops = [
+    ...(Array.isArray(request.stop) ? request.stop : request.stop ? [request.stop] : []),
+    ...(chat && request.prompt === undefined ? [chat.questionLabel] : [])
+  ];
   const maxTokens = Math.max(1, Math.min(maxTokensLimit, Math.floor(request.max_tokens ?? 64)));
   const temperature = Math.max(0.05, request.temperature ?? 0.8);
   if (typeof request.seed === 'number' && Number.isFinite(request.seed)) {
     model.reseed(Math.floor(request.seed));
   }
+  const asked = chat && request.prompt === undefined;
   const generated = await model.generateDetailed(
     prompt,
     maxTokens,
     temperature,
     Math.max(0, Math.floor(request.top_k ?? 0)),
-    Math.min(1, Math.max(0, request.top_p ?? 0.9))
+    Math.min(1, Math.max(0, request.top_p ?? 0.9)),
+    0,
+    0,
+    0,
+    0,
+    0.1,
+    // A Q&A model ends its answer with the first token of the next question.
+    asked ? [answerStopToken(model, chat)] : []
   );
-  const { text, stopped } = cutAtStop(generated.text, request.stop);
+  const cut = cutAtStop(generated.text, stops);
+  const stopped = cut.stopped;
+  // A chat answer is returned without the space that followed the answer label.
+  const text = asked ? cut.text.trim() : cut.text;
   const config = model.getTokenizerConfig();
   return {
     text,
@@ -124,7 +152,7 @@ export function createInferenceServer(
             error: { message: isChat ? '"messages" must be an array' : '"prompt" must be a string' }
           });
         }
-        const result = await complete(model, body, limit);
+        const result = await complete(model, body, limit, options.chat);
         const created = Math.floor(Date.now() / 1000);
         const usage = {
           prompt_tokens: result.promptTokens,

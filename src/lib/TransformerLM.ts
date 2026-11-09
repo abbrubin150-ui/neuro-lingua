@@ -691,7 +691,7 @@ export class TransformerLM extends ProNeuralLM {
   async train(
     text: string,
     epochs = 10,
-    lossMaskConfig?: LossMaskConfig
+    lossMask?: LossMaskConfig | number[]
   ): Promise<{
     readonly loss: number;
     readonly accuracy: number;
@@ -704,7 +704,7 @@ export class TransformerLM extends ProNeuralLM {
       timestamp: number;
     }>;
 
-    const data = this.prepareTrainingWindows(text, lossMaskConfig);
+    const data = this.prepareTrainingWindows(text, lossMask);
     if (!data) return { loss: 0, accuracy: 0, history: trainingHistory };
     const batchSize = Math.max(1, Math.floor(this.transformerConfig.batchSize));
     const total = emptyWindowStats();
@@ -750,15 +750,21 @@ export class TransformerLM extends ProNeuralLM {
     return payload;
   }
 
-  /** The training windows of `text` and their loss mask; null when the text has no target. */
-  prepareTrainingWindows(text: string, lossMaskConfig?: LossMaskConfig): TrainingWindows | null {
+  /**
+   * The training windows of `text` and their loss mask (a configuration or one entry per
+   * predicted token); null when the text has no target.
+   */
+  prepareTrainingWindows(
+    text: string,
+    lossMask?: LossMaskConfig | number[]
+  ): TrainingWindows | null {
     const self = this as any;
     const seqs = self.createTrainingSequences(text) as [number[], number][];
     if (seqs.length === 0) return null;
-    const lossMask: number[] = lossMaskConfig
-      ? self.buildTrainingLossMask(text, lossMaskConfig)
-      : new Array(seqs.length).fill(1);
-    return { items: seqs.map(([ctx, tgt], index) => ({ ctx, tgt, index })), lossMask };
+    return {
+      items: seqs.map(([ctx, tgt], index) => ({ ctx, tgt, index })),
+      lossMask: this.resolveLossMask(text, seqs.length, lossMask)
+    };
   }
 
   /**
@@ -792,39 +798,51 @@ export class TransformerLM extends ProNeuralLM {
    * step) and its loss / accuracy to `stats`. `startsBatch` samples the mini-batch's DropConnect
    * masks. Returns whether the window had a target to learn from.
    */
-  private trainWindow(
+  /**
+   * The positions of a window whose next token is scored, with those tokens (−1: masked out).
+   * Shared by training and batch planning so that both agree on which windows learn.
+   */
+  private windowTargets(
     { ctx, tgt, index }: TrainingWindow,
+    lossMask: number[]
+  ): { scored: number[]; targets: number[]; lastMasked: boolean } {
+    const T = ctx.length;
+    const lastMasked = (lossMask[index] ?? 1) === 1;
+    if (!this.isCausal()) return { scored: [-1], targets: [lastMasked ? tgt : -1], lastMasked };
+    const scored: number[] = [];
+    const targets: number[] = [];
+    if (this.causalLossOnAllPositions) {
+      for (let t = 0; t < T - 1; t++) {
+        // ctx[t + 1] is the target of training sequence (index + t + 1 − T);
+        // negative indices are the BOS padding, which is never predicted.
+        const seq = index + t + 1 - T;
+        if (seq >= 0 && (lossMask[seq] ?? 1) === 1) {
+          scored.push(t);
+          targets.push(ctx[t + 1]);
+        }
+      }
+    }
+    scored.push(T - 1);
+    targets.push(lastMasked ? tgt : -1);
+    return { scored, targets, lastMasked };
+  }
+
+  /**
+   * Whether a window has a target to learn from: a mini-batch holds `batchSize` such windows
+   * (windows with nothing to learn, e.g. only question text in Q&A training, do not count).
+   */
+  windowLearns(item: TrainingWindow, lossMask: number[]): boolean {
+    return this.windowTargets(item, lossMask).targets.some((t) => t >= 0);
+  }
+
+  private trainWindow(
+    item: TrainingWindow,
     lossMask: number[],
     stats: WindowStats,
     startsBatch: boolean
   ): boolean {
-    const T = ctx.length;
-    const lastMasked = (lossMask[index] ?? 1) === 1;
-
-    // Scored entries: positions whose next token is a real (unmasked) target.
-    let scored: number[];
-    let targets: number[];
-    if (this.isCausal()) {
-      scored = [];
-      targets = [];
-      if (this.causalLossOnAllPositions) {
-        for (let t = 0; t < T - 1; t++) {
-          // ctx[t + 1] is the target of training sequence (index + t + 1 − T);
-          // negative indices are the BOS padding, which is never predicted.
-          const seq = index + t + 1 - T;
-          if (seq >= 0 && (lossMask[seq] ?? 1) === 1) {
-            scored.push(t);
-            targets.push(ctx[t + 1]);
-          }
-        }
-      }
-      scored.push(T - 1);
-      targets.push(lastMasked ? tgt : -1);
-    } else {
-      scored = [-1];
-      targets = [lastMasked ? tgt : -1];
-    }
-
+    const { ctx, tgt } = item;
+    const { scored, targets, lastMasked } = this.windowTargets(item, lossMask);
     const learn = targets.some((t) => t >= 0);
     if (learn && startsBatch) this.batchDropConnect = this.sampleBatchDropConnect();
     const pass = this.stackForward(ctx, learn, scored, learn);

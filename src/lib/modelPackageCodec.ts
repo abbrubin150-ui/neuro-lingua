@@ -21,6 +21,13 @@ export const MODEL_PACKAGE_VERSION = 1;
 /** float64 is lossless (checkpoints); float32 / float16 make smaller packages. */
 export type TensorPrecision = 'float32' | 'float16' | 'float64';
 
+/** Prompt layout of a model trained on question–answer pairs (src/data/qa.ts). */
+export interface ChatTemplate {
+  format: 'qa';
+  questionLabel: string;
+  answerLabel: string;
+}
+
 export interface ModelCard {
   name: string;
   description?: string;
@@ -30,6 +37,8 @@ export interface ModelCard {
   vocabularySize: number;
   contextSize: number;
   tokenizer: Record<string, unknown>;
+  /** Set for models trained on question–answer pairs: how to prompt them. */
+  chat?: ChatTemplate;
   training?: Record<string, unknown>;
   data?: Record<string, unknown>;
   metrics?: Record<string, unknown>;
@@ -385,6 +394,14 @@ export function renderModelCard(card: ModelCard): string {
     `- **Created**: ${card.createdAt}`,
     '',
     ...section('Tokenizer', card.tokenizer),
+    ...(card.chat
+      ? [
+          '## Chat',
+          '',
+          `Trained on question–answer pairs. Prompt: \`${card.chat.questionLabel} <question> ${card.chat.answerLabel}\`; the answer ends where the model starts the next \`${card.chat.questionLabel}\`.`,
+          ''
+        ]
+      : []),
     ...section('Data', card.data),
     ...section('Training', card.training),
     ...section('Metrics', card.metrics),

@@ -174,8 +174,9 @@ export class DataParallelTrainer implements TrainingBackend {
     setup: TrainingBackendSetup & { model: TransformerLM },
     options: DataParallelOptions
   ): Promise<DataParallelTrainer> {
-    const { model, trainText, validationText, seed, randomStates } = setup;
-    const data = trainText ? model.prepareTrainingWindows(trainText) : null;
+    const { model, trainText, validationText, trainMask, validationMask, seed, randomStates } =
+      setup;
+    const data = trainText ? model.prepareTrainingWindows(trainText, trainMask) : null;
     const json = model.toJSON() as unknown as Record<string, unknown>;
     const paramsBuffer = new SharedArrayBuffer(model.parameterCount() * 8);
     const workers = Math.max(1, Math.floor(options.workers));
@@ -192,6 +193,8 @@ export class DataParallelTrainer implements TrainingBackend {
         model: json,
         trainText,
         validationText,
+        ...(trainMask ? { trainMask } : {}),
+        ...(validationMask ? { validationMask } : {}),
         seed: (Math.imul(seed >>> 0, 0x9e3779b1) + k + 1) >>> 0,
         ...(randomStates ? { randomState: randomStates[k] } : {}),
         index: k,
@@ -235,8 +238,17 @@ export class DataParallelTrainer implements TrainingBackend {
     // The replicas start from the model they were created with, which may since have changed.
     this.publishParameters();
 
-    for (let start = 0; start < items.length; start += batchSize) {
-      const batch = items.slice(start, start + batchSize).map((item) => item.index);
+    // Batches as in single-thread training: up to and including the `batchSize`-th window that
+    // has something to learn (windows without a target do not count).
+    let next = 0;
+    while (next < items.length) {
+      const batch: number[] = [];
+      let learning = 0;
+      while (next < items.length && learning < batchSize) {
+        const item = items[next++];
+        batch.push(item.index);
+        if (model.windowLearns(item, this.data.lossMask)) learning++;
+      }
       const shares = splitEvenly(batch, this.replicas.length);
       const replies = await Promise.all(
         shares.map((indices, k) =>
@@ -256,7 +268,7 @@ export class DataParallelTrainer implements TrainingBackend {
       });
       if (learned > 0) model.applyGradientStep(learned);
       this.publishParameters();
-      onProgress?.(Math.min(items.length, start + batchSize), items.length, epoch);
+      onProgress?.(next, items.length, epoch);
     }
 
     const loss = total.masked > 0 ? total.loss / total.masked : 0;

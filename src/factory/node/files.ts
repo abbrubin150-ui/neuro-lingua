@@ -6,6 +6,7 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { parseDocuments, type CorpusDocument } from '../../data/corpusPrep';
+import { qaDocument, type QaTemplate } from '../../data/qa';
 import { isModelPackage, restoreModel, type ModelPackage } from '../../lib/modelPackage';
 import { parseModelImport } from '../../lib/modelImport';
 import type { ProNeuralLM } from '../../lib/ProNeuralLM';
@@ -42,16 +43,28 @@ export async function listCorpusFiles(inputs: string[]): Promise<string[]> {
 }
 
 /** Read and parse every corpus file into documents. */
+/**
+ * Read the corpus files under `inputs`. With `options.qa` every file is read as question–answer
+ * pairs (one document of formatted pairs per file, see src/data/qa.ts).
+ */
 export async function readCorpusDocuments(
-  inputs: string[]
-): Promise<{ documents: CorpusDocument[]; files: string[] }> {
+  inputs: string[],
+  options: { qa?: QaTemplate } = {}
+): Promise<{ documents: CorpusDocument[]; files: string[]; pairs: number }> {
   const files = await listCorpusFiles(inputs);
   const documents: CorpusDocument[] = [];
+  let pairs = 0;
   for (const file of files) {
     const content = await readFile(file, 'utf8');
-    documents.push(...parseDocuments(file, content));
+    if (options.qa) {
+      const doc = qaDocument(file, content, options.qa);
+      pairs += doc.pairs;
+      if (doc.pairs > 0) documents.push({ id: doc.id, text: doc.text, format: doc.format });
+    } else {
+      documents.push(...parseDocuments(file, content));
+    }
   }
-  return { documents, files };
+  return { documents, files, pairs };
 }
 
 /** Load a model from a package file or from a plain `toJSON()` export. */

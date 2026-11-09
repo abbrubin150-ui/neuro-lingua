@@ -15,6 +15,8 @@ import {
   type PreparedCorpus
 } from '../data/corpusPrep';
 import { trainSubwordModel, subwordVocabulary } from '../tokenizer/subword';
+import { answerF1, qaLossMask, qaPairsFromText, sameAnswer, type QaTemplate } from '../data/qa';
+import { answerQuestion } from './answer';
 import {
   ProNeuralLM,
   type EvaluationResult,
@@ -68,6 +70,11 @@ export interface FactoryConfig {
     seed?: number;
   };
   data?: CorpusPrepOptions;
+  /**
+   * Question–answer training: the documents hold one pair per paragraph (see src/data/qa.ts)
+   * and the loss covers only the answers (and where they stop).
+   */
+  qa?: QaTemplate;
   precision?: TensorPrecision;
 }
 
@@ -136,6 +143,9 @@ export interface TrainingBackendSetup {
   model: ProNeuralLM;
   trainText: string;
   validationText: string;
+  /** Per-token loss masks (Q&A training); absent: every token counts. */
+  trainMask?: number[];
+  validationMask?: number[];
   seed: number;
   /** Continue the workers' random streams (resuming a run). */
   randomStates?: RandomState[];
@@ -147,17 +157,19 @@ export type TrainingBackendFactory = (setup: TrainingBackendSetup) => Promise<Tr
 export function inProcessBackend({
   model,
   trainText,
-  validationText
+  validationText,
+  trainMask,
+  validationMask
 }: TrainingBackendSetup): TrainingBackend {
   return {
     description: 'in-process',
     async trainEpoch(_epoch, onProgress) {
       model.setTrainingProgressCallback(onProgress ?? null);
-      const result = await model.train(trainText, 1);
+      const result = await model.train(trainText, 1, trainMask);
       model.setTrainingProgressCallback(null);
       return { loss: result.history[result.history.length - 1]?.loss ?? result.loss };
     },
-    evaluate: () => model.evaluate(validationText),
+    evaluate: () => model.evaluate(validationText, validationMask),
     dispose: async () => undefined
   };
 }
@@ -198,6 +210,42 @@ export const OFFLINE_PROVENANCE: ModelCard['provenance'] = {
     'Trained locally by the Neuro-Lingua model factory from the listed documents only. No external AI model, API or network service was used for data preparation, tokenization, training or evaluation.'
 };
 
+/** Greedy answers to the validation questions compared with the reference answers. */
+async function qaExactMatch(model: ProNeuralLM, validation: string, template: QaTemplate) {
+  const pairs = qaPairsFromText(validation, template);
+  const config = model.getTokenizerConfig();
+  let correct = 0;
+  let f1 = 0;
+  for (const pair of pairs) {
+    const answerTokens = ProNeuralLM.tokenizeText(pair.answer, config).length;
+    const { text } = await answerQuestion(model, pair.question, template, {
+      maxTokens: answerTokens * 2 + 8,
+      temperature: 0.1,
+      topK: 1
+    });
+    if (sameAnswer(text, pair.answer)) correct++;
+    f1 += answerF1(text, pair.answer);
+  }
+  const n = pairs.length;
+  return { correct, total: n, rate: n ? correct / n : 0, f1: n ? f1 / n : 0 };
+}
+
+/** Answer-only loss masks of the training and validation texts (Q&A training). */
+function qaMasks(model: ProNeuralLM, train: string, validation: string, template: QaTemplate) {
+  const config = model.getTokenizerConfig();
+  const t = qaLossMask(train, ProNeuralLM.tokenizeWithOffsets(train, config), template);
+  const v = qaLossMask(validation, ProNeuralLM.tokenizeWithOffsets(validation, config), template);
+  const answers = (text: string) =>
+    text.split('\n\n').filter((p) => p.includes(template.answerLabel)).length;
+  return {
+    train: t.mask,
+    validation: v.mask,
+    validationCharacters: v.answerCharacters,
+    trainAnswers: answers(train),
+    validationAnswers: answers(validation)
+  };
+}
+
 export function architectureOf(model: ProNeuralLM): FactoryArchitecture {
   if (model instanceof TransformerLM) return 'transformer';
   if (model instanceof AdvancedNeuralLM) return 'advanced';
@@ -212,12 +260,15 @@ export async function evaluateText(
   return withBitsPerCharacter(await model.evaluate(text), text);
 }
 
-/** Add bits per character (total information over the text's characters) to an evaluation. */
+/**
+ * Add bits per character to an evaluation: the total information over the characters of the
+ * text (or a given number of characters, e.g. those of the answers in Q&A evaluation).
+ */
 export function withBitsPerCharacter(
   result: EvaluationResult,
-  text: string
+  text: string | number
 ): { loss: number; perplexity: number; bitsPerCharacter: number; tokens: number } {
-  const characters = Math.max(1, text.length);
+  const characters = Math.max(1, typeof text === 'number' ? text : text.length);
   const bitsPerCharacter =
     result.tokens > 0 ? (result.loss * result.tokens) / characters / Math.LN2 : NaN;
   return {
@@ -321,7 +372,11 @@ export async function runModelFactory(
   if (resume && initialModel) throw new Error('Resume a run or start from a model, not both');
   const started = Date.now() - (resume?.checkpoint.elapsedSeconds ?? 0) * 1000;
 
-  const corpus = prepareCorpus(documents, config.data);
+  // Q&A pairs are kept even when short.
+  const corpus = prepareCorpus(documents, {
+    ...(config.qa ? { minParagraphChars: 1 } : {}),
+    ...config.data
+  });
   if (corpus.train.length === 0) throw new Error('No training text left after preparation');
   if (corpus.validation.length === 0) throw new Error('No validation text: add more documents');
   log(
@@ -382,10 +437,20 @@ export async function runModelFactory(
   const stoppedEarly = (b: typeof best, epoch: number) =>
     patience > 0 && !!b && epoch - b.epoch >= patience;
 
+  // Q&A: the loss covers the answers only; bits per character are per answer character.
+  const masks = config.qa ? qaMasks(model, corpus.train, corpus.validation, config.qa) : null;
+  if (masks) {
+    log(
+      `Q&A training: ${masks.trainAnswers} training / ${masks.validationAnswers} validation answers; loss on answers only`
+    );
+  }
+  const validationCharacters = masks ? masks.validationCharacters : corpus.validation.length;
+
   const backend = await (options.backend ?? (async (setup) => inProcessBackend(setup)))({
     model,
     trainText: corpus.train,
     validationText: corpus.validation,
+    ...(masks ? { trainMask: masks.train, validationMask: masks.validation } : {}),
     seed: config.training.seed ?? 1337,
     ...(resume?.checkpoint.replicaRandomStates
       ? { randomStates: resume.checkpoint.replicaRandomStates }
@@ -398,7 +463,7 @@ export async function runModelFactory(
     for (let epoch = firstEpoch; epoch <= epochs && !alreadyStopped; epoch++) {
       const t0 = Date.now();
       const result = await backend.trainEpoch(epoch - 1, callbacks.onProgress);
-      const val = withBitsPerCharacter(await backend.evaluate(), corpus.validation);
+      const val = withBitsPerCharacter(await backend.evaluate(), validationCharacters);
       const improved = !best || val.loss < best.loss;
       if (improved) {
         best = {
@@ -448,6 +513,17 @@ export async function runModelFactory(
   }
 
   const bestEntry = history[best!.epoch - 1];
+  // The returned model and package are the best checkpoint (lowest validation loss).
+  const bestModel = restoreModel(best!.json, architectureOf(model));
+  // Q&A: answers generated freely (greedy, until the end-of-answer token) for the validation
+  // questions, compared with the reference answers. Teacher-forced loss alone cannot show
+  // whether the model picks the right answer.
+  const exactMatch = config.qa ? await qaExactMatch(bestModel, corpus.validation, config.qa) : null;
+  if (exactMatch) {
+    log(
+      `Validation answers generated exactly right: ${exactMatch.correct}/${exactMatch.total} (${(100 * exactMatch.rate).toFixed(1)}%), word-overlap F1 ${exactMatch.f1.toFixed(2)}`
+    );
+  }
   const card: ModelCard = {
     name: config.name,
     description: config.description,
@@ -457,6 +533,15 @@ export async function runModelFactory(
     vocabularySize: model.getVocabSize(),
     contextSize: model.getContextSize(),
     tokenizer: tokenizerSummary,
+    ...(config.qa
+      ? {
+          chat: {
+            format: 'qa' as const,
+            questionLabel: config.qa.questionLabel,
+            answerLabel: config.qa.answerLabel
+          }
+        }
+      : {}),
     data: {
       documents: corpus.stats.documents,
       trainParagraphs: corpus.stats.trainParagraphs,
@@ -483,6 +568,14 @@ export async function runModelFactory(
       validationLoss: bestEntry.validationLoss,
       validationPerplexity: bestEntry.validationPerplexity,
       validationBitsPerCharacter: bestEntry.validationBitsPerCharacter,
+      ...(config.qa ? { validationBitsPerCharacterScope: 'answers' } : {}),
+      ...(exactMatch
+        ? {
+            validationExactMatch: Number(exactMatch.rate.toFixed(4)),
+            validationAnswerF1: Number(exactMatch.f1.toFixed(4)),
+            validationQuestions: exactMatch.total
+          }
+        : {}),
       trainLoss: bestEntry.trainLoss,
       history: history.map((h) => ({
         epoch: h.epoch,
@@ -494,8 +587,6 @@ export async function runModelFactory(
     provenance: OFFLINE_PROVENANCE
   };
 
-  // The returned model and package are the best checkpoint (lowest validation loss).
   const pkg = packModel(best!.json, { precision: config.precision ?? 'float32', card });
-  const bestModel = restoreModel(best!.json, architectureOf(model));
   return { model: bestModel, package: pkg, card, history, bestEpoch: best!.epoch };
 }

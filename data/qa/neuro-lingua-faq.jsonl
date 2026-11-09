@@ -1,0 +1,72 @@
+{"question": "What is Neuro-Lingua?", "answer": "A neural language model that runs in the browser, with tools to train, package and serve small models offline."}
+{"question": "What does Neuro-Lingua do?", "answer": "A neural language model that runs in the browser, with tools to train, package and serve small models offline."}
+{"question": "Tell me what Neuro-Lingua is.", "answer": "A neural language model that runs in the browser, with tools to train, package and serve small models offline."}
+{"question": "Does it use external AI services?", "answer": "No. Data preparation, tokenization, training, evaluation and serving all run locally, and a test fails if an AI service or network call appears in the code."}
+{"question": "Is any outside AI API involved?", "answer": "No. Data preparation, tokenization, training, evaluation and serving all run locally, and a test fails if an AI service or network call appears in the code."}
+{"question": "Does training call a cloud AI?", "answer": "No. Data preparation, tokenization, training, evaluation and serving all run locally, and a test fails if an AI service or network call appears in the code."}
+{"question": "How do I train a model from my files?", "answer": "Run pnpm lm train --data with a file or folder; the model is written to models/<name>/model.nlm.json."}
+{"question": "How can I train on my own documents?", "answer": "Run pnpm lm train --data with a file or folder; the model is written to models/<name>/model.nlm.json."}
+{"question": "What command trains a model?", "answer": "Run pnpm lm train --data with a file or folder; the model is written to models/<name>/model.nlm.json."}
+{"question": "Which file formats can I train on?", "answer": "Plain text, Markdown, JSONL, JSON and CSV files."}
+{"question": "What kinds of files can be used for training?", "answer": "Plain text, Markdown, JSONL, JSON and CSV files."}
+{"question": "Which formats does the factory read?", "answer": "Plain text, Markdown, JSONL, JSON and CSV files."}
+{"question": "What tokenizer does the factory use?", "answer": "A subword BPE tokenizer learned from your own corpus, with 2000 subwords by default."}
+{"question": "How is text split into tokens?", "answer": "A subword BPE tokenizer learned from your own corpus, with 2000 subwords by default."}
+{"question": "Which tokenizer is used by default?", "answer": "A subword BPE tokenizer learned from your own corpus, with 2000 subwords by default."}
+{"question": "How do I continue an interrupted run?", "answer": "Run pnpm lm train --resume with the model folder; it continues exactly where it stopped."}
+{"question": "Training stopped, how do I resume it?", "answer": "Run pnpm lm train --resume with the model folder; it continues exactly where it stopped."}
+{"question": "Can I resume training after a crash?", "answer": "Run pnpm lm train --resume with the model folder; it continues exactly where it stopped."}
+{"question": "How many CPU cores does training use?", "answer": "All cores by default, up to eight; choose another number with --workers."}
+{"question": "Does training use all cores?", "answer": "All cores by default, up to eight; choose another number with --workers."}
+{"question": "How do I choose the number of workers?", "answer": "All cores by default, up to eight; choose another number with --workers."}
+{"question": "What is bits per character?", "answer": "The information the model needs per character of held-out text; lower is better and it does not depend on the tokenizer."}
+{"question": "What does bits per character measure?", "answer": "The information the model needs per character of held-out text; lower is better and it does not depend on the tokenizer."}
+{"question": "Which metric should I watch?", "answer": "The information the model needs per character of held-out text; lower is better and it does not depend on the tokenizer."}
+{"question": "How do I serve a model?", "answer": "Run pnpm lm serve with --model; it answers completions and chat requests on 127.0.0.1."}
+{"question": "How can other programs use my model?", "answer": "Run pnpm lm serve with --model; it answers completions and chat requests on 127.0.0.1."}
+{"question": "How do I start the local server?", "answer": "Run pnpm lm serve with --model; it answers completions and chat requests on 127.0.0.1."}
+{"question": "How do I train a question answering model?", "answer": "Use --format qa with question and answer pairs; the loss covers only the answers."}
+{"question": "Can a model learn to answer questions?", "answer": "Use --format qa with question and answer pairs; the loss covers only the answers."}
+{"question": "How do I train on question and answer pairs?", "answer": "Use --format qa with question and answer pairs; the loss covers only the answers."}
+{"question": "Where is the model card?", "answer": "Next to the model in model-card.md, and inside the package itself."}
+{"question": "Where can I read how a model was made?", "answer": "Next to the model in model-card.md, and inside the package itself."}
+{"question": "What file describes the model?", "answer": "Next to the model in model-card.md, and inside the package itself."}
+{"question": "What does a model package contain?", "answer": "The weights as base64 tensors, a checksum, and a model card with provenance."}
+{"question": "What is inside an nlm.json file?", "answer": "The weights as base64 tensors, a checksum, and a model card with provenance."}
+{"question": "Describe the package format.", "answer": "The weights as base64 tensors, a checksum, and a model card with provenance."}
+{"question": "Does the web app work offline?", "answer": "Yes. After one visit a service worker caches the app, so it starts and trains without a network."}
+{"question": "Can I use the app without internet?", "answer": "Yes. After one visit a service worker caches the app, so it starts and trains without a network."}
+{"question": "Does the website need a network?", "answer": "Yes. After one visit a service worker caches the app, so it starts and trains without a network."}
+{"question": "Which architecture is the default?", "answer": "A decoder-only causal transformer with grouped-query attention and rotary positions."}
+{"question": "What kind of network does the factory train?", "answer": "A decoder-only causal transformer with grouped-query attention and rotary positions."}
+{"question": "Which model type is used by default?", "answer": "A decoder-only causal transformer with grouped-query attention and rotary positions."}
+{"question": "How big are the presets?", "answer": "tiny has 64 hidden units and 2 layers, small has 128 and 4, base has 256 and 6."}
+{"question": "What sizes can I choose?", "answer": "tiny has 64 hidden units and 2 layers, small has 128 and 4, base has 256 and 6."}
+{"question": "What are the tiny, small and base presets?", "answer": "tiny has 64 hidden units and 2 layers, small has 128 and 4, base has 256 and 6."}
+{"question": "How is the validation set chosen?", "answer": "Each paragraph goes to training or validation by a hash of its text, so the split is stable."}
+{"question": "Which paragraphs are held out?", "answer": "Each paragraph goes to training or validation by a hash of its text, so the split is stable."}
+{"question": "How does the train and validation split work?", "answer": "Each paragraph goes to training or validation by a hash of its text, so the split is stable."}
+{"question": "מה זה נוירו-לינגואה?", "answer": "מודל שפה שרץ בדפדפן ומאפשר לאמן מודלים קטנים על המחשב שלך, בלי שירותי בינה מלאכותית חיצוניים."}
+{"question": "מה עושה נוירו-לינגואה?", "answer": "מודל שפה שרץ בדפדפן ומאפשר לאמן מודלים קטנים על המחשב שלך, בלי שירותי בינה מלאכותית חיצוניים."}
+{"question": "ספר לי מה זה נוירו-לינגואה.", "answer": "מודל שפה שרץ בדפדפן ומאפשר לאמן מודלים קטנים על המחשב שלך, בלי שירותי בינה מלאכותית חיצוניים."}
+{"question": "איך מאמנים מודל מהקבצים שלי?", "answer": "מריצים pnpm lm train עם --data ותיקיית הקבצים; המודל נשמר בתיקייה models."}
+{"question": "איך מאמנים על המסמכים שלי?", "answer": "מריצים pnpm lm train עם --data ותיקיית הקבצים; המודל נשמר בתיקייה models."}
+{"question": "איזו פקודה מאמנת מודל?", "answer": "מריצים pnpm lm train עם --data ותיקיית הקבצים; המודל נשמר בתיקייה models."}
+{"question": "האם צריך אינטרנט?", "answer": "לא. אחרי התקנת החבילות הכול רץ על המחשב שלך בלבד."}
+{"question": "האם האימון דורש רשת?", "answer": "לא. אחרי התקנת החבילות הכול רץ על המחשב שלך בלבד."}
+{"question": "אפשר לעבוד בלי חיבור לאינטרנט?", "answer": "לא. אחרי התקנת החבילות הכול רץ על המחשב שלך בלבד."}
+{"question": "איך ממשיכים אימון שנעצר?", "answer": "מריצים pnpm lm train --resume עם תיקיית המודל, והאימון ממשיך בדיוק מאותה נקודה."}
+{"question": "האימון נקטע, איך ממשיכים?", "answer": "מריצים pnpm lm train --resume עם תיקיית המודל, והאימון ממשיך בדיוק מאותה נקודה."}
+{"question": "אפשר להמשיך אימון אחרי קריסה?", "answer": "מריצים pnpm lm train --resume עם תיקיית המודל, והאימון ממשיך בדיוק מאותה נקודה."}
+{"question": "כמה ליבות משמשות לאימון?", "answer": "כל הליבות כברירת מחדל, עד שמונה; אפשר לבחור מספר אחר עם --workers."}
+{"question": "האם האימון משתמש בכל הליבות?", "answer": "כל הליבות כברירת מחדל, עד שמונה; אפשר לבחור מספר אחר עם --workers."}
+{"question": "איך בוחרים את מספר ה-workers?", "answer": "כל הליבות כברירת מחדל, עד שמונה; אפשר לבחור מספר אחר עם --workers."}
+{"question": "איך מפעילים שרת מקומי?", "answer": "מריצים pnpm lm serve עם --model; השרת מאזין רק ל-127.0.0.1."}
+{"question": "איך תוכנות אחרות משתמשות במודל?", "answer": "מריצים pnpm lm serve עם --model; השרת מאזין רק ל-127.0.0.1."}
+{"question": "איך מגישים מודל?", "answer": "מריצים pnpm lm serve עם --model; השרת מאזין רק ל-127.0.0.1."}
+{"question": "מה המדד העיקרי?", "answer": "ביטים לתו על טקסט שהמודל לא ראה; נמוך יותר הוא טוב יותר."}
+{"question": "איך יודעים אם המודל טוב?", "answer": "ביטים לתו על טקסט שהמודל לא ראה; נמוך יותר הוא טוב יותר."}
+{"question": "מה זה ביטים לתו?", "answer": "ביטים לתו על טקסט שהמודל לא ראה; נמוך יותר הוא טוב יותר."}
+{"question": "איך מאמנים מודל שעונה על שאלות?", "answer": "משתמשים באפשרות --format qa עם זוגות של שאלה ותשובה; האימון מתמקד בתשובות בלבד."}
+{"question": "אפשר ללמד מודל לענות?", "answer": "משתמשים באפשרות --format qa עם זוגות של שאלה ותשובה; האימון מתמקד בתשובות בלבד."}
+{"question": "איך מאמנים על זוגות של שאלה ותשובה?", "answer": "משתמשים באפשרות --format qa עם זוגות של שאלה ותשובה; האימון מתמקד בתשובות בלבד."}

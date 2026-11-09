@@ -1063,6 +1063,21 @@ export class ProNeuralLM {
    * @param lossMaskConfig - Loss mask configuration
    * @returns Array of 0s and 1s, same length as training sequences
    */
+  /** Loss mask for the training sequences of `text` (all ones without a configuration). */
+  protected resolveLossMask(
+    text: string,
+    sequences: number,
+    lossMask?: LossMaskConfig | number[]
+  ): number[] {
+    if (Array.isArray(lossMask)) {
+      if (lossMask.length !== sequences) {
+        throw new Error(`Loss mask has ${lossMask.length} entries for ${sequences} tokens`);
+      }
+      return lossMask;
+    }
+    return lossMask ? this.buildTrainingLossMask(text, lossMask) : new Array(sequences).fill(1);
+  }
+
   private buildTrainingLossMask(text: string, lossMaskConfig: LossMaskConfig): number[] {
     const mode = lossMaskConfig.mode;
     const answerTag = lossMaskConfig.answerTag || 'A:';
@@ -1161,20 +1176,20 @@ export class ProNeuralLM {
     }
   }
 
-  async train(text: string, epochs = 10, lossMaskConfig?: LossMaskConfig) {
+  /**
+   * Train for `epochs` passes over `text`. `lossMask` restricts the loss: a configuration, or a
+   * precomputed mask with one entry per predicted token (tokens of the text, then the end).
+   */
+  async train(text: string, epochs = 10, lossMask?: LossMaskConfig | number[]) {
     const seqs = this.createTrainingSequences(text);
     if (seqs.length === 0) return { loss: 0, accuracy: 0, history: this.trainingHistory };
-
-    // Build loss mask if config provided
-    const lossMask = lossMaskConfig
-      ? this.buildTrainingLossMask(text, lossMaskConfig)
-      : new Array(seqs.length).fill(1);
+    const mask = this.resolveLossMask(text, seqs.length, lossMask);
 
     // Pair sequences with their mask values for shuffling
     const seqsWithMask: [number[], number, number][] = seqs.map((seq, i) => [
       seq[0],
       seq[1],
-      lossMask[i] ?? 1
+      mask[i] ?? 1
     ]);
 
     let totalLoss = 0;
@@ -1312,8 +1327,9 @@ export class ProNeuralLM {
   }
 
   /**
-   * `generate` that also reports how many tokens were sampled and why it stopped ('eos' when the
-   * model produced the end-of-sequence token, 'length' when `maxLen` was reached).
+   * `generate` that also reports how many tokens were sampled and why it stopped: 'eos' when the
+   * model produced the end-of-sequence token or one of `stopTokens` (not included in the text),
+   * 'length' when `maxLen` was reached.
    */
   async generateDetailed(
     seedText: string,
@@ -1325,8 +1341,10 @@ export class ProNeuralLM {
     presencePenalty = 0,
     typicalTau = 0,
     mirostatTau = 0,
-    mirostatEta = 0.1
+    mirostatEta = 0.1,
+    stopTokens: string[] = []
   ): Promise<{ text: string; tokens: number; finishReason: 'eos' | 'length' }> {
+    const stops = new Set(stopTokens);
     const seedToks = this.tokenize(seedText).map((t) => this.toIndex(t));
     const ctx: number[] = new Array(this.contextSize).fill(this.toIndex(this.bos));
     for (const t of seedToks) ctx.push(t);
@@ -1354,7 +1372,7 @@ export class ProNeuralLM {
       );
       mirostatState = state;
       const tok = this.idxToWord.get(idx)!;
-      if (tok === this.eos) {
+      if (tok === this.eos || stops.has(tok)) {
         finishReason = 'eos';
         break;
       }
@@ -1373,11 +1391,12 @@ export class ProNeuralLM {
    * scored positions and the fraction of targets that are out-of-vocabulary (mapped to <UNK>).
    * Use it on held-out text to measure generalisation rather than memorisation.
    */
-  async evaluate(text: string): Promise<EvaluationResult> {
+  /** Held-out loss over `text`; with `mask`, only over the predicted tokens it marks. */
+  async evaluate(text: string, mask?: number[]): Promise<EvaluationResult> {
     if (this.tokenize(text).length === 0) {
       return { loss: NaN, perplexity: NaN, accuracy: 0, tokens: 0, oovRate: 0 };
     }
-    return ProNeuralLM.evaluationResult([await this.evaluateSums(text)]);
+    return ProNeuralLM.evaluationResult([await this.evaluateSums(text, 0, Infinity, mask)]);
   }
 
   /**
@@ -1385,12 +1404,21 @@ export class ProNeuralLM {
    * evaluation can be split into ranges (e.g. across worker threads) and combined with
    * `evaluationResult`.
    */
-  async evaluateSums(text: string, start = 0, end = Infinity): Promise<EvaluationSums> {
+  async evaluateSums(
+    text: string,
+    start = 0,
+    end = Infinity,
+    mask?: number[]
+  ): Promise<EvaluationSums> {
     const seqs = this.createTrainingSequences(text);
+    if (mask && mask.length !== seqs.length) {
+      throw new Error(`Evaluation mask has ${mask.length} entries for ${seqs.length} tokens`);
+    }
     const unkIdx = this.toIndex(this.unk);
     const sums: EvaluationSums = { nll: 0, correct: 0, oov: 0, count: 0, total: seqs.length };
     const last = Math.min(end, seqs.length);
     for (let s = Math.max(0, start); s < last; s++) {
+      if (mask && mask[s] !== 1) continue;
       const [ctx, tgt] = seqs[s];
       const { probs } = await this.forward(ctx, false);
       sums.nll -= Math.log(Math.max(probs[tgt], 1e-12));

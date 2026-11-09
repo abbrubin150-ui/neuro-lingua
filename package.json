@@ -1,7 +1,7 @@
 {
   "name": "neuro-lingua",
   "private": true,
-  "version": "0.0.0",
+  "version": "4.4.0",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -20,6 +20,8 @@
     "test:parity:wasm": "WEBGPU_PARITY_RUNTIME=wasm vitest run tests/TransformerLM.parity.test.ts",
     "train": "tsx scripts/train.ts",
     "benchmark:gpu": "tsx scripts/benchmark_gpu.ts",
+    "benchmark:models": "tsx scripts/benchmark_models.ts",
+    "lm": "tsx scripts/lm.ts",
     "electron:dev": "cross-env ELECTRON_DEV_SERVER=true concurrently -k \"npm run dev\" \"tsc -p electron/tsconfig.json --watch\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run build && tsc -p electron/tsconfig.json && electron-builder --win nsis"
   },

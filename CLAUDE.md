@@ -66,7 +66,9 @@ src/
 ├── components/                # React UI panels (26+ components)
 ├── contexts/                  # React Context (BrainContext, ProjectContext)
 ├── types/                     # TypeScript interfaces
-├── data/                      # Dataset management
+├── data/                      # Dataset management, corpusPrep.ts (offline corpus cleaning/split)
+├── factory/                   # Offline model factory pipeline (+ node/ files & local server)
+├── pwa/                       # Offline service worker template + registration
 ├── generation/                # Text generation (sampling.ts)
 ├── losses/                    # Loss functions
 ├── math/                      # Mathematical analysis (258KB)
@@ -74,7 +76,7 @@ src/
 ├── explainability/            # Interpretability tools
 ├── integrations/              # External services (mock implementations)
 ├── autodiff/                  # Automatic differentiation
-├── tokenizer/                 # BPE tokenization
+├── tokenizer/                 # subword.ts (BPE used by the models), BPETokenizer.ts (library)
 └── visualization/             # Embedding visualization
 
 tests/                         # 135+ test files mirroring src/ structure
@@ -138,6 +140,10 @@ pnpm test:parity:wasm          # WASM parity tests
 
 - `ProNeuralLM.parity.test.ts` - CPU/GPU numerical parity
 - `TransformerLM.parity.test.ts` - Transformer parity tests
+- `lib/ProNeuralLM.gradcheck.test.ts`, `lib/AdvancedNeuralLM.wiring.test.ts`,
+  `lib/TransformerLM.gradcheck.test.ts`, `models/transformer_backprop.test.ts` - finite-difference
+  gradient checks of every architecture (keep them passing when touching forward/backward code)
+- `lib/injection.integrity.test.ts` - Cerebro injection + rollback for all architectures
 - `GovernanceEngine.test.ts` - Decision logic verification
 - `MathUtils.test.ts` - Numerical stability tests
 - `App.test.tsx` - UI integration tests
@@ -156,9 +162,13 @@ pnpm test:parity:wasm          # WASM parity tests
 ### Modifying Neural Network Code
 
 - Core models are in `/src/lib/` (ProNeuralLM.ts, TransformerLM.ts, AdvancedNeuralLM.ts)
-- Attention mechanisms in `/src/models/attention.ts`
-- Optimizers in `/src/training/`
-- GPU operations in `/src/backend/`
+- Transformer forward/backward: `/src/models/transformer_backprop.ts` (exact gradients, dropout
+  masks, per-head RoPE). `MiniTransformerBlock` / `attention.ts` are the reference forward only.
+- AdvancedNeuralLM features act through ProNeuralLM's protected hooks (`activate`,
+  `normalizeHidden`, `getGradientClipNorm`, `onEpochStart`, ...); add new MLP features the same way
+  so that the UI's `train()` path uses them.
+- Optimizers in `/src/training/` (`ParamOptimizer.ts` serves the transformer stack and LayerNorm)
+- GPU operations in `/src/backend/` (only the MLP's matrix-vector products use WebGPU)
 
 ### Working with Components
 
@@ -172,7 +182,20 @@ pnpm test:parity:wasm          # WASM parity tests
 ```bash
 pnpm train                     # Run training script
 pnpm benchmark:gpu             # GPU performance benchmark
+pnpm benchmark:models          # Held-out comparison of the three architectures
+pnpm lm train --data <dir>     # Offline model factory → models/<name>/model.nlm.json
+pnpm lm train --resume <dir>   # continue an interrupted run exactly
+pnpm lm eval|generate|serve|info --model <package>
 ```
+
+`pnpm lm train|eval` use all CPU cores (`--workers`, `src/factory/node/parallel.ts`): replicas in
+worker threads load the TypeScript sources through tsx's CommonJS hook registered inside the
+thread (tsx 3 does not load in worker threads otherwise, and Node 20 cannot strip types).
+
+The factory (`scripts/lm.ts`, `src/factory/`) is documented in
+`docs/guides/OFFLINE_MODEL_FACTORY.md`. Nothing in the app, CLI or desktop code may call an
+external AI service or make network requests; `tests/offline/noExternalServices.test.ts` enforces
+it (the service worker's same-origin cache handler is the only allowed `fetch`).
 
 ## Architecture Patterns
 
@@ -189,9 +212,20 @@ pnpm benchmark:gpu             # GPU performance benchmark
 ```typescript
 // Export model
 const json = model.toJSON();
-// Import model
-const model = ProNeuralLM.fromJSON(json);
+// Import model (each class restores its own architecture)
+const mlp = ProNeuralLM.fromJSON(json);
+const advanced = AdvancedNeuralLM.fromJSON(json); // json.architecture === 'advanced'
+const transformer = TransformerLM.fromJSON(json); // json.architecture === 'transformer'
+// Files chosen in the UI go through parseModelImport() (src/lib/modelImport.ts)
+// Compact packages (.nlm.json, base64 tensors + checksum + model card):
+const pkg = packModel(json, { precision: 'float32', card }); // src/lib/modelPackageCodec.ts
+const model = restoreModel(unpackModel(pkg));                // src/lib/modelPackage.ts
+// saveToLocalStorage() falls back to float32 / float16 packages when the JSON exceeds the quota
 ```
+
+Transformer models saved without `transformer.config.objective` are legacy models and load with
+`objective: 'pooled'` (bidirectional, mean-pooled, full-row RoPE) so their predictions do not
+change; new models use `objective: 'causal'`.
 
 ### Error Handling
 
@@ -235,16 +269,19 @@ pnpm build                     # Production build
 
 ### WebGPU Acceleration
 
-- 2-5x speedup for training
+- Offloads only the MLP's matrix-vector products; each product flattens and uploads the weight
+  matrix and waits for a readback, so small models are often as fast on the CPU. No speedup has
+  been measured in this repository.
+- The Transformer always trains on the CPU (≈ 26 ms per context window with the UI defaults)
 - Automatic CPU fallback if unavailable
 - Browser support: Chrome/Edge 113+, Firefox 127+ (with flag)
 
 ### Optimization Techniques
 
-- Mixed precision training (FP16/FP32)
-- Sparse attention patterns (O(n) vs O(n²))
-- RMSNorm (20% less memory than LayerNorm)
-- Grouped-Query Attention (GQA) for efficient KV caching
+- Transformer mini-batches (`batchSize`, default 8) with one fused optimizer pass per batch and
+  DropConnect masks shared within a batch
+- Grouped-Query Attention (GQA) shrinks the K/V projections
+- Library-only (not used by training): mixed precision, sparse/linearized attention, K-FAC
 
 ## Gotchas & Tips
 
@@ -254,12 +291,44 @@ pnpm build                     # Production build
 4. **Strict TypeScript**: All types must be explicit, use discriminated unions
 5. **No React import needed**: JSX transform handles it (react-jsx)
 6. **Bilingual UI**: Components support English and Hebrew (en/he toggle)
+7. **The MLP is order-blind**: ProNeuralLM averages the context embeddings (bag of words).
+   Order-dependent behaviour needs the Transformer (see `docs/benchmarks/MODEL_BENCHMARK.md`).
+8. **Learning rates**: Adam ~0.003 (UI default); momentum SGD 0.005–0.01. Adam at 0.05+ does not
+   learn on the MLP.
+9. **Character tokenizer** keeps one `' '` token per whitespace run; generation joins characters
+   without separators (`joinTokens`). Use `tokenizeWithOffsets` when mapping text spans to tokens.
+10. **Cerebro injection on transformers** must add a multiple of `numHeads` neurons (each head
+    grows equally); `InjectionEngine.propose` rounds k accordingly.
+11. **No fabricated metrics**: every number shown in the UI must come from the model or be
+    labelled as simulated (e.g. the causal analysis panel).
+12. **Model packages**: `src/lib/modelPackageCodec.ts` (format, checksum, `storeModelCompactly`)
+    must not import the model classes — ProNeuralLM imports it, so the loaders that need
+    TransformerLM / AdvancedNeuralLM live in `src/lib/modelPackage.ts` (`restoreModel`).
+13. **Subword tokenizer** (`mode: 'bpe'`): the merges live in the tokenizer config
+    (`config.bpe`) and are serialized with the model; the vocabulary is `buildVocabulary(text,
+    config)` (specials + every subword). Decoding a continuation keeps the leading space.
+14. **Interactive training**: `setInteractiveTraining(ms, signal)` makes `train()` yield and stop
+    on abort (the App uses it); it is off by default so the CLI and tests are unaffected. An
+    interrupted epoch is not added to the history.
+15. **Provenance**: exported model cards claim `offline: true` only for models initialised in the
+    app or whose imported card says so (`src/lib/modelExport.ts`); unknown history is `null`.
+16. **Transformer output layer**: `projectOutput` / `outputSoftmax` / `outputBackward` in
+    TransformerLM.ts are the hot path (keep them module-level and monomorphic); their accumulation
+    order is part of the bit-identical-results guarantee.
+17. **Training state**: `toJSON()` holds weights, the random stream and the history, but not the
+    transformer's optimizer moments or schedule position — use `getTrainingState()` /
+    `setTrainingState()` (after `setLearningRateSchedule`, which resets the step). Exact resume
+    is tested in `tests/factory/resume.test.ts`; keep it passing when adding training state.
+18. **Single-thread vs data-parallel training share code**: `TransformerLM.train` and the
+    replicas both go through `prepareTrainingWindows` / `planEpoch` / `trainWindow`; change the
+    training step there, not in one path only (`tests/factory/parallel.test.ts` compares them).
 
 ## Documentation
 
 - **docs/INDEX.md** - Documentation hub
 - **docs/guides/CLAUDE_ASSISTANT_GUIDE.md** - Detailed AI assistant guide (120KB)
 - **docs/guides/DEVELOPMENT_SETUP_GUIDE.md** - Setup instructions
+- **docs/guides/OFFLINE_MODEL_FACTORY.md** - Offline model production (CLI, packages, server, PWA)
 - **docs/architecture/** - System design documents
 - **docs/theory/** - Mathematical foundations
 

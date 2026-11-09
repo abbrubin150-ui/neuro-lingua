@@ -252,12 +252,12 @@ export function knnEntropy(X: number[][], k = 3): number {
     sumLogEps += Math.log(epsilon);
   }
 
-  // Entropy estimate (in nats)
-  const entropy = digamma(N) - digamma(k) + d * Math.log(2) + (d / N) * sumLogEps;
-
-  // Add correction for unit ball volume: log(V_d) = log(π^(d/2) / Γ(d/2 + 1))
+  // Kozachenko-Leonenko estimate (in nats) with ε_i the Euclidean distance (radius) to the k-th
+  // neighbour: H = ψ(N) − ψ(k) + log V_d + (d/N)·Σ log ε_i, V_d = π^(d/2) / Γ(d/2 + 1).
+  // (A d·log 2 term belongs to the variant that uses the diameter 2ε_i with the unit-diameter
+  // ball volume; adding it here would overestimate H by d·log 2.)
   const logVd = (d / 2) * Math.log(Math.PI) - lgamma(d / 2 + 1);
-  return entropy + logVd;
+  return digamma(N) - digamma(k) + logVd + (d / N) * sumLogEps;
 }
 
 /**

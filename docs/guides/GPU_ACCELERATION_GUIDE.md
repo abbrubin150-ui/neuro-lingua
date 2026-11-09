@@ -2,9 +2,16 @@
 
 ## Overview
 
-Neuro-Lingua DOMESTICA includes **optional WebGPU acceleration** for training neural networks directly in your browser. When enabled, GPU acceleration can provide **2-5x training speedup** on supported hardware and browsers.
+Neuro-Lingua DOMESTICA includes **optional WebGPU offload** of the feed-forward models' matrix-vector products (ProNeuralLM / AdvancedNeuralLM forward and backward).
 
-**Current Status:** ✅ Fully integrated into training pipeline
+> **Measured reality.** Each GPU product flattens the weight matrix on the CPU, uploads it, runs one
+> kernel and waits for the result to be read back. Flattening alone is as much work as the CPU
+> multiplication, so for the model sizes used in this app the GPU path is usually **not faster**
+> than the CPU; no speedup has been measured in this repository. The TransformerLM always trains
+> on the CPU with exact backpropagation. A real speedup would require keeping weights resident on
+> the GPU and running whole mini-batches there.
+
+**Current Status:** ✅ Integrated for the MLP models (matrix-vector products only)
 **Supported Browsers:** Chrome/Edge 113+, Firefox (experimental)
 **Requirements:** WebGPU-capable GPU (most modern GPUs)
 
@@ -24,14 +31,14 @@ When you load Neuro-Lingua, the application automatically detects WebGPU support
 1. Open the **Training** panel
 2. Look for **⚡ GPU Acceleration (WebGPU)** toggle
 3. If available, toggle it to enable
-4. You'll see a message: "WebGPU acceleration enabled. Training may be 2-5x faster..."
+4. You'll see a message confirming that WebGPU is enabled for the MLP matrix-vector products
 
 ### 3. Train with GPU
 
 1. Enter training text (200+ words recommended)
 2. Configure hyperparameters as usual
 3. Click **Train** or press Ctrl/Cmd+Enter
-4. Training will automatically use GPU acceleration
+4. MLP training sends its matrix-vector products to the GPU (compare the timings in the GPU metrics panel)
 
 ### 4. View GPU Metrics
 
@@ -109,17 +116,8 @@ If GPU operations fail (rare):
 
 ### Expected Performance
 
-| Corpus Size   | GPU Speedup | Expected Time |
-| ------------- | ----------- | ------------- |
-| 200-500 words | 2-3x        | 10-20 sec     |
-| 1000+ words   | 3-5x        | 5-15 sec      |
-| 2000+ words   | 3-4x        | 15-30 sec     |
-
-**Note:** Actual speedup depends on:
-
-- GPU hardware (NVIDIA, AMD, Intel Arc, Apple Metal)
-- Browser implementation (Chrome often fastest)
-- Network conditions (GPU initialization adds ~50ms overhead)
+No speedup has been measured for the training path (see the note in the overview). Measure it on
+your hardware with the instructions below before relying on the GPU, and compare against the CPU.
 
 ### Benchmark Instructions
 

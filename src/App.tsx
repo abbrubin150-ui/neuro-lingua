@@ -23,7 +23,7 @@ import { StorageManager } from './lib/storage';
 import { buildVocab, parseTokenizerConfig, downloadBlob } from './lib/utils';
 import type { GPUNeuralOps, GPUMetrics } from './backend/gpu_neural_ops';
 import {
-  computeSimulatedEdgeLearningDiagnostics,
+  computeEdgeLearningDiagnostics,
   type EdgeLearningDiagnostics
 } from './backend/edgeLearning';
 import {
@@ -40,6 +40,8 @@ import {
   DEFAULT_TOKENIZER_CONFIG,
   MIN_VOCAB_SIZE,
   TRAINING_UI_UPDATE_DELAY,
+  TRAINING_YIELD_INTERVAL_MS,
+  TRAINING_PROGRESS_UPDATE_MS,
   EXAMPLE_CORPUS,
   HYPERPARAMETER_CONSTRAINTS
 } from './config/constants';
@@ -80,16 +82,33 @@ import { ExportPanel } from './components/ExportPanel';
 import { DecisionEntry2Panel } from './components/DecisionEntry2Panel';
 
 import type { InformationMetrics } from './losses/information_bottleneck';
-import { getBetaSchedule } from './losses/information_bottleneck';
+import { estimateInformationPlane, getBetaSchedule } from './losses/information_bottleneck';
 import { validateRegExpPattern } from './losses/lossMask';
 
 import { useProjects } from './contexts/ProjectContext';
 import { useBrainTraining, useBrainGeneration } from './contexts/BrainContext';
 import { calculateDiversityScore } from './lib/BrainEngine';
 import { createTraceExport, generateTraceFilename } from './lib/traceExport';
+import { parseModelImport } from './lib/modelImport';
+import { restoreModel } from './lib/modelPackage';
+import {
+  originFromImport,
+  packageBrowserModel,
+  packageFileName,
+  recordTraining,
+  textFingerprint,
+  type ModelOrigin
+} from './lib/modelExport';
+import { trainSubwordModel, subwordVocabulary } from './tokenizer/subword';
+
+/** Default subword vocabulary size for the 'bpe' tokenizer mode. */
+const DEFAULT_BPE_VOCAB_SIZE = 2000;
 import { createDecisionLedger } from './types/project';
 import type { TrainingConfig, ScenarioResult } from './types/project';
 import type { ModelMeta, ModelMetaStore } from './types/modelMeta';
+
+/** Training windows sampled per epoch for information-plane monitoring. */
+const IB_MONITOR_SAMPLES = 256;
 
 type UiSettings = {
   architecture: Architecture;
@@ -216,7 +235,7 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
     infoCards: [
       {
         title: '🎯 Training Tips',
-        body: '• 200–500 words • 20–50 epochs • LR: 0.05–0.1 • Context: 3–5 • Enable Resume to continue from last checkpoint'
+        body: '• 200–500 words • 20–50 epochs • LR: ~0.003 with Adam (0.005–0.01 with momentum) • Context: 3–5 • Enable Resume to continue from last checkpoint'
       },
       {
         title: '🎲 Text Generation',
@@ -292,7 +311,7 @@ const TRANSLATIONS: Record<Locale, AppTranslations> = {
     infoCards: [
       {
         title: '🎯 Training Tips',
-        body: '• 200–500 words • 20–50 epochs • LR: 0.05–0.1 • Context: 3–5 • Enable Resume from the last checkpoint'
+        body: '• 200–500 words • 20–50 epochs • LR: ~0.003 with Adam (0.005–0.01 with momentum) • Context: 3–5 • Enable Resume from the last checkpoint'
       },
       {
         title: '🎲 Text Generation',
@@ -354,6 +373,11 @@ function loadLatestModel(architecture: Architecture = 'feedforward'): ProNeuralL
     return TransformerLM.loadFromLocalStorage(TRANSFORMER_MODEL_STORAGE_KEY);
   }
 
+  // Feed-forward and advanced models share a storage key; the serialized `architecture` field
+  // decides which class restores it (an advanced model must keep its activation/LayerNorm).
+  const advanced = AdvancedNeuralLM.loadFromLocalStorage(MODEL_STORAGE_KEY);
+  if (advanced) return advanced;
+
   const primary = ProNeuralLM.loadFromLocalStorage(MODEL_STORAGE_KEY);
   if (primary) return primary;
 
@@ -377,6 +401,13 @@ function detectModelArchitecture(model: ProNeuralLM): Architecture {
   if (model instanceof TransformerLM) return 'transformer';
   if (model instanceof AdvancedNeuralLM) return 'advanced';
   return 'feedforward';
+}
+
+/** Origin recorded in the metadata of the model stored for an architecture. */
+function storedModelOrigin(architecture: Architecture): ModelOrigin | undefined {
+  const store = StorageManager.get<ModelMetaStore | null>(STORAGE_KEYS.MODEL_META, null);
+  if (!store || typeof store !== 'object') return undefined;
+  return (store as ModelMetaStore)[architecture]?.origin;
 }
 
 export default function NeuroLinguaDomesticaV324() {
@@ -561,6 +592,8 @@ export default function NeuroLinguaDomesticaV324() {
   const [_cerebroInjectionHistory, _setCerebroInjectionHistory] = useState<InjectionEvent[]>([]);
 
   const modelRef = useRef<ProNeuralLM | null>(null);
+  // Where the in-memory model's weights came from (written into exported model cards).
+  const modelOriginRef = useRef<ModelOrigin | undefined>(undefined);
   const trainingRef = useRef({ running: false, currentEpoch: 0 });
   const abortControllerRef = useRef<AbortController | null>(null);
   const gpuOpsRef = useRef<GPUNeuralOps | null>(null);
@@ -687,7 +720,8 @@ export default function NeuroLinguaDomesticaV324() {
         accuracy: overrides.accuracy ?? existing?.accuracy,
         perplexity: overrides.perplexity ?? existing?.perplexity,
         tokensPerSec: overrides.tokensPerSec ?? existing?.tokensPerSec,
-        trainingDurationMs: overrides.trainingDurationMs ?? existing?.trainingDurationMs
+        trainingDurationMs: overrides.trainingDurationMs ?? existing?.trainingDurationMs,
+        origin: overrides.origin ?? existing?.origin
       };
 
       const nextStore: ModelMetaStore = { ...prev, [architectureKey]: nextMeta };
@@ -934,9 +968,13 @@ export default function NeuroLinguaDomesticaV324() {
 
   // Load model for the active architecture
   useEffect(() => {
+    // A model of this architecture is already in memory (e.g. just imported): keep it rather than
+    // replacing it with the stored copy, which may be a reduced-precision package or missing.
+    if (modelRef.current && detectModelArchitecture(modelRef.current) === architecture) return;
     const saved = loadLatestModel(architecture);
     if (saved) {
       modelRef.current = saved;
+      modelOriginRef.current = storedModelOrigin(detectModelArchitecture(saved));
       setInfo({ V: saved.getVocabSize(), P: saved.getParametersCount() });
       setTrainingHistory(saved.getTrainingHistory());
       syncTokenizerFromModel(saved);
@@ -950,6 +988,7 @@ export default function NeuroLinguaDomesticaV324() {
       addSystemMessage(`📀 ${architectureLabel} loaded from local storage`);
     } else if (modelRef.current && detectModelArchitecture(modelRef.current) !== architecture) {
       modelRef.current = null;
+      modelOriginRef.current = undefined;
       setInfo({ V: 0, P: 0 });
       setTrainingHistory([]);
       setIbMetricsHistory([]);
@@ -974,8 +1013,10 @@ export default function NeuroLinguaDomesticaV324() {
               setUseGPU(true); // Auto-enable GPU when available
               setGpuMetrics(ops.getMetrics());
               console.log('✅ WebGPU is available and GPUNeuralOps initialized');
-              console.log('⚡ GPU acceleration enabled automatically (2-5x speedup expected)');
-              addSystemMessage('⚡ GPU acceleration enabled automatically (2-5x speedup expected)');
+              console.log('⚡ WebGPU available and enabled');
+              addSystemMessage(
+                '⚡ WebGPU available: the MLP matrix-vector products will run on the GPU (each product uploads the weights, so check the GPU timings before assuming a speedup)'
+              );
             } else {
               setGpuAvailable(false);
               gpuOpsRef.current = null;
@@ -1180,7 +1221,10 @@ export default function NeuroLinguaDomesticaV324() {
   useEffect(() => {
     StorageManager.set(STORAGE_KEYS.TOKENIZER_CONFIG, tokenizerConfig);
     if (modelRef.current) {
-      modelRef.current.importTokenizerConfig(tokenizerConfig);
+      // A subword selection without trained merges is not applicable to the current model yet.
+      if (tokenizerConfig.mode !== 'bpe' || tokenizerConfig.bpe) {
+        modelRef.current.importTokenizerConfig(tokenizerConfig);
+      }
     }
   }, [tokenizerConfig]);
 
@@ -1277,7 +1321,20 @@ export default function NeuroLinguaDomesticaV324() {
       updateRun(activeRun.id, { status: 'running', startedAt: Date.now() });
     }
 
-    const vocab = buildVocab(trainingText, tokenizerConfig);
+    // Subword tokenizer: learn the merges from this corpus whenever a new model is created
+    // (a resumed model keeps its merges, so its vocabulary stays the same).
+    let activeTokenizer = tokenizerConfig;
+    if (tokenizerConfig.mode === 'bpe' && (!resume || !modelRef.current || !tokenizerConfig.bpe)) {
+      const bpe = trainSubwordModel(trainingText, {
+        vocabSize: tokenizerConfig.bpeVocabSize ?? DEFAULT_BPE_VOCAB_SIZE
+      });
+      activeTokenizer = { mode: 'bpe', bpe, bpeVocabSize: tokenizerConfig.bpeVocabSize };
+      setTokenizerConfig(activeTokenizer);
+      addSystemMessage(
+        `🔤 Subword tokenizer learned from the corpus: ${subwordVocabulary(bpe).length} subwords`
+      );
+    }
+    const vocab = buildVocab(trainingText, activeTokenizer);
     if (vocab.length < MIN_VOCAB_SIZE) {
       addSystemMessage(`❌ Need more training text (at least ${MIN_VOCAB_SIZE} unique tokens).`);
       setIsTraining(false);
@@ -1336,7 +1393,7 @@ export default function NeuroLinguaDomesticaV324() {
           momentum,
           clamp(dropout, 0, 0.5),
           seed,
-          tokenizerConfig,
+          activeTokenizer,
           {
             numLayers: normalizedLayers,
             numHeads: normalizedHeads,
@@ -1368,7 +1425,7 @@ export default function NeuroLinguaDomesticaV324() {
           momentum,
           clamp(dropout, 0, 0.5),
           seed,
-          tokenizerConfig,
+          activeTokenizer,
           {
             activation,
             leakyReluAlpha,
@@ -1402,21 +1459,48 @@ export default function NeuroLinguaDomesticaV324() {
           momentum,
           clamp(dropout, 0, 0.5),
           seed,
-          tokenizerConfig
+          activeTokenizer
         );
         addSystemMessage(
           `📊 Starting fresh training with ProNeuralLM (${vocab.length} vocabulary tokens)…`
         );
       }
     } else {
-      modelRef.current!.importTokenizerConfig(tokenizerConfig);
+      modelRef.current!.importTokenizerConfig(activeTokenizer);
       addSystemMessage('🔁 Continuing training on the current model…');
     }
+
+    // Provenance of this run (written into exported model cards): a new model starts here, a
+    // continued one keeps the origin of the model it continues.
+    const originBeforeRun = modelOriginRef.current;
+    const runFingerprint = textFingerprint(trainingText);
+    const recordRun = (epochsDone: number) => {
+      modelOriginRef.current = recordTraining(originBeforeRun, {
+        continued: !shouldReinit,
+        text: trainingText,
+        epochs: epochsDone,
+        fingerprint: runFingerprint
+      });
+    };
+    recordRun(0);
+
+    // Apply the Sophia hyper-parameters chosen in the UI (no-op for other optimizers)
+    modelRef.current!.setSophiaConfig({
+      beta1: sophiaBeta1,
+      beta2: sophiaBeta2,
+      rho: sophiaRho,
+      hessianUpdateFreq: sophiaHessianFreq,
+      weightDecay: DEFAULT_SOPHIA_CONFIG.sophiaWeightDecay
+    });
 
     // Set GPU operations if enabled
     if (useGPU && gpuOpsRef.current) {
       modelRef.current!.setGPUOps(gpuOpsRef.current);
-      addSystemMessage('⚡ GPU acceleration enabled');
+      addSystemMessage(
+        modelRef.current instanceof TransformerLM
+          ? 'ℹ️ WebGPU is not used by the Transformer: it trains with exact backpropagation on the CPU'
+          : '⚡ WebGPU enabled for the MLP matrix-vector products (compare the GPU timings: small models are often as fast on the CPU)'
+      );
     } else {
       modelRef.current!.setGPUOps(null);
     }
@@ -1430,14 +1514,26 @@ export default function NeuroLinguaDomesticaV324() {
     }
 
     const total = Math.max(1, epochs);
-    let aggLoss = 0;
-    let aggAcc = 0;
+    // The UI trains one epoch per train() call; declare the run length so that learning-rate
+    // schedules (cosine, warmup, exponential) span the whole run.
+    if (modelRef.current instanceof AdvancedNeuralLM) {
+      modelRef.current.setTrainingHorizon(total);
+    }
+    let lastLoss = 0;
+    let lastAcc = 0;
     let lossEMA = 0;
     const emaAlpha = 0.1; // EMA smoothing factor
-    const tokens = ProNeuralLM.tokenizeText(trainingText, tokenizerConfig);
+    const tokens = ProNeuralLM.tokenizeText(trainingText, activeTokenizer);
     const totalTokens = tokens.length;
     const trainingStartTime = Date.now();
     let latestTokensPerSec = 0;
+
+    // Keep the page responsive during long epochs (progress within the epoch, working Stop button).
+    modelRef.current!.setInteractiveTraining(
+      TRAINING_YIELD_INTERVAL_MS,
+      abortControllerRef.current?.signal ?? null
+    );
+    let lastProgressUpdate = 0;
 
     for (let e = 0; e < total; e++) {
       // Check both AbortController and running flag
@@ -1455,16 +1551,21 @@ export default function NeuroLinguaDomesticaV324() {
               regExpPosition: lossMaskRegExpPosition
             }
           : undefined;
+      modelRef.current!.setTrainingProgressCallback((done, windows) => {
+        const now = Date.now();
+        if (done < windows && now - lastProgressUpdate < TRAINING_PROGRESS_UPDATE_MS) return;
+        lastProgressUpdate = now;
+        setProgress(((e + done / windows) / total) * 100);
+      });
       const res = await modelRef.current!.train(trainingText, 1, currentLossMaskConfig);
       const epochEndTime = Date.now();
+      // Stopped during the epoch: the interrupted epoch was not recorded.
+      if (abortControllerRef.current?.signal.aborted || !trainingRef.current.running) break;
 
       // Update EMA shadow weights after each epoch
       if (useEMA && emaTrackerRef.current) {
         emaTrackerRef.current.update(modelRef.current!.getWeights());
       }
-
-      aggLoss += res.loss;
-      aggAcc += res.accuracy;
 
       // Calculate EMA of loss
       lossEMA = e === 0 ? res.loss : emaAlpha * res.loss + (1 - emaAlpha) * lossEMA;
@@ -1474,14 +1575,18 @@ export default function NeuroLinguaDomesticaV324() {
       const tokensPerSec = epochDuration > 0 ? totalTokens / epochDuration : 0;
       latestTokensPerSec = tokensPerSec;
 
-      const meanLoss = aggLoss / (e + 1);
+      // Report the current epoch (an average over all epochs so far would be dominated by the
+      // first, untrained epochs).
       setStats({
-        loss: meanLoss,
-        acc: aggAcc / (e + 1),
-        ppl: Math.exp(Math.max(1e-8, meanLoss)),
+        loss: res.loss,
+        acc: res.accuracy,
+        ppl: Math.exp(Math.max(1e-8, res.loss)),
         lossEMA: lossEMA,
         tokensPerSec: tokensPerSec
       });
+      lastLoss = res.loss;
+      lastAcc = res.accuracy;
+      recordRun(e + 1);
 
       // Update GPU metrics periodically (every 5 epochs or less frequently)
       if (gpuOpsRef.current && useGPU && (e + 1) % Math.max(1, Math.floor(total / 10)) === 0) {
@@ -1494,37 +1599,22 @@ export default function NeuroLinguaDomesticaV324() {
       setTrainingHistory(modelRef.current!.getTrainingHistory());
       setProgress(((e + 1) / total) * 100);
 
-      // Collect Information Bottleneck metrics if enabled
-      // Note: This is a simplified approximation. Full IB metrics require
-      // model modifications to expose hidden activations during training.
-      if (useIB) {
+      // Information-plane monitoring: binning estimates of I(X;Z) and I(Z;Y) computed from the
+      // model's hidden representation on (a subsample of) the training windows.
+      if (useIB && modelRef.current) {
         const currentBeta = getBetaSchedule(betaSchedule, e, total, betaStart, betaEnd);
-
-        // Approximate IB metrics based on training progress
-        // I(X;Z) typically decreases as training progresses (compression)
-        // I(Z;Y) typically increases as training progresses (prediction improves)
-        const trainingProgress = (e + 1) / total;
-        const compressionMI = Math.max(0.5, 2.0 - trainingProgress * 1.5); // Decreasing
-        const predictionMI = Math.min(2.5, 0.5 + trainingProgress * 2.0); // Increasing
-        const representationEntropy = 1.5 + Math.sin(trainingProgress * Math.PI) * 0.5;
-        const conditionalEntropy = Math.max(0, representationEntropy - compressionMI);
-        const ibLoss = -predictionMI + currentBeta * compressionMI;
-
-        setIbMetricsHistory((prev) => [
-          ...prev,
-          {
-            compressionMI,
-            predictionMI,
-            ibLoss,
-            beta: currentBeta,
-            representationEntropy,
-            conditionalEntropy
-          }
-        ]);
+        const { representations, labels } = await modelRef.current.collectRepresentations(
+          trainingText,
+          IB_MONITOR_SAMPLES
+        );
+        const estimate = estimateInformationPlane(representations, labels, currentBeta, numBins);
+        setIbMetricsHistory((prev) => [...prev, estimate]);
       }
 
       await new Promise((r) => setTimeout(r, TRAINING_UI_UPDATE_DELAY));
     }
+    modelRef.current?.setInteractiveTraining(0, null);
+    modelRef.current?.setTrainingProgressCallback(null);
 
     if (trainingRef.current.running) {
       // Apply EMA weights for inference/evaluation after training
@@ -1538,8 +1628,8 @@ export default function NeuroLinguaDomesticaV324() {
         }
       }
 
-      const finalLoss = aggLoss / Math.max(1, total);
-      const finalAccuracy = aggAcc / Math.max(1, total);
+      const finalLoss = lastLoss;
+      const finalAccuracy = lastAcc;
       const finalPerplexity = Math.exp(Math.max(1e-8, finalLoss));
       const trainingDurationMs = Date.now() - trainingStartTime;
       setInfo({ V: modelRef.current!.getVocabSize(), P: modelRef.current!.getParametersCount() });
@@ -1548,7 +1638,8 @@ export default function NeuroLinguaDomesticaV324() {
         accuracy: finalAccuracy,
         perplexity: finalPerplexity,
         tokensPerSec: latestTokensPerSec,
-        trainingDurationMs
+        trainingDurationMs,
+        origin: modelOriginRef.current
       });
 
       // Collect and display GPU metrics if available
@@ -1570,18 +1661,19 @@ export default function NeuroLinguaDomesticaV324() {
 
       // Compute Edge Learning diagnostics
       try {
-        const trainingHistory = modelRef.current!.getTrainingHistory();
-        const losses = trainingHistory.map((h) => h.loss);
-        const parametersCount = modelRef.current!.getParametersCount();
-
-        const diagnostics = computeSimulatedEdgeLearningDiagnostics(parametersCount, losses);
+        // Measured on the trained model: empirical output-layer Fisher, predictive entropy and
+        // loss variance over (a subsample of) the training windows.
+        const diagnostics = await computeEdgeLearningDiagnostics(modelRef.current!, trainingText, {
+          maxSamples: 256,
+          trainingWindows: modelRef.current!.countTrainingWindows(trainingText)
+        });
         setEdgeLearningDiagnostics(diagnostics);
 
         if (diagnostics.status === 'success') {
           addSystemMessage(
-            `📊 Edge Learning: Fisher=${diagnostics.fisherInformation.toFixed(4)}, Efficiency=${(
-              diagnostics.efficiency * 100
-            ).toFixed(1)}%`
+            `📊 Edge Learning: Fisher (output layer, mean diagonal)=${diagnostics.fisherInformation.toExponential(
+              2
+            )}, predictive entropy=${diagnostics.entropy.toFixed(3)} nats`
           );
         }
       } catch (error) {
@@ -1589,10 +1681,9 @@ export default function NeuroLinguaDomesticaV324() {
       }
 
       addSystemMessage(
-        `✅ Training complete! Average accuracy: ${(finalAccuracy * 100).toFixed(1)}%`
+        `✅ Training complete! Final-epoch accuracy: ${(finalAccuracy * 100).toFixed(1)}%`
       );
-      const activeModelArchitecture = detectModelArchitecture(modelRef.current!);
-      modelRef.current!.saveToLocalStorage(getStorageKeyForArchitecture(activeModelArchitecture));
+      persistModel(modelRef.current!);
 
       // Dispatch brain training event
       const vocabSize = modelRef.current!.getVocabSize();
@@ -1670,11 +1761,37 @@ export default function NeuroLinguaDomesticaV324() {
     addSystemMessage('⏹️ Training stopped');
   }
 
+  /**
+   * Save the model in localStorage (falling back to compact packages when the plain JSON does not
+   * fit) and report how it was stored. Returns false when it could not be stored at all.
+   */
+  function persistModel(model: ProNeuralLM, announce = false): boolean {
+    const encoding = model.saveToLocalStorage(
+      getStorageKeyForArchitecture(detectModelArchitecture(model))
+    );
+    if (encoding === 'json') {
+      if (announce) addSystemMessage('💾 Saved locally');
+    } else if (encoding === 'float32') {
+      addSystemMessage(
+        '💾 Saved locally as a compact package (float32 weights; the optimizer state is not kept)'
+      );
+    } else if (encoding === 'float16') {
+      addSystemMessage(
+        '💾 Saved locally as a half-precision package to fit the browser storage quota (weights rounded to float16, optimizer state dropped). Use 📦 Package or ⬇️ Export to keep the full-precision model as a file.'
+      );
+    } else {
+      addSystemMessage(
+        '⚠️ The model is too large for this browser storage, even as a half-precision package. Use 📦 Package or ⬇️ Export to keep it as a file.'
+      );
+    }
+    return encoding !== null;
+  }
+
   function onSave() {
     if (!modelRef.current) return;
-    const arch = detectModelArchitecture(modelRef.current);
-    modelRef.current.saveToLocalStorage(getStorageKeyForArchitecture(arch));
-    addSystemMessage('💾 Saved locally');
+    if (persistModel(modelRef.current, true)) {
+      applyModelMeta(modelRef.current, { origin: modelOriginRef.current });
+    }
   }
 
   function onLoad() {
@@ -1685,6 +1802,7 @@ export default function NeuroLinguaDomesticaV324() {
         setArchitecture(detectedArch);
       }
       modelRef.current = m;
+      modelOriginRef.current = storedModelOrigin(detectedArch);
       setInfo({ V: m.getVocabSize(), P: m.getParametersCount() });
       setTrainingHistory(m.getTrainingHistory());
       syncTokenizerFromModel(m);
@@ -1745,6 +1863,39 @@ export default function NeuroLinguaDomesticaV324() {
     addSystemMessage(`✅ Exported: ${filename}`);
   }
 
+  /**
+   * Export a compact model package (.nlm.json) with a model card. Packages load in this app
+   * (Import) and in the offline command-line tools (`pnpm lm generate|eval|serve --model ...`).
+   */
+  function onExportPackage() {
+    const model = modelRef.current;
+    if (!model) {
+      addSystemMessage('❌ No model to package: train or load one first');
+      return;
+    }
+    try {
+      const arch = detectModelArchitecture(model);
+      const date = new Date().toISOString().slice(0, 10);
+      const name = `neuro-lingua-${arch}-${date}`;
+      const pkg = packageBrowserModel(model, modelOriginRef.current, {
+        name,
+        appVersion: MODEL_VERSION
+      });
+      const text = JSON.stringify(pkg);
+      const filename = packageFileName(name);
+      downloadBlob(new Blob([text], { type: 'application/json' }), filename);
+      const offline = pkg.card?.provenance.offline;
+      addSystemMessage(
+        `📦 Packaged ${filename} (${(text.length / 1048576).toFixed(2)} MB, float32, model card included; provenance: ${
+          offline === null ? 'unknown origin' : offline ? 'offline' : 'external services recorded'
+        })`
+      );
+    } catch (error) {
+      const reason = error instanceof Error ? `: ${error.message}` : '';
+      addSystemMessage(`❌ Packaging failed${reason}`);
+    }
+  }
+
   function onCompress() {
     if (!modelRef.current) {
       addSystemMessage('❌ No model to compress');
@@ -1759,60 +1910,66 @@ export default function NeuroLinguaDomesticaV324() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const data = JSON.parse(String(reader.result));
+        const parsed = parseModelImport(JSON.parse(String(reader.result)));
+        const importedArchitecture: Architecture = parsed.architecture;
+        const modelData = parsed.modelData;
 
-        // Check if this is a trace export format
-        let modelData: unknown;
-        let importedArchitecture: Architecture = 'feedforward';
-
-        if (data.architecture === 'transformer' || data?.config?.architecture === 'transformer') {
-          importedArchitecture = 'transformer';
-        } else if (data.architecture === 'advanced' || data?.config?.architecture === 'advanced') {
-          importedArchitecture = 'advanced';
-        }
-
-        if (data.modelWeights && data.config && data.tokenizer) {
-          // New trace export format
-          modelData = {
-            weights: data.modelWeights,
-            config: data.config,
-            tokenizer: data.tokenizer
-          };
-
-          // Show trace metadata if available
-          if (data.projectMeta) {
+        if (parsed.format === 'trace') {
+          const { projectMeta, decisionLedger, trainingTrace } = parsed.trace ?? {};
+          if (projectMeta) {
             addSystemMessage(
-              `📥 Importing from Project: ${data.projectMeta.projectName}, Run: ${data.projectMeta.runName}`
+              `📥 Importing from Project: ${projectMeta.projectName}, Run: ${projectMeta.runName}`
             );
           }
-          if (data.decisionLedger) {
-            addSystemMessage(`📋 Rationale: ${data.decisionLedger.rationale}`);
+          if (decisionLedger?.rationale) {
+            addSystemMessage(`📋 Rationale: ${decisionLedger.rationale}`);
           }
-          if (data.trainingTrace) {
+          if (
+            trainingTrace &&
+            typeof trainingTrace.finalLoss === 'number' &&
+            typeof trainingTrace.finalAccuracy === 'number'
+          ) {
             addSystemMessage(
-              `📊 Training: ${data.trainingTrace.epochs} epochs, Loss: ${data.trainingTrace.finalLoss.toFixed(4)}, Accuracy: ${(data.trainingTrace.finalAccuracy * 100).toFixed(1)}%`
+              `📊 Training: ${trainingTrace.epochs} epochs, Loss: ${trainingTrace.finalLoss.toFixed(4)}, Accuracy: ${(trainingTrace.finalAccuracy * 100).toFixed(1)}%`
+            );
+          }
+        } else if (parsed.format === 'package') {
+          const card = parsed.card;
+          // The card is descriptive metadata from the file: never let a malformed one block the import.
+          const parameters =
+            typeof card?.parameters === 'number' ? card.parameters.toLocaleString('en-US') : '?';
+          addSystemMessage(
+            card
+              ? `📥 Importing model package "${String(card.name ?? file.name)}" (${String(card.architecture ?? parsed.architecture)}, ${parameters} parameters; checksum verified)`
+              : '📥 Importing model package (checksum verified)...'
+          );
+          if (card) {
+            const offline = card.provenance?.offline;
+            addSystemMessage(
+              `🧾 Provenance: ${
+                offline === true ? 'offline' : offline === false ? 'external services' : 'unknown'
+              }${card.provenance?.statement ? ` — ${card.provenance.statement}` : ''}`
             );
           }
         } else {
-          // Standard format
-          modelData = data;
           addSystemMessage('📥 Importing standard format model...');
         }
 
-        StorageManager.set(getStorageKeyForArchitecture(importedArchitecture), modelData);
-        const m = loadLatestModel(importedArchitecture);
-        if (m) {
-          setArchitecture(importedArchitecture);
-          modelRef.current = m;
-          setInfo({ V: m.getVocabSize(), P: m.getParametersCount() });
-          setTrainingHistory(m.getTrainingHistory());
-          syncTokenizerFromModel(m);
-          applyModelMeta(m);
-          addSystemMessage('✅ Model imported successfully');
-        }
+        // Restore the model directly (a large model may not fit in localStorage as plain JSON).
+        const m = restoreModel(modelData, importedArchitecture);
+        const origin = originFromImport(file.name, parsed.card);
+        setArchitecture(importedArchitecture);
+        modelRef.current = m;
+        modelOriginRef.current = origin;
+        setInfo({ V: m.getVocabSize(), P: m.getParametersCount() });
+        setTrainingHistory(m.getTrainingHistory());
+        syncTokenizerFromModel(m);
+        if (persistModel(m)) applyModelMeta(m, { origin });
+        addSystemMessage('✅ Model imported successfully');
       } catch (error) {
         console.error('Import error:', error);
-        addSystemMessage('❌ Failed to import model file');
+        const reason = error instanceof Error ? `: ${error.message}` : '';
+        addSystemMessage(`❌ Failed to import model file${reason}`);
       }
     };
     reader.readAsText(file);
@@ -1820,6 +1977,7 @@ export default function NeuroLinguaDomesticaV324() {
 
   function onReset() {
     modelRef.current = null;
+    modelOriginRef.current = undefined;
     StorageManager.removeMultiple([
       ...STORAGE_KEYS.LEGACY_MODELS,
       MODEL_STORAGE_KEY,
@@ -2387,6 +2545,7 @@ export default function NeuroLinguaDomesticaV324() {
               onLoad={onLoad}
               onApplyDefaults={applyDefaultHyperparameters}
               onExport={onExport}
+              onExportPackage={onExportPackage}
               onCompress={onCompress}
               onImport={onImport}
               onMessage={addSystemMessage}

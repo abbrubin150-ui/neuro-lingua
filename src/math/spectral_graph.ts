@@ -84,114 +84,87 @@ export function computeLaplacian(attention: number[][], normalized = true): numb
   const n = attention.length;
   if (n === 0) return [];
 
-  // Compute degree matrix D (diagonal with row sums)
-  const degrees = attention.map((row) => kahanSum(row));
+  // Attention is directed and has self-loops; the spectral quantities used here are defined for
+  // an undirected graph, so use the symmetrised weights W = (A + Aᵀ)/2 without self-loops.
+  const W: number[][] = attention.map((row, i) =>
+    row.map((_, j) => (i === j ? 0 : (attention[i][j] + attention[j][i]) / 2))
+  );
+  const degrees = W.map((row) => kahanSum(row));
 
-  // Initialize Laplacian
-  const L: number[][] = [];
+  const L: number[][] = W.map(() => new Array(n).fill(0));
   for (let i = 0; i < n; i++) {
-    L.push(new Array(n).fill(0));
-  }
-
-  if (normalized) {
-    // Normalized Laplacian: L = I - D^(-1/2) A D^(-1/2)
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
+    for (let j = 0; j < n; j++) {
+      if (normalized) {
+        // L = I − D^(−1/2) W D^(−1/2)   (isolated vertices get a zero row)
         if (i === j) {
           L[i][j] = degrees[i] > 0 ? 1 : 0;
         } else {
           const denom = Math.sqrt(degrees[i] * degrees[j]);
-          L[i][j] = denom > 0 ? -attention[i][j] / denom : 0;
+          L[i][j] = denom > 0 ? -W[i][j] / denom : 0;
         }
-      }
-    }
-  } else {
-    // Unnormalized Laplacian: L = D - A
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        if (i === j) {
-          L[i][j] = degrees[i];
-        } else {
-          L[i][j] = -attention[i][j];
-        }
+      } else {
+        // L = D − W
+        L[i][j] = i === j ? degrees[i] : -W[i][j];
       }
     }
   }
-
   return L;
 }
 
 /**
- * Compute eigenvalues and eigenvectors of a symmetric matrix using
- * power iteration with deflation.
+ * All eigenvalues (ascending) and matching eigenvectors of a symmetric matrix, computed with the
+ * cyclic Jacobi method (deterministic and accurate to machine precision for small matrices).
  *
  * @param matrix - Symmetric matrix
- * @param numEigenvalues - Number of eigenvalues to compute
- * @param maxIterations - Maximum iterations per eigenvalue
- * @returns Eigenvalues and eigenvectors
+ * @returns eigenvalues[k] with eigenvectors[k] (unit length)
  */
-function computeEigendecomposition(
-  matrix: number[][],
-  numEigenvalues: number,
-  maxIterations = 1000
-): { eigenvalues: number[]; eigenvectors: number[][] } {
+function symmetricEigendecomposition(matrix: number[][]): {
+  eigenvalues: number[];
+  eigenvectors: number[][];
+} {
   const n = matrix.length;
   if (n === 0) return { eigenvalues: [], eigenvectors: [] };
+  const a = matrix.map((row) => [...row]);
+  const v: number[][] = matrix.map((_, i) => matrix.map((__, j) => (i === j ? 1 : 0)));
 
-  const eigenvalues: number[] = [];
-  const eigenvectors: number[][] = [];
-
-  // Work with a copy to allow deflation
-  const M: number[][] = matrix.map((row) => [...row]);
-
-  for (let k = 0; k < numEigenvalues && k < n; k++) {
-    // Initialize random vector
-    let v = new Array(n).fill(0).map(() => Math.random() - 0.5);
-    let norm = Math.sqrt(kahanSum(v.map((x) => x * x)));
-    v = v.map((x) => x / norm);
-
-    let eigenvalue = 0;
-
-    // Power iteration
-    for (let iter = 0; iter < maxIterations; iter++) {
-      // Multiply: w = M * v
-      const w = new Array(n).fill(0);
-      for (let i = 0; i < n; i++) {
-        for (let j = 0; j < n; j++) {
-          w[i] += M[i][j] * v[j];
+  for (let sweep = 0; sweep < 100; sweep++) {
+    let off = 0;
+    for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) off += a[p][q] * a[p][q];
+    if (off < 1e-24) break;
+    for (let p = 0; p < n; p++) {
+      for (let q = p + 1; q < n; q++) {
+        if (Math.abs(a[p][q]) < 1e-300) continue;
+        const theta = (a[q][q] - a[p][p]) / (2 * a[p][q]);
+        const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
+        const c = 1 / Math.sqrt(t * t + 1);
+        const s = t * c;
+        for (let k = 0; k < n; k++) {
+          const akp = a[k][p];
+          const akq = a[k][q];
+          a[k][p] = c * akp - s * akq;
+          a[k][q] = s * akp + c * akq;
         }
-      }
-
-      // Compute Rayleigh quotient
-      const vMv = kahanSum(v.map((vi, i) => vi * w[i]));
-      const vv = kahanSum(v.map((x) => x * x));
-      eigenvalue = vMv / vv;
-
-      // Normalize
-      norm = Math.sqrt(kahanSum(w.map((x) => x * x)));
-      if (norm === 0) break;
-
-      const vNew = w.map((x) => x / norm);
-
-      // Check convergence
-      const diff = kahanSum(vNew.map((x, i) => Math.abs(x - v[i])));
-      v = vNew;
-
-      if (diff < 1e-10) break;
-    }
-
-    eigenvalues.push(eigenvalue);
-    eigenvectors.push(v);
-
-    // Deflation: M = M - λ * v * v^T
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        M[i][j] -= eigenvalue * v[i] * v[j];
+        for (let k = 0; k < n; k++) {
+          const apk = a[p][k];
+          const aqk = a[q][k];
+          a[p][k] = c * apk - s * aqk;
+          a[q][k] = s * apk + c * aqk;
+        }
+        for (let k = 0; k < n; k++) {
+          const vkp = v[k][p];
+          const vkq = v[k][q];
+          v[k][p] = c * vkp - s * vkq;
+          v[k][q] = s * vkp + c * vkq;
+        }
       }
     }
   }
 
-  return { eigenvalues, eigenvectors };
+  const order = a.map((row, i) => i).sort((i, j) => a[i][i] - a[j][j]);
+  return {
+    eigenvalues: order.map((i) => a[i][i]),
+    eigenvectors: order.map((i) => v.map((row) => row[i]))
+  };
 }
 
 /**
@@ -241,13 +214,8 @@ export function analyzeAttentionGraph(
   // Compute Laplacian
   const L = computeLaplacian(avgAttention, true);
 
-  // Compute eigenvalues (for Laplacian, we want smallest)
-  // Use negative of L to get smallest eigenvalues via power iteration
-  const negL = L.map((row) => row.map((x) => -x));
-  const { eigenvalues: negEigs, eigenvectors } = computeEigendecomposition(negL, Math.min(n, 10));
-
-  // Convert back to positive eigenvalues and sort
-  const eigenvalues = negEigs.map((e) => -e).sort((a, b) => a - b);
+  // Full spectrum (ascending) with eigenvectors kept in the same order
+  const { eigenvalues, eigenvectors } = symmetricEigendecomposition(L);
 
   // Algebraic connectivity is the second smallest eigenvalue
   const algebraicConnectivity = eigenvalues.length >= 2 ? eigenvalues[1] : 0;
@@ -352,9 +320,7 @@ export function checkExpanderProperties(
 
   // Analyze spectral properties
   const L = computeLaplacian(attention, true);
-  const negL = L.map((row) => row.map((x) => -x));
-  const { eigenvalues: negEigs } = computeEigendecomposition(negL, Math.min(n, 5));
-  const eigenvalues = negEigs.map((e) => -e).sort((a, b) => a - b);
+  const { eigenvalues } = symmetricEigendecomposition(L);
 
   // Algebraic connectivity λ₂
   const lambda2 = eigenvalues.length >= 2 ? eigenvalues[1] : 0;

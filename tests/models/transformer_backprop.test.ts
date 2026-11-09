@@ -4,6 +4,7 @@ import {
   blockForward,
   createBlockGrads,
   type BlockConfig,
+  type BlockMasks,
   type BlockParams
 } from '../../src/models/transformer_backprop';
 import { MiniTransformerBlock } from '../../src/models/mini_transformer';
@@ -45,15 +46,21 @@ function lossOf(
   params: BlockParams,
   config: BlockConfig,
   positions: number[],
-  W: number[][]
+  W: number[][],
+  masks?: BlockMasks
 ): number {
-  const { out } = blockForward(X, params, config, positions);
+  const { out } = blockForward(X, params, config, positions, { masks });
   let s = 0;
   out.forEach((row, t) => row.forEach((v, j) => (s += v * W[t][j])));
   return s;
 }
 
-function checkGradients(config: BlockConfig, D: number, seed: number) {
+function checkGradients(
+  config: BlockConfig,
+  D: number,
+  seed: number,
+  dropout?: { attention: number; dropConnect: number }
+) {
   const hd = D / config.numHeads;
   const kvDim = config.numKVHeads * hd;
   const F = 3;
@@ -64,7 +71,15 @@ function checkGradients(config: BlockConfig, D: number, seed: number) {
   const W = randMat(T, D, next, 2);
   const positions = [0, 1, 2];
 
-  const { cache } = blockForward(X, params, config, positions);
+  const maskRng = rng(seed + 7);
+  const { cache } = blockForward(X, params, config, positions, {
+    dropout: dropout ? { ...dropout, random: () => maskRng() + 0.5 } : undefined
+  });
+  const masks = cache.masks;
+  if (dropout) {
+    // make sure the test actually exercises the masks
+    expect(masks.attention ?? masks.query).not.toBeNull();
+  }
   const grads = createBlockGrads(params);
   const dX = blockBackward(W, cache, params, config, positions, grads);
 
@@ -72,9 +87,9 @@ function checkGradients(config: BlockConfig, D: number, seed: number) {
   const numeric = (get: () => number, set: (v: number) => void) => {
     const orig = get();
     set(orig + h);
-    const lp = lossOf(X, params, config, positions, W);
+    const lp = lossOf(X, params, config, positions, W, masks);
     set(orig - h);
-    const lm = lossOf(X, params, config, positions, W);
+    const lm = lossOf(X, params, config, positions, W, masks);
     set(orig);
     return (lp - lm) / (2 * h);
   };
@@ -131,6 +146,58 @@ describe('transformer_backprop', () => {
 
   it('matches finite-difference gradients (MQA, 1 KV head)', () => {
     checkGradients({ numHeads: 2, numKVHeads: 1, ropeBase: 100 }, 4, 23);
+  });
+
+  it('matches finite-difference gradients with causal attention', () => {
+    checkGradients({ numHeads: 2, numKVHeads: 1, ropeBase: 10000, causal: true }, 4, 31);
+  });
+
+  it('matches finite-difference gradients through attention dropout and DropConnect', () => {
+    checkGradients({ numHeads: 2, numKVHeads: 2, ropeBase: 10000, causal: true }, 4, 41, {
+      attention: 0.3,
+      dropConnect: 0.25
+    });
+  });
+
+  it('matches finite-difference gradients with per-head RoPE (even and odd head dims)', () => {
+    const base = { numKVHeads: 1, ropeBase: 10000, causal: true, ropePerHead: true };
+    checkGradients({ numHeads: 2, ...base }, 8, 51); // head dim 4
+    checkGradients({ numHeads: 2, ...base }, 6, 52); // head dim 3 (last component unrotated)
+  });
+
+  it('per-head RoPE makes attention scores depend only on relative position (GQA)', () => {
+    // Shift every position by the same offset: with per-head RoPE the block output is unchanged
+    // even when query heads share K/V heads.
+    const config: BlockConfig = {
+      numHeads: 4,
+      numKVHeads: 2,
+      ropeBase: 10000,
+      causal: true,
+      ropePerHead: true
+    };
+    const params = makeParams(8, 4, 3, 61);
+    const X = randMat(3, 8, rng(62), 2);
+    const a = blockForward(X, params, config, [0, 1, 2]).out;
+    const b = blockForward(X, params, config, [5, 6, 7]).out;
+    a.forEach((row, t) => row.forEach((v, j) => expect(b[t][j]).toBeCloseTo(v, 10)));
+    // The legacy full-row layout does not have this property under GQA.
+    const legacy = { ...config, ropePerHead: false };
+    const c = blockForward(X, params, legacy, [0, 1, 2]).out;
+    const d = blockForward(X, params, legacy, [5, 6, 7]).out;
+    const maxDiff = Math.max(...c.flatMap((row, t) => row.map((v, j) => Math.abs(v - d[t][j]))));
+    expect(maxDiff).toBeGreaterThan(1e-6);
+  });
+
+  it('causal attention: earlier outputs do not depend on later inputs', () => {
+    const config: BlockConfig = { numHeads: 2, numKVHeads: 2, ropeBase: 10000, causal: true };
+    const params = makeParams(4, 4, 3, 13);
+    const X = randMat(4, 4, rng(17), 2);
+    const { out } = blockForward(X, params, config, [0, 1, 2, 3]);
+    const X2 = X.map((r) => r.slice());
+    X2[3] = X2[3].map((v) => v + 1.5);
+    const { out: out2 } = blockForward(X2, params, config, [0, 1, 2, 3]);
+    for (let t = 0; t < 3; t++) out[t].forEach((v, j) => expect(out2[t][j]).toBe(v));
+    expect(out2[3]).not.toEqual(out[3]);
   });
 
   it('produces the same forward output as MiniTransformerBlock (dropout disabled)', async () => {

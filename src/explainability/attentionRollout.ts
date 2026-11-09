@@ -8,7 +8,7 @@ export type AttentionLayer = AttentionHead[]; // collection of heads
 export interface AttentionRolloutOptions {
   /** Aggregation strategy across attention heads. */
   headAggregation?: 'mean' | 'max';
-  /** Whether to inject the identity connection before multiplying layers. */
+  /** Model the residual connection of each layer as Â = ½·A + ½·I (recommended). */
   addIdentity?: boolean;
   /** Numerical stability epsilon added before normalisation. */
   epsilon?: number;
@@ -50,21 +50,14 @@ function aggregateHeads(layer: AttentionLayer, strategy: 'mean' | 'max'): number
   return aggregated;
 }
 
+/** Make every row sum to 1 (rows whose mass is below `epsilon` are left unchanged). */
 function normalize(matrix: number[][], epsilon: number): void {
   for (const row of matrix) {
-    let sum = epsilon;
+    let sum = 0;
     for (const value of row) sum += value;
-    if (sum === 0) continue;
+    if (sum < epsilon) continue;
     for (let j = 0; j < row.length; j++) row[j] /= sum;
   }
-}
-
-function identity(size: number): number[][] {
-  return Array.from({ length: size }, (_, i) => {
-    const row = new Array(size).fill(0);
-    row[i] = 1;
-    return row;
-  });
 }
 
 function multiply(a: number[][], b: number[][]): number[][] {
@@ -83,7 +76,12 @@ function multiply(a: number[][], b: number[][]): number[][] {
 }
 
 /**
- * Perform attention rollout across stacked layers.
+ * Attention rollout (Abnar & Zuidema, 2020).
+ *
+ * Heads are aggregated per layer; with `addIdentity` the residual connection is modelled as
+ * Â = ½·A + ½·I. Rows are re-normalised and the layers are composed in forward order:
+ * h^L = Â_L ⋯ Â_1 · h^0, so entry [i][j] of the result is the share of input position j in the
+ * representation of position i after the last layer. `layers[0]` is the first (input-side) layer.
  */
 export function attentionRollout(
   layers: AttentionLayer[],
@@ -98,14 +96,16 @@ export function attentionRollout(
     if (matrix.length !== size) {
       throw new Error('All attention layers must share the same sequence length.');
     }
+    if (options.addIdentity) {
+      for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) matrix[i][j] = 0.5 * matrix[i][j] + (i === j ? 0.5 : 0);
+      }
+    }
     normalize(matrix, epsilon);
   }
-  const rolloutStart = options.addIdentity
-    ? multiply(identity(size), aggregatedLayers[0])
-    : aggregatedLayers[0];
-  let rollout = rolloutStart;
+  let rollout = aggregatedLayers[0];
   for (let i = 1; i < aggregatedLayers.length; i++) {
-    rollout = multiply(rollout, aggregatedLayers[i]);
+    rollout = multiply(aggregatedLayers[i], rollout);
   }
   return rollout;
 }

@@ -9,6 +9,7 @@
 - [Project README](../README.md) - Project overview and quickstart
 - [Claude Assistant Guide](./guides/CLAUDE_ASSISTANT_GUIDE.md) - Comprehensive AI assistant guide (120KB)
 - [Development Setup](./guides/DEVELOPMENT_SETUP_GUIDE.md) - Get started with development
+- [Offline Model Factory](./guides/OFFLINE_MODEL_FACTORY.md) - Your own language model, offline, without external AI services
 
 ---
 
@@ -37,6 +38,7 @@ Step-by-step guides and tutorials.
 | [Python Modules](./guides/PYTHON_MODULES.md) | Python module reference |
 | [Transformer Guide](./guides/TRANSFORMER_GUIDE.md) | Understanding transformer architecture |
 | [Loss Functions](./guides/losses.md) | Available loss functions |
+| [Offline Model Factory](./guides/OFFLINE_MODEL_FACTORY.md) | Train, package and serve your own model from local files, with no external AI (Hebrew quick start + English reference) |
 
 ---
 
@@ -46,6 +48,7 @@ Development roadmap, changelogs, and planning documents.
 
 | Document | Description |
 |----------|-------------|
+| [Changelog](./roadmap/CHANGELOG.md) | Unreleased changes (audit of real vs. claimed features) |
 | [Changelog v3.3](./roadmap/CHANGELOG_v3.3.md) | Version 3.3 changes |
 | [Development Roadmap](./roadmap/DEVELOPMENT_ROADMAP.md) | Future development plans |
 | [Immediate Actions](./roadmap/IMMEDIATE_ACTIONS.md) | Priority tasks |
@@ -77,6 +80,8 @@ Experiment tracking and results.
 
 | Document | Description |
 |----------|-------------|
+| [Model Benchmark](./benchmarks/MODEL_BENCHMARK.md) | Held-out comparison of the three architectures (`pnpm benchmark:models`) |
+| [Math Audit](./audits/MATH_AUDIT.md) | Numerical audit of `src/math` and the causal statistics against numpy/scipy |
 | [Logbook](./experiments/logbook.md) | Experiment log and notes |
 | [Experiment Runs](./experiments/runs/) | Individual experiment run data (JSON) |
 

@@ -404,6 +404,12 @@ export const SPECIAL_TOKENS = ['<PAD>', '<BOS>', '<EOS>', '<UNK>'] as const;
  */
 export const TRAINING_UI_UPDATE_DELAY = 16;
 
+/** Longest stretch of training work between two yields to the browser (keeps the UI responsive). */
+export const TRAINING_YIELD_INTERVAL_MS = 50;
+
+/** Minimum time between two progress-bar updates during an epoch. */
+export const TRAINING_PROGRESS_UPDATE_MS = 250;
+
 /**
  * Example corpus text for demonstration
  */

@@ -39,7 +39,18 @@ export function TokenizerConfig({
       return;
     }
     onError(null);
+    if (mode === 'bpe') {
+      // Merges are learned from the training corpus when the next model is created.
+      onConfigChange({ mode: 'bpe', bpeVocabSize: config.bpeVocabSize ?? 2000 });
+      return;
+    }
     onConfigChange({ mode });
+  };
+
+  const handleBpeVocabSizeChange = (value: number) => {
+    const size = Math.max(100, Math.min(16000, Math.floor(value) || 2000));
+    // A different size invalidates the current merges: they are relearned on the next training.
+    onConfigChange({ mode: 'bpe', bpeVocabSize: size });
   };
 
   const handlePatternChange = (value: string) => {
@@ -119,9 +130,37 @@ export function TokenizerConfig({
             <option value="unicode">Unicode (all scripts)</option>
             <option value="ascii">ASCII (a-z, digits)</option>
             <option value="character">Character-level (for math/code)</option>
+            <option value="bpe">Subword BPE (learned from your corpus)</option>
             <option value="custom">Custom RegExp</option>
           </select>
         </div>
+        {config.mode === 'bpe' && (
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8' }}>
+              Subword vocabulary{' '}
+              {config.bpe
+                ? `(${config.bpe.merges.length} merges learned)`
+                : '(learned on next training)'}
+            </div>
+            <input
+              aria-label="Subword vocabulary size"
+              type="number"
+              min={100}
+              max={16000}
+              step={100}
+              value={config.bpeVocabSize ?? 2000}
+              onChange={(e) => handleBpeVocabSizeChange(Number(e.target.value))}
+              style={{
+                width: '100%',
+                background: '#1e293b',
+                border: '1px solid #475569',
+                borderRadius: 6,
+                padding: 8,
+                color: 'white'
+              }}
+            />
+          </div>
+        )}
         {config.mode === 'custom' && (
           <div>
             <div style={{ fontSize: 12, color: '#94a3b8' }}>Custom pattern (JS RegExp)</div>

@@ -16,6 +16,30 @@ interface EmbeddingVisualizationPanelProps {
 
 type ProjectionMethod = 'tsne' | 'umap';
 
+/**
+ * Projections run on the page's main thread and t-SNE is quadratic in the number of points
+ * (≈ 12 s for 300 tokens, minutes for a 2,000-token subword vocabulary), so they run only on
+ * request and on a bounded selection of tokens.
+ */
+export const DEFAULT_PROJECTION_POINTS = 300;
+
+const SPECIAL_TOKENS = new Set(['<PAD>', '<BOS>', '<EOS>', '<UNK>']);
+
+/**
+ * Indices of the tokens to project: words and multi-character subwords first, in vocabulary order
+ * (for the subword tokenizer: most frequent merges first), then single characters; never the
+ * special tokens.
+ */
+export function selectProjectionTokens(vocab: string[], limit: number): number[] {
+  const multi: number[] = [];
+  const single: number[] = [];
+  vocab.forEach((token, i) => {
+    if (SPECIAL_TOKENS.has(token)) return;
+    ([...token.replace('▁', '')].length > 1 ? multi : single).push(i);
+  });
+  return [...multi, ...single].slice(0, Math.max(0, Math.floor(limit)));
+}
+
 interface CanvasViewState {
   offsetX: number;
   offsetY: number;
@@ -24,7 +48,8 @@ interface CanvasViewState {
 
 export function EmbeddingVisualizationPanel({ model, onClose }: EmbeddingVisualizationPanelProps) {
   // Projection state
-  const [method, setMethod] = useState<ProjectionMethod>('tsne');
+  const [method, setMethod] = useState<ProjectionMethod>('umap');
+  const [pointLimit, setPointLimit] = useState<number>(DEFAULT_PROJECTION_POINTS);
   const [normalisation, setNormalisation] = useState<NormalisationMode>('zscore');
   const [projection, setProjection] = useState<ProjectionResult | null>(null);
   const [isComputing, setIsComputing] = useState(false);
@@ -51,13 +76,15 @@ export function EmbeddingVisualizationPanel({ model, onClose }: EmbeddingVisuali
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
 
-  // Vocabulary from model
+  // Vocabulary from model, and the tokens of the current projection (same order as its points)
   const [vocab, setVocab] = useState<string[]>([]);
+  const [labels, setLabels] = useState<string[]>([]);
 
   // Extract embeddings and vocabulary from model
   useEffect(() => {
+    // A projection of the previous model would be stale.
+    setProjection(null);
     if (!model) {
-      setProjection(null);
       setVocab([]);
       return;
     }
@@ -83,7 +110,10 @@ export function EmbeddingVisualizationPanel({ model, onClose }: EmbeddingVisuali
     setError(null);
 
     try {
-      const embeddings = model.getEmbeddings();
+      const tokens = model.getVocab();
+      const all = model.getEmbeddings();
+      const indices = selectProjectionTokens(tokens, Math.max(3, pointLimit));
+      const embeddings = indices.map((i) => all[i]);
 
       if (embeddings.length === 0) {
         setError('Model has no embeddings (untrained model?)');
@@ -120,6 +150,7 @@ export function EmbeddingVisualizationPanel({ model, onClose }: EmbeddingVisuali
         result = projectWithUMAP(embeddings, options);
       }
 
+      setLabels(indices.map((i) => tokens[i]));
       setProjection(result);
       setViewState({ offsetX: 0, offsetY: 0, scale: 1 }); // Reset view
     } catch (err) {
@@ -128,19 +159,18 @@ export function EmbeddingVisualizationPanel({ model, onClose }: EmbeddingVisuali
     } finally {
       setIsComputing(false);
     }
-  }, [model, method, normalisation, perplexity, epsilon, iterations, nNeighbors, minDist, spread]);
-
-  // Auto-compute on parameter change (with debouncing)
-  useEffect(() => {
-    if (!model) return;
-
-    const timer = setTimeout(() => {
-      computeProjection();
-    }, 300);
-
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model, method, normalisation, perplexity, epsilon, iterations, nNeighbors, minDist, spread]);
+  }, [
+    model,
+    method,
+    normalisation,
+    perplexity,
+    epsilon,
+    iterations,
+    nNeighbors,
+    minDist,
+    spread,
+    pointLimit
+  ]);
 
   // Canvas rendering
   useEffect(() => {
@@ -196,7 +226,7 @@ export function EmbeddingVisualizationPanel({ model, onClose }: EmbeddingVisuali
         ctx.fill();
 
         // Draw label
-        const label = vocab[i] || `Token ${i}`;
+        const label = labels[i] || `Token ${i}`;
         ctx.fillStyle = '#fff';
         ctx.font = '14px monospace';
         ctx.fillText(label, cx + 12, cy - 12);
@@ -219,7 +249,7 @@ export function EmbeddingVisualizationPanel({ model, onClose }: EmbeddingVisuali
     ctx.font = '11px monospace';
     ctx.fillText(`${coordinates.length} tokens`, 10, height - 10);
     ctx.fillText(`Scale: ${viewState.scale.toFixed(2)}x`, 10, height - 25);
-  }, [projection, viewState, hoveredPoint, vocab]);
+  }, [projection, viewState, hoveredPoint, labels]);
 
   // Canvas interaction handlers
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -328,7 +358,7 @@ export function EmbeddingVisualizationPanel({ model, onClose }: EmbeddingVisuali
 
     const data = {
       ...projection,
-      vocabulary: vocab,
+      vocabulary: labels,
       method,
       normalisation,
       timestamp: new Date().toISOString()
@@ -520,8 +550,30 @@ export function EmbeddingVisualizationPanel({ model, onClose }: EmbeddingVisuali
 
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-        <button onClick={computeProjection} disabled={isComputing} style={{ padding: '8px 15px' }}>
-          {isComputing ? 'Computing...' : 'Recompute'}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          Tokens
+          <input
+            type="number"
+            aria-label="Tokens to project"
+            min={3}
+            max={Math.max(3, vocab.length)}
+            step={50}
+            value={pointLimit}
+            disabled={isComputing}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (Number.isFinite(v)) setPointLimit(Math.max(3, Math.floor(v)));
+            }}
+            style={{ width: 80 }}
+          />
+        </label>
+        <button
+          onClick={computeProjection}
+          disabled={isComputing || !model}
+          aria-label="Compute projection"
+          style={{ padding: '8px 15px' }}
+        >
+          {isComputing ? 'Computing...' : projection ? 'Recompute' : 'Compute projection'}
         </button>
         <button onClick={resetView} disabled={!projection} style={{ padding: '8px 15px' }}>
           Reset View
@@ -560,7 +612,9 @@ export function EmbeddingVisualizationPanel({ model, onClose }: EmbeddingVisuali
             marginBottom: '15px'
           }}
         >
-          Computing {method.toUpperCase()} projection... This may take a few seconds.
+          Computing {method.toUpperCase()} projection of {Math.min(pointLimit, vocab.length)}{' '}
+          tokens... The page is busy until it finishes
+          {method === 'tsne' ? ' (t-SNE: about 10 s per 300 tokens, growing quadratically)' : ''}.
         </div>
       )}
 
@@ -593,9 +647,12 @@ export function EmbeddingVisualizationPanel({ model, onClose }: EmbeddingVisuali
               textAlign: 'center'
             }}
           >
-            Waiting for projection...
+            Press “Compute projection” to project {Math.min(pointLimit, vocab.length)} of{' '}
+            {vocab.length} tokens
             <br />
-            <small>(Adjust parameters above to compute)</small>
+            <small>
+              (words and subwords first — most frequent subwords first — then characters)
+            </small>
           </div>
         )}
       </div>

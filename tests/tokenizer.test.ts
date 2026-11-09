@@ -102,9 +102,19 @@ describe('Tokenizer', () => {
       expect(tokens).toEqual(['0', '+', '1', '=', '1']);
     });
 
-    it('filters out whitespace characters', () => {
-      const tokens = ProNeuralLM.tokenizeText('a b c', { mode: 'character' });
-      expect(tokens).toEqual(['a', 'b', 'c']);
+    it('keeps word boundaries: each whitespace run becomes one space token', () => {
+      const tokens = ProNeuralLM.tokenizeText('a b  \n c', { mode: 'character' });
+      expect(tokens).toEqual(['a', ' ', 'b', ' ', 'c']);
+    });
+
+    it('drops leading and trailing whitespace', () => {
+      expect(ProNeuralLM.tokenizeText('  0+1=1 1+1=2 ', { mode: 'character' })).toEqual([
+        ...'0+1=1 1+1=2'
+      ]);
+    });
+
+    it('keeps astral characters (emoji) as single tokens', () => {
+      expect(ProNeuralLM.tokenizeText('a😀b', { mode: 'character' })).toEqual(['a', '😀', 'b']);
     });
 
     it('preserves case (does not lowercase)', () => {
@@ -238,6 +248,65 @@ describe('Tokenizer', () => {
       const text = 'hello\tworld\ntest\r\nfoo';
       const tokens = ProNeuralLM.tokenizeText(text);
       expect(tokens).toEqual(['hello', 'world', 'test', 'foo']);
+    });
+  });
+
+  describe('tokenizeWithOffsets', () => {
+    it('returns spans into the original text for word tokens', () => {
+      const text = 'Hello, World! It\'s fine.';
+      const spans = ProNeuralLM.tokenizeWithOffsets(text);
+      expect(spans.map((s) => s.token)).toEqual(['hello', 'world', "it's", 'fine']);
+      for (const s of spans) expect(text.slice(s.start, s.end).toLowerCase()).toBe(s.token);
+    });
+
+    it('returns spans for characters and collapsed whitespace', () => {
+      const text = 'ab \t c';
+      const spans = ProNeuralLM.tokenizeWithOffsets(text, { mode: 'character' });
+      expect(spans).toEqual([
+        { token: 'a', start: 0, end: 1 },
+        { token: 'b', start: 1, end: 2 },
+        { token: ' ', start: 2, end: 5 },
+        { token: 'c', start: 5, end: 6 }
+      ]);
+    });
+
+    it('tokenizeText is the token projection of tokenizeWithOffsets', () => {
+      const text = 'שלום עולם, hello-world 42!';
+      for (const mode of ['unicode', 'ascii', 'character'] as const) {
+        expect(ProNeuralLM.tokenizeText(text, { mode })).toEqual(
+          ProNeuralLM.tokenizeWithOffsets(text, { mode }).map((t) => t.token)
+        );
+      }
+    });
+  });
+
+  describe('character-mode generation', () => {
+    it('joins generated characters without inserting spaces', async () => {
+      const corpus = 'ab ab ab ab ab ab';
+      const tokens = ProNeuralLM.tokenizeText(corpus, { mode: 'character' });
+      const vocab = ['<PAD>', '<BOS>', '<EOS>', '<UNK>', ...new Set(tokens)];
+      const model = new ProNeuralLM(vocab, 16, 0.05, 2, 'adam', 0.9, 0, 3, { mode: 'character' });
+      await model.train(corpus, 30);
+      const out = await model.generate('a', 6, 0.05);
+      expect(out).not.toMatch(/a b/); // characters are concatenated, not space-separated
+      expect(out.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('custom RegExp loss mask alignment', () => {
+    it('masks exactly the tokens after the match even when the text has spaces', () => {
+      const vocab = ['<PAD>', '<BOS>', '<EOS>', '<UNK>', 'question', 'what', 'is', 'it', 'answer', 'blue'];
+      const model = new ProNeuralLM(vocab, 8, 0.05, 2, 'adam', 0.9, 0, 1);
+      const text = 'Question: what is it? Answer: blue';
+      const mask = (model as unknown as {
+        buildTrainingLossMask(t: string, c: unknown): number[];
+      }).buildTrainingLossMask(text, {
+        mode: 'customRegExp',
+        customPattern: 'Answer:',
+        regExpPosition: 'after'
+      });
+      // tokens: question what is it answer blue + EOS
+      expect(mask).toEqual([0, 0, 0, 0, 0, 1, 1]);
     });
   });
 });

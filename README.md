@@ -9,36 +9,61 @@
 ## Core Features
 
 - **Multiple Architectures**: Standard ProNeuralLM, AdvancedNeuralLM, and fully-functional Transformer models with multi-head attention
-- **WebGPU Acceleration**: 2-5x faster training on compatible hardware with automatic CPU fallback (tested on Chromium-based browsers with recent drivers)
-- **7 Optimizers**: SGD with Momentum, Adam, **Lion (v4.0)**, **Sophia (v4.3)**, Damped Newton, L-BFGS
+- **Optional WebGPU offload** of the MLP's matrix-vector products with automatic CPU fallback. Each product uploads the weights and waits for the result, so for the small models used here the CPU is often as fast; the Transformer always trains on the CPU.
+- **6 Optimizers**: SGD with Momentum, Adam, **Lion (v4.0)**, **Sophia (v4.3)**, Damped Newton (diagonal Gauss-Newton, experimental), L-BFGS
 - **Dropout** (train‑only)
 - **Advanced Text Generation**: Greedy, Sampling (Top-p/Top-k/Typical/Mirostat v2), Beam Search, and Contrastive decoding
 - **Session persistence**, onboarding tips, and downloadable **training-history CSVs** (localized labels)
-- **Tokenizer presets** (Unicode/ASCII/custom/**BPE** (v4.4)) with import/export support
-- **Dataset abstraction** (v4.4): formal train/val/test splits with reproducible shuffling
-- **Reproducibility layer** (v4.4): deterministic PRNG, config/weight hashing, replay verification
+- **Tokenizers**: Unicode / ASCII / custom regex / character-level, and a **subword (BPE) tokenizer learned from your corpus** (`src/tokenizer/subword.ts`) that works with all three architectures, with import/export support
+- **Offline model factory** (`pnpm lm`): train, evaluate, package and serve your own model from local files — no external AI model, API key or network service ([guide](./docs/guides/OFFLINE_MODEL_FACTORY.md))
+- **Works offline**: the web app caches itself with a service worker (installable), models are exported as checksummed `.nlm.json` packages with a model card, and a test guards against any external AI service
+- **Dataset abstraction** and **reproducibility layer** (v4.4): library modules with tests (splits, hashing, replay verification); not yet used by the UI training loop
+- **Held-out evaluation**: `model.evaluate(text)` and `pnpm benchmark:models` ([results](./docs/benchmarks/MODEL_BENCHMARK.md))
 - **Desktop app** (v4.4): Electron packaging for Windows with full feature parity
 - **Agent** workflow: a single GitHub Action retrains the model and commits the updated JSON artifact
+
+## ✅ Implementation status (verified)
+
+What runs in the app, what is a standalone library, and what is simulated. Gradients of all three
+architectures are checked against finite differences in the test suite.
+
+| Area | Status |
+| --- | --- |
+| ProNeuralLM (MLP) | Trained with exact backprop. The context is the **mean** of the token embeddings, so the model is order-blind (see the benchmark). |
+| AdvancedNeuralLM | Activation (ReLU/LeakyReLU/ELU/GELU), LayerNorm, LR schedules, weight decay and gradient clipping all act in the regular training path. |
+| TransformerLM | Decoder-only causal transformer: causal MHA/GQA/MQA with per-head RoPE, pre-norm RMSNorm, SwiGLU, final RMSNorm, attention dropout + DropConnect, exact backprop, mini-batches. Models saved with the older objective load as `pooled` and keep their predictions. |
+| Optimizers | Adam, momentum SGD, Lion, Sophia, L-BFGS and damped Newton act on the MLP models; the Transformer uses Adam / momentum / Lion (second-order choices fall back to Adam). |
+| Explainability panel | Shapley values (exact for windows ≤ 10 tokens), integrated gradients on embeddings and attention rollout, all computed from the model. |
+| Information-plane panel | Binning estimates of I(X;Z) and I(Z;Y) from hidden representations; monitoring only (the loss stays cross-entropy). |
+| Edge-learning diagnostics | Empirical Fisher information of the output layer (exact per-window gradients), predictive entropy, loss variance and the diagonal Cramér-Rao bound, measured on the trained model. |
+| Cerebro neuron injection | Works for all architectures; function-preserving for the MLP; rollback restores the exact model. |
+| WebGPU | Offloads the MLP's matrix-vector products only; no measured speedup is claimed. |
+| Subword tokenizer (BPE) | Learned from the corpus (deterministic, keeps Hebrew niqqud attached, exact offsets); used by all architectures in the app and the CLI. |
+| Offline model factory | `pnpm lm train / eval / generate / serve / info`: corpus preparation, tokenizer, transformer training on all CPU cores with validation and early stopping, exact resume of interrupted runs, packages with model cards, a local completions / chat server. |
+| Offline web app | Service worker pre-caches every build file; packages export/import with checksums; localStorage saves fall back to compact packages; training keeps the page responsive and Stop acts mid-epoch. |
+| No external AI | `tests/offline/noExternalServices.test.ts` fails on AI-service clients, hosted AI endpoints or network calls in the app, CLI and desktop code. |
+| Causal analysis panel | Runs on data from the engine's built-in simulator (labelled in the UI). |
+| Library modules not wired into the app | `BPETokenizer.ts` (an older BPE module; the models use `subword.ts`), dataset abstraction, reproducibility layer, sparse / linearized attention, K-FAC, mixed precision, `src/integrations` (simulated HuggingFace / Slack / Prometheus services), `src/autodiff`, `GovernanceBoard` component. |
 
 ## 🚀 Advanced Features
 
 ### Neural Network Architectures
 
-- **🔮 Transformer**: Fully-implemented multi-head self-attention with position embeddings, **pre-attention/pre-FFN RMSNorm**, residual connections, and **Grouped-Query Attention (GQA)** for efficient KV caching (configurable layers and heads)
-- **🚀 AdvancedNeuralLM**: State-of-the-art feedforward architecture
+- **🔮 Transformer**: decoder-only causal transformer trained with exact backpropagation — causal multi-head attention with per-head **RoPE**, **pre-attention/pre-FFN RMSNorm**, SwiGLU feed-forward, residual connections, **Grouped-Query Attention (GQA/MQA)**, final RMSNorm and next-token loss at every position (configurable layers and heads)
+- **🚀 AdvancedNeuralLM**: feed-forward model with selectable activation, LayerNorm, LR schedules, weight decay and gradient clipping
 - **📊 ProNeuralLM**: Standard baseline model
 
 ### Mathematical Enhancements
 
 - ✅ **He/Xavier Initialization** - Faster convergence with proper weight init
-- ✅ **Advanced Activations** - LeakyReLU, ELU, GELU, Swish
+- ✅ **Advanced Activations** - LeakyReLU, ELU, GELU
 - ✅ **Learning Rate Scheduling** - Cosine annealing, exponential decay, warmup
 - ✅ **L2 Regularization** - Weight decay for better generalization
 - ✅ **Layer Normalization** - Training stability
-- ✅ **RMSNorm (v4.0)** - Efficient normalization (20% less memory, 2x faster)
-- ✅ **Lion Optimizer (v4.0)** - Memory-efficient optimizer with faster convergence
-- ✅ **Sophia Optimizer (v4.3)** - Second-order stochastic optimizer with 2× faster convergence
-- ✅ **Mixed Precision Training (v4.3)** - FP16/FP32 for 2-3× speedup and 50% memory reduction
+- ✅ **RMSNorm (v4.0)** - Normalization without mean subtraction or bias (transformer blocks)
+- ✅ **Lion Optimizer (v4.0)** - Sign-based optimizer with a single momentum buffer
+- ✅ **Sophia Optimizer (v4.3)** - Diagonal-curvature optimizer with update clipping (β₁, β₂, ρ configurable in the UI)
+- 🧩 **Mixed precision utilities (v4.3)** - FP16/FP32 helpers in `src/backend/mixed_precision.ts`; not used by the training loop
 - ✅ **Numerical Stability** - Log-sum-exp, stable softmax
 - ✅ **Perplexity Calculation** - Model evaluation metric
 
@@ -66,14 +91,15 @@ Rigorous mathematical analysis tools with formal guarantees:
 
 ### Performance Optimization
 
-- ✅ **WebGPU Acceleration** - Hardware-accelerated training with GPU
+- ✅ **WebGPU offload** - MLP matrix-vector products on the GPU (measure with the GPU metrics; small models are often as fast on the CPU)
 - ✅ **GPU Metrics Dashboard** - Real-time performance monitoring
 - ✅ **Automatic Fallback** - Seamless CPU fallback when GPU unavailable
-- ✅ **Mixed Precision (v4.3)** - FP16/FP32 training with dynamic loss scaling
+- ✅ **Mini-batch transformer training** - gradient accumulation with one fused optimizer step per batch
 
 ### 🔀 Sparse Attention (v4.3)
 
-Efficient attention patterns that reduce O(n²) complexity to O(n) for longer sequences:
+Library module (`src/models/sparse_attention.ts`, with tests); TransformerLM uses dense causal
+attention over its short context window. Patterns that reduce O(n²) attention cost:
 
 - ✅ **Local (Sliding Window)** - Each token attends to w neighbors
 - ✅ **BigBird** - Local + Global + Random attention (Google Research)
@@ -82,7 +108,7 @@ Efficient attention patterns that reduce O(n²) complexity to O(n) for longer se
 - ✅ **Strided/Dilated** - Hierarchical attention patterns
 - ✅ **Axial** - Factorized 2D attention for image-like data
 
-**Benefits**: 2-4× faster for long sequences (n > 512), enables 4k-16k+ token context windows in browser
+**Cost**: O(n·w) instead of O(n²) for window/block size w (not benchmarked in this repository).
 
 #### WebGPU Browser Compatibility
 
@@ -94,7 +120,7 @@ Efficient attention patterns that reduce O(n²) complexity to O(n) for longer se
 | Firefox | 127+ | ⚠️ Behind flag (`dom.webgpu.enabled`) |
 | Safari | — | ❌ Not yet supported |
 
-> **Note:** WebGPU requires a compatible GPU and up-to-date drivers. If GPU acceleration is unavailable, Neuro-Lingua automatically falls back to CPU with full functionality (2-5x slower).
+> **Note:** WebGPU requires a compatible GPU and up-to-date drivers. If GPU acceleration is unavailable, Neuro-Lingua automatically falls back to CPU with full functionality.
 
 ### 🎯 Experiment Management (Σ-SIG Compliance)
 
@@ -106,16 +132,16 @@ Efficient attention patterns that reduce O(n²) complexity to O(n) for longer se
 
 ### 🔍 Model Interpretability
 
-- ✅ **SHAP Values** - Estimate feature importance using Shapley values
-- ✅ **Integrated Gradients** - Attribution method for input token contributions
-- ✅ **Attention Rollout** - Visualize attention flow in Transformer models
+- ✅ **Shapley Values** - Exact Shapley values of the context tokens for the predicted next token
+- ✅ **Integrated Gradients** - Embedding-space attributions with the model's exact gradient
+- ✅ **Attention Rollout** - Rollout over the Transformer's attention maps (residual-aware)
 - ✅ **Explainability Panel** - Interactive UI for model interpretation
 
 ### 📊 Advanced Visualization
 
 - ✅ **Embedding Visualization** - Interactive t-SNE and UMAP projections
 - ✅ **Information Theory Panel** - I(X;Z) vs I(Z;Y) information plane
-- ✅ **Information Bottleneck** - Compression-prediction trade-off analysis
+- ✅ **Information Bottleneck monitoring** - Binning estimates of the information plane (no IB loss term)
 - ✅ **Canvas Interaction** - Pan, zoom, and explore embedding spaces
 
 ### 🧠 Cerebro: Adaptive Neuron Injection
@@ -123,7 +149,7 @@ Efficient attention patterns that reduce O(n²) complexity to O(n) for longer se
 - ✅ **Bubble Detection** - Identify residual clusters in embedding space
 - ✅ **Neuron Injection** - Dynamically grow hidden layer to capture missed patterns
 - ✅ **Architecture Adapters** - Works with ProNeuralLM, AdvancedNeuralLM, and TransformerLM
-- ✅ **Rollback Support** - Undo injection if validation loss increases
+- ✅ **Rollback Support** - Undo an injection and restore the exact pre-injection weights
 - ✅ **Decision Ledger Integration** - All injections logged for Σ-SIG compliance
 
 ### 🗜️ Model Compression
@@ -153,6 +179,10 @@ Efficient attention patterns that reduce O(n²) complexity to O(n) for longer se
 - ✅ **Three-Phase Pipeline** - Offline learning → Online selection → Statistical testing
 
 ### 🔤 BPE Tokenizer (v4.4)
+
+> The models use the subword tokenizer in `src/tokenizer/subword.ts` (select **Subword BPE** in the
+> tokenizer panel, or `pnpm lm train --tokenizer bpe`). The features below describe the standalone
+> `BPETokenizer.ts` library module.
 
 - ✅ **Byte Pair Encoding** - Subword tokenization for better vocabulary coverage
 - ✅ **Configurable Vocab Size** - Train tokenizers with custom vocabulary limits
@@ -193,10 +223,10 @@ Efficient attention patterns that reduce O(n²) complexity to O(n) for longer se
 - ✅ **Mobile Friendly** - Responsive design for all screen sizes
 - ✅ **Quick Start** - Just open `neuro-lingua-lite.html` in any browser
 
-📚 **[See full mathematical documentation →](./MATHEMATICAL_ENHANCEMENTS.md)**
-🚀 **[v4.0 Mathematical & Architectural Upgrades (Hebrew) →](./NEURO_LINGUA_V4_UPGRADES.md)**
-📖 **[Transformer architecture guide →](./TRANSFORMER_GUIDE.md)**
-⚡ **[GPU acceleration setup →](./GPU_ACCELERATION_GUIDE.md)**
+📚 **[See full mathematical documentation →](./docs/theory/MATHEMATICAL_ENHANCEMENTS.md)**
+🚀 **[v4.0 Mathematical & Architectural Upgrades (Hebrew) →](./docs/roadmap/NEURO_LINGUA_V4_UPGRADES.md)**
+📖 **[Transformer architecture guide →](./docs/guides/TRANSFORMER_GUIDE.md)**
+⚡ **[GPU acceleration setup →](./docs/guides/GPU_ACCELERATION_GUIDE.md)**
 
 > This repository is intentionally simple: the only thing your agent does is **train** and **update** the model JSON.
 > The tokenizer is language‑agnostic, while the UI strings are available in English and Hebrew.
@@ -233,7 +263,16 @@ pnpm benchmark:gpu
 # 7) Desktop App (Windows)
 pnpm electron:dev    # Development with hot-reload
 pnpm electron:build  # Build NSIS installer
+
+# 8) Offline model factory: your own model from local files, no external AI
+pnpm lm train --data ./my-texts --name my-model      # → models/my-model/model.nlm.json
+pnpm lm train --resume models/my-model               # continue an interrupted run exactly
+pnpm lm generate --model models/my-model/model.nlm.json --prompt "Once upon a time"
+pnpm lm serve --model models/my-model/model.nlm.json # local completions / chat API on 127.0.0.1
 ```
+
+See the [offline model factory guide](./docs/guides/OFFLINE_MODEL_FACTORY.md) (Hebrew quick start +
+English reference).
 
 The browser UI allows you to paste a training corpus and interact with the model.  
 The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and writes the artifact to `models/neuro‑lingua‑v324.json`.
@@ -486,13 +525,14 @@ Export models with complete audit trail including project metadata, decision led
 ## 📚 Documentation
 
 - **[CLAUDE.md](./CLAUDE.md)** - Comprehensive AI assistant development guide
-- **[MATHEMATICAL_ENHANCEMENTS.md](./MATHEMATICAL_ENHANCEMENTS.md)** - Detailed mathematical formulations
-- **[NEURO_LINGUA_V4_UPGRADES.md](./NEURO_LINGUA_V4_UPGRADES.md)** - v4.0 Mathematical & Architectural Upgrades (Hebrew)
-- **[TRANSFORMER_GUIDE.md](./TRANSFORMER_GUIDE.md)** - Transformer architecture deep dive
-- **[TRANSFORMER_IMPLEMENTATION.md](./TRANSFORMER_IMPLEMENTATION.md)** - Implementation details
-- **[GPU_ACCELERATION_GUIDE.md](./GPU_ACCELERATION_GUIDE.md)** - WebGPU setup and benchmarking
-- **[DEVELOPMENT_SETUP_GUIDE.md](./DEVELOPMENT_SETUP_GUIDE.md)** - Development environment setup
-- **[CHANGELOG_v3.3.md](./CHANGELOG_v3.3.md)** - Project & Run management release notes
+- **[OFFLINE_MODEL_FACTORY.md](./docs/guides/OFFLINE_MODEL_FACTORY.md)** - Produce, package and serve your own model offline (Hebrew quick start + English reference)
+- **[MATHEMATICAL_ENHANCEMENTS.md](./docs/theory/MATHEMATICAL_ENHANCEMENTS.md)** - Detailed mathematical formulations
+- **[NEURO_LINGUA_V4_UPGRADES.md](./docs/roadmap/NEURO_LINGUA_V4_UPGRADES.md)** - v4.0 Mathematical & Architectural Upgrades (Hebrew)
+- **[TRANSFORMER_GUIDE.md](./docs/guides/TRANSFORMER_GUIDE.md)** - Transformer architecture deep dive
+- **[TRANSFORMER_IMPLEMENTATION.md](./docs/architecture/TRANSFORMER_IMPLEMENTATION.md)** - Implementation details
+- **[GPU_ACCELERATION_GUIDE.md](./docs/guides/GPU_ACCELERATION_GUIDE.md)** - WebGPU setup and benchmarking
+- **[DEVELOPMENT_SETUP_GUIDE.md](./docs/guides/DEVELOPMENT_SETUP_GUIDE.md)** - Development environment setup
+- **[CHANGELOG_v3.3.md](./docs/roadmap/CHANGELOG_v3.3.md)** - Project & Run management release notes
 
 ---
 

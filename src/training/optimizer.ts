@@ -43,6 +43,8 @@ export interface SecondOrderState {
   maxHistory: number;
   dimension?: number;
   iteration: number;
+  /** Exponential moving average of a curvature diagonal (damped Newton). */
+  curvature?: Float64Array;
 }
 
 const DEFAULT_CONFIG: Required<Pick<SecondOrderConfig, 'damping' | 'epsilon' | 'maxHistory'>> = {
@@ -148,6 +150,11 @@ export function applyUpdateVector(
   }
 }
 
+/**
+ * Squared-gradient curvature proxy g² (an empirical-Fisher-style estimate from a single
+ * gradient). ProNeuralLM's 'newton' optimizer uses the exact Gauss-Newton diagonal instead;
+ * this helper is kept for experimentation.
+ */
 export function computeDiagonalHessian(grad: Float64Array, epsilon = 1e-9): Float64Array {
   const diag = new Float64Array(grad.length);
   for (let i = 0; i < grad.length; i++) {
@@ -169,6 +176,24 @@ export function dampedNewtonStep(
     step[i] = -((learningRate ?? 1) * grad[i]) / denom;
   }
   return step;
+}
+
+/**
+ * Update (and return) the exponential moving average of a curvature diagonal stored in `state`.
+ * The first call initialises the average with `diag`; a change of dimension restarts it.
+ */
+export function updateCurvatureEMA(
+  state: SecondOrderState,
+  diag: Float64Array,
+  decay = 0.95
+): Float64Array {
+  if (!state.curvature || state.curvature.length !== diag.length) {
+    state.curvature = Float64Array.from(diag);
+    return state.curvature;
+  }
+  const c = state.curvature;
+  for (let i = 0; i < c.length; i++) c[i] = decay * c[i] + (1 - decay) * diag[i];
+  return c;
 }
 
 export function createSecondOrderState(maxHistory = DEFAULT_CONFIG.maxHistory): SecondOrderState {

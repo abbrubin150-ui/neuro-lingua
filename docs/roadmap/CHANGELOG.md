@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Question–answer models
+
+- `pnpm lm train --format qa`: train (or fine-tune with `--init`) on question–answer pairs from
+  jsonl/json (question/answer, prompt/completion, chat messages), csv, or `Q:`/`A:` text blocks
+  (Hebrew labels too). Each pair is one `Question: … Answer: …` paragraph; the loss covers the
+  answers and the token that ends them (`src/data/qa.ts`). Labels are configurable and stored in
+  the model card.
+- Validation reports bits per answer character and, from free generation, the share of
+  validation questions answered exactly right and the word-overlap F1.
+- `pnpm lm chat` (console, or questions piped on stdin); the local server's chat completions use
+  the model's labels and stop at the end-of-answer token; `pnpm lm eval` scores answers only.
+- Precomputed per-token loss masks in `train()` / `evaluate()` for every architecture and both
+  training backends. Fixed: data-parallel batches counted windows without a target, so with a
+  loss mask they took different optimizer steps than single-thread training.
+- `generateDetailed(..., stopTokens)` stops at given tokens.
+- `data/qa/neuro-lingua-faq.jsonl`: 72 hand-written pairs about the project (English / Hebrew).
+- The page title said v3.2; it now matches the v4.4 runtime.
+
 An audit of what actually runs versus what the UI and documentation claimed. Every model change is
 covered by finite-difference gradient tests; quality changes are measured on held-out data
 (`pnpm benchmark:models`, see [MODEL_BENCHMARK.md](../benchmarks/MODEL_BENCHMARK.md)).

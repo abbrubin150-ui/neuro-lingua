@@ -32,6 +32,14 @@ pnpm lm train --data ./my-texts --name my-model
 pnpm lm generate --model models/my-model/model.nlm.json --prompt "שלום"
 ```
 
+**מודל שעונה על שאלות:** אפשר לאמן על זוגות של שאלה ותשובה (קובצי jsonl/csv, או טקסט עם שורות
+"ש:" / "ת:"). האימון לומד רק את התשובות, ואז שואלים בשיחה במסוף:
+
+```bash
+pnpm lm train --format qa --data data/qa --name faq --question-label "שאלה:" --answer-label "תשובה:"
+pnpm lm chat --model models/faq/model.nlm.json
+```
+
 **ליבות ועצירות:** האימון מתחלק אוטומטית בין כל ליבות המעבד. אם ריצה נעצרה באמצע (כיבוי, Ctrl-C),
 ממשיכים בדיוק מאותה נקודה — התוצאה זהה לריצה שלא נעצרה:
 
@@ -84,6 +92,7 @@ pnpm lm train    --resume <dir>
 pnpm lm eval     --model <package> --data <file|dir>
 pnpm lm generate --model <package> --prompt "text" [--max-tokens 60] [--temperature 0.8]
 pnpm lm serve    --model <package> [--port 8787] [--host 127.0.0.1] [--cors]
+pnpm lm chat     --model <package>          (models trained with --format qa)
 pnpm lm info     --model <package>
 pnpm lm help
 ```
@@ -164,6 +173,65 @@ The checkpoint is written to a temporary file and renamed, so an interruption in
 write leaves the previous checkpoint intact. A resumed run refuses training data that differs from
 the original (fingerprint of the prepared text). `--epochs`, `--patience` and `--workers` may be
 changed on resume (another worker count changes the remaining dropout noise).
+
+### Question–answer models (`--format qa`)
+
+A model trained on plain text continues text. Trained on question–answer pairs, it answers:
+
+```bash
+pnpm lm train --format qa --data data/qa --name faq            # pairs only
+pnpm lm train --format qa --data data/qa --init models/docs/model.nlm.json --name faq
+pnpm lm chat  --model models/faq/model.nlm.json                 # ask on the console
+echo "How do I resume training?" | pnpm lm chat --model models/faq/model.nlm.json
+```
+
+- **Input**: `.jsonl` / `.json` objects with `question`/`answer` (also `prompt`/`completion`,
+  `instruction`/`output`, or chat `messages` with user → assistant turns), `.csv` with
+  question/answer columns (else the first two), or text / Markdown with `Q:` / `A:` blocks (also
+  `Question:` / `Answer:` and `ש:` / `ת:`, `שאלה:` / `תשובה:`). `data/qa/neuro-lingua-faq.jsonl` is
+  a hand-written example.
+- **Template**: every pair becomes one paragraph `Question: … Answer: …`; the labels are set with
+  `--question-label` / `--answer-label` (e.g. `"שאלה:"` / `"תשובה:"`) and stored in the model card,
+  so `chat`, `serve` and `eval` use the same prompt. Pairs are cleaned, de-duplicated and split into
+  training / validation like any paragraph (short pairs are kept).
+- **Loss on the answers only**: the questions and labels are context. The token that follows each
+  answer — the first token of the next question — is also learned, so the model knows where an
+  answer ends; generation stops at that token.
+- **Validation** reports the loss per answer character, and at the end the share of validation
+  questions answered exactly right (case, spacing and final punctuation ignored) and the
+  word-overlap F1 of the generated answers, from free (greedy) generation. The loss alone is
+  misleading here: once an answer has begun, a memorised continuation is cheap, while choosing
+  the right answer is the hard part.
+- `--init <package>` starts from a model trained on plain text (its tokenizer is kept).
+- The local server's `/v1/chat/completions` asks the last user message with the model's labels and
+  stops at the end of the answer; `pnpm lm eval` on a Q&A model scores the answers only.
+- These are small models trained on your pairs: they reproduce answers they were trained on,
+  answer some rephrasings, and give a (wrong) trained answer to questions outside their data —
+  they cannot say "I don't know". Several phrasings per question help most.
+
+Measured on `data/qa/neuro-lingua-faq.jsonl` (72 pairs: 24 facts × 3 phrasings; 58 training /
+14 validation pairs, `tiny` preset, 4 workers). Every validation question rephrases a fact whose
+answer is in the training pairs, so the scores measure whether a reworded question finds its
+answer; with 14 questions, differences of one or two answers are noise.
+
+| Run | Validation bits per answer character | Exact answers | Word-overlap F1 |
+| --- | --- | --- | --- |
+| fine-tuned from the docs model (`--init`) | 0.088 | 2 / 14 | 0.27 |
+| from scratch on the pairs | 0.097 | 4 / 14 | 0.35 |
+| from scratch, `--dropout 0.2 --attention-dropout 0.1` | 0.107 | 4 / 14 | 0.42 |
+
+The lowest loss did not give the best answers: pretraining on the docs made the loss converge
+much faster (0.63 vs 1.93 bits per answer character after 5 epochs) but did not help it pick
+answers, and stronger dropout gave the best answers with the highest loss. Greedy answers of the
+from-scratch model:
+
+| Question | Answer |
+| --- | --- |
+| What tokenizer does the factory use? *(trained)* | A subword BPE tokenizer learned from your own corpus, with 2000 subwords by default. ✓ |
+| איך ממשיכים אימון שנעצר? *(trained)* | מריצים pnpm lm train --resume עם תיקיית המודל, והאימון ממשיך בדיוק מאותה נקודה. ✓ |
+| How can I resume a stopped training run? *(new wording)* | Run pnpm lm train --resume with the model folder; it continues exactly where it stopped. ✓ |
+| Which tokenizer splits my text? *(new wording)* | Plain text, Markdown, JSONL, JSON and CSV files. ✗ |
+| What is the capital of France? *(outside the data)* | Run pnpm lm train --resume with the model folder; it continues exactly where it stopped. ✗ |
 
 ### Output
 
@@ -313,6 +381,7 @@ same result to 15 significant digits.
 | `src/factory/pipeline.ts` | documents → corpus → tokenizer → model → validated package |
 | `src/factory/node/files.ts`, `src/factory/node/server.ts` | Node-only file reading and the local server |
 | `src/factory/node/parallel.ts`, `src/factory/node/trainingWorker.ts` | multi-core training and evaluation (coordinator and replica threads) |
+| `src/data/qa.ts`, `src/factory/answer.ts` | question–answer data, answer-only loss masks, end-of-answer token, scoring |
 | `src/data/corpusPrep.ts` | parsing, cleaning, de-duplication, hash split |
 | `src/tokenizer/subword.ts` | BPE training, encoding with exact offsets, decoding |
 | `src/lib/modelPackageCodec.ts`, `src/lib/modelPackage.ts` | package format, checksums, loaders |

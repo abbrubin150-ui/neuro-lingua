@@ -17,3 +17,11 @@ python scripts/data/build_corpus.py --dataset hebrew_opinion --mode sample
 ```
 
 Passing `--mode full` will attempt to download the publicly available sources listed inside the script (requires the `datasets` and `requests` Python packages). Processed files are written beneath `data/processed/<dataset>/` and named `train`, `validation`, and `test`.
+
+## Question–answer sample
+
+`qa/neuro-lingua-faq.jsonl` holds 72 hand-written question–answer pairs about this project
+(24 facts in English and Hebrew, each asked three ways). It shows the `--format qa` input format
+of the offline model factory (`pnpm lm train --format qa --data data/qa`, see
+`docs/guides/OFFLINE_MODEL_FACTORY.md`); no model or service generated it.
+

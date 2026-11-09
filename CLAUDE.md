@@ -185,7 +185,8 @@ pnpm benchmark:gpu             # GPU performance benchmark
 pnpm benchmark:models          # Held-out comparison of the three architectures
 pnpm lm train --data <dir>     # Offline model factory → models/<name>/model.nlm.json
 pnpm lm train --resume <dir>   # continue an interrupted run exactly
-pnpm lm eval|generate|serve|info --model <package>
+pnpm lm train --format qa --data <pairs>   # question–answer model (loss on answers only)
+pnpm lm eval|generate|serve|chat|info --model <package>
 ```
 
 `pnpm lm train|eval` use all CPU cores (`--workers`, `src/factory/node/parallel.ts`): replicas in
@@ -322,6 +323,13 @@ pnpm build                     # Production build
 18. **Single-thread vs data-parallel training share code**: `TransformerLM.train` and the
     replicas both go through `prepareTrainingWindows` / `planEpoch` / `trainWindow`; change the
     training step there, not in one path only (`tests/factory/parallel.test.ts` compares them).
+    A mini-batch holds `batchSize` windows *that learn* (`windowLearns`); windows whose targets
+    are all masked do not count — the coordinator forms batches the same way.
+19. **Q&A models**: loss masks are per predicted token (tokens + EOS) from `qaLossMask`; the
+    model learns the first token of the next question label as its end-of-answer token, and
+    generation must stop there (`answerQuestion` / `generateDetailed(..., stopTokens)`), not at
+    the full label text. Report free-generation exact match / F1, not only the teacher-forced
+    loss.
 
 ## Documentation
 

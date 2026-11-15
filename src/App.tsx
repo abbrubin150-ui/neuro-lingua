@@ -2035,7 +2035,10 @@ export default function NeuroLinguaDomesticaV324() {
       repetitionWindow: DEFAULT_GENERATION.repetitionWindow,
       noRepeatNgramSize:
         noRepeatNgramOverride ??
-        recommendedNoRepeatNgram(modelRef.current.getTokenizerConfig().mode)
+        recommendedNoRepeatNgram(
+          modelRef.current.getTokenizerConfig().mode,
+          modelRef.current.getVocab()
+        )
     };
 
     let txt: string;
@@ -2737,7 +2740,8 @@ export default function NeuroLinguaDomesticaV324() {
               noRepeatNgramSize={
                 noRepeatNgramOverride ??
                 recommendedNoRepeatNgram(
-                  modelRef.current?.getTokenizerConfig().mode ?? tokenizerConfig.mode
+                  modelRef.current?.getTokenizerConfig().mode ?? tokenizerConfig.mode,
+                  modelRef.current?.getVocab()
                 )
               }
               onNoRepeatNgramSizeChange={setNoRepeatNgramOverride}

@@ -272,7 +272,8 @@ pnpm build                     # Production build
 - Offloads only the MLP's matrix-vector products; each product flattens and uploads the weight
   matrix and waits for a readback, so small models are often as fast on the CPU. No speedup has
   been measured in this repository.
-- The Transformer always trains on the CPU (≈ 26 ms per context window with the UI defaults)
+- The Transformer always trains on the CPU. With the UI defaults (context 32, every overlapping
+  window) one epoch costs ≈ 190 ms per token; `trainingStride` 8 / 32 cut it to ≈ 20 / 6.5 ms
 - Automatic CPU fallback if unavailable
 - Browser support: Chrome/Edge 113+, Firefox 127+ (with flag)
 
@@ -323,9 +324,13 @@ pnpm build                     # Production build
     replicas both go through `prepareTrainingWindows` / `planEpoch` / `trainWindow`; change the
     training step there, not in one path only (`tests/factory/parallel.test.ts` compares them).
 19. **Generation loops**: `generate()` takes `RepetitionControls` (`src/generation/sampling.ts`),
-    applied on every decoding path and over the prompt too. The defaults are a no-repeat n-gram of
-    16 for character models and 3 otherwise, with the CTRL repetition penalty off (it lowered the
+    applied on every decoding path and over the prompt too. The default no-repeat n-gram spans
+    about 16 characters (`recommendedNoRepeatNgram(mode, vocab)`: 16 for characters, 16 / mean
+    subword length for BPE, at least 3), with the CTRL repetition penalty off (it lowered the
     real-word rate). See `docs/benchmarks/GENERATION_REPETITION.md`.
+20. **UI defaults**: Transformer, BPE tokenizer (2,000 subwords, merges learned when training
+    starts), context 32 (`defaultContextSize(architecture)`; the MLPs keep 4). Saved UI settings
+    win. On very short texts BPE learns few merges and is close to character tokens.
 
 ## Documentation
 

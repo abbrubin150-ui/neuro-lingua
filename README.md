@@ -14,7 +14,7 @@
 - **Dropout** (train‑only)
 - **Advanced Text Generation**: Greedy, Sampling (Top-p/Top-k/Typical/Mirostat v2), Beam Search, and Contrastive decoding
 - **Session persistence**, onboarding tips, and downloadable **training-history CSVs** (localized labels)
-- **Tokenizers**: Unicode / ASCII / custom regex / character-level, and a **subword (BPE) tokenizer learned from your corpus** (`src/tokenizer/subword.ts`) that works with all three architectures, with import/export support
+- **Tokenizers**: Unicode / ASCII / custom regex / character-level, and a **subword (BPE) tokenizer learned from your corpus** (`src/tokenizer/subword.ts`, the default) that works with all three architectures, with import/export support
 - **Offline model factory** (`pnpm lm`): train, evaluate, package and serve your own model from local files — no external AI model, API key or network service ([guide](./docs/guides/OFFLINE_MODEL_FACTORY.md))
 - **Works offline**: the web app caches itself with a service worker (installable), models are exported as checksummed `.nlm.json` packages with a model card, and a test guards against any external AI service
 - **Dataset abstraction** and **reproducibility layer** (v4.4): library modules with tests (splits, hashing, replay verification); not yet used by the UI training loop

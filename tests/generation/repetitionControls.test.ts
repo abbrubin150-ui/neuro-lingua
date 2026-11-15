@@ -97,4 +97,19 @@ describe('recommendedNoRepeatNgram', () => {
     expect(recommendedNoRepeatNgram('bpe')).toBe(3);
     expect(recommendedNoRepeatNgram('unicode')).toBe(3);
   });
+
+  it('spans about 16 characters for subword models', () => {
+    const specials = ['<PAD>', '<BOS>', '<EOS>', '<UNK>'];
+    // mean subword length 4 -> floor(16 / 4)
+    expect(recommendedNoRepeatNgram('bpe', [...specials, 'the ', 'king', ' and', 'lord'])).toBe(4);
+    // close to single characters (small corpus, few merges): behave like a character model
+    expect(recommendedNoRepeatNgram('bpe', [...specials, 'a', 'b', 'c', 'th'])).toBe(12);
+    expect(recommendedNoRepeatNgram('bpe', [...specials, 'a', 'b', 'c'])).toBe(16);
+    // long subwords never go below the word-trigram block
+    expect(recommendedNoRepeatNgram('bpe', [...specials, 'something', 'everything'])).toBe(3);
+    expect(recommendedNoRepeatNgram('bpe', specials)).toBe(3);
+    // the vocabulary does not matter for other tokenizers
+    expect(recommendedNoRepeatNgram('character', ['a', 'b'])).toBe(16);
+    expect(recommendedNoRepeatNgram('unicode', ['a', 'b'])).toBe(3);
+  });
 });

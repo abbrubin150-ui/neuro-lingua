@@ -264,10 +264,15 @@ export const DEFAULT_LOSS_MASK_CONFIG = {
 };
 
 /**
- * Default tokenizer configuration
+ * Default tokenizer configuration: subwords (BPE) learned from the training text.
+ *
+ * Word-level tokens leave many held-out words out of vocabulary, and on the same data and split
+ * BPE reached 1.959 bits per character against 2.159 for characters
+ * (docs/benchmarks/GENERATION_REPETITION.md). The merges are learned when training starts.
  */
 export const DEFAULT_TOKENIZER_CONFIG: TokenizerConfig = {
-  mode: 'unicode'
+  mode: 'bpe',
+  bpeVocabSize: 2000
 } as const;
 
 /**

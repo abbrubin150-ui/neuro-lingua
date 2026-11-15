@@ -34,6 +34,7 @@ import {
   DEFAULT_ADVANCED_CONFIG,
   DEFAULT_ARCHITECTURE,
   defaultContextSize,
+  defaultTrainingStride,
   DEFAULT_IB_CONFIG,
   DEFAULT_LOSS_CONFIG,
   DEFAULT_LOSS_MASK_CONFIG,
@@ -1410,7 +1411,14 @@ export default function NeuroLinguaDomesticaV324() {
             ffHiddenDim: normalizedFfHidden,
             attentionDropout: normalizedAttentionDropout,
             dropConnectRate: normalizedDropConnect,
-            numKVHeads: normalizedNumKVHeads
+            numKVHeads: normalizedNumKVHeads,
+            trainingStride: defaultTrainingStride(
+              clamp(
+                contextSize,
+                HYPERPARAMETER_CONSTRAINTS.contextSize.min,
+                HYPERPARAMETER_CONSTRAINTS.contextSize.max
+              )
+            )
           }
         );
         const gqaInfo =

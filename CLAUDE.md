@@ -79,7 +79,7 @@ src/
 ├── tokenizer/                 # subword.ts (BPE used by the models), BPETokenizer.ts (library)
 └── visualization/             # Embedding visualization
 
-tests/                         # 90 test files mirroring src/ structure
+tests/                         # 91 test files mirroring src/ structure
 docs/                          # Comprehensive documentation
 ├── INDEX.md                   # Documentation hub
 ├── architecture/              # System design documents
@@ -272,8 +272,9 @@ pnpm build                     # Production build
 - Offloads only the MLP's matrix-vector products; each product flattens and uploads the weight
   matrix and waits for a readback, so small models are often as fast on the CPU. No speedup has
   been measured in this repository.
-- The Transformer always trains on the CPU. With the UI defaults (context 32, every overlapping
-  window) one epoch costs ≈ 190 ms per token; `trainingStride` 8 / 32 cut it to ≈ 20 / 6.5 ms
+- The Transformer always trains on the CPU. With the UI defaults (context 32, `trainingStride` 8)
+  one epoch costs ≈ 20 ms per token (≈ 190 ms with every overlapping window; see
+  `docs/benchmarks/UI_TRAINING_DEFAULTS.md`)
 - Automatic CPU fallback if unavailable
 - Browser support: Chrome/Edge 113+, Firefox 127+ (with flag)
 
@@ -329,8 +330,9 @@ pnpm build                     # Production build
     subword length for BPE, at least 3), with the CTRL repetition penalty off (it lowered the
     real-word rate). See `docs/benchmarks/GENERATION_REPETITION.md`.
 20. **UI defaults**: Transformer, BPE tokenizer (2,000 subwords, merges learned when training
-    starts), context 32 (`defaultContextSize(architecture)`; the MLPs keep 4). Saved UI settings
-    win. On very short texts BPE learns few merges and is close to character tokens.
+    starts), context 32 (`defaultContextSize(architecture)`; the MLPs keep 4), training stride
+    context / 4 (`defaultTrainingStride`: each token is a target 4 times per epoch). Saved UI
+    settings win. On very short texts BPE learns few merges and is close to character tokens.
 
 ## Documentation
 

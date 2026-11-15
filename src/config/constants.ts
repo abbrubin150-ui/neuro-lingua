@@ -69,6 +69,17 @@ export const DEFAULT_HYPERPARAMETERS = {
   }
 } as const;
 
+/**
+ * Training stride the app uses for the Transformer: a quarter of the context, so every token is
+ * a training target 4 times per epoch, as it was with the former default (context 4, every
+ * window). With every overlapping window at context 32 a single epoch is 32 passes: 188 ms per
+ * token, and past the best held-out loss on a small corpus
+ * (docs/benchmarks/UI_TRAINING_DEFAULTS.md).
+ */
+export function defaultTrainingStride(contextSize: number): number {
+  return Math.max(1, Math.floor(contextSize / 4));
+}
+
 /** Default context window of an architecture (the MLPs average their context, so 4 is enough). */
 export function defaultContextSize(architecture: 'feedforward' | 'advanced' | 'transformer') {
   return architecture === 'transformer'

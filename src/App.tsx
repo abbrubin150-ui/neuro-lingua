@@ -33,6 +33,7 @@ import {
   DEFAULT_GENERATION,
   DEFAULT_ADVANCED_CONFIG,
   DEFAULT_ARCHITECTURE,
+  defaultContextSize,
   DEFAULT_IB_CONFIG,
   DEFAULT_LOSS_CONFIG,
   DEFAULT_LOSS_MASK_CONFIG,
@@ -445,7 +446,7 @@ export default function NeuroLinguaDomesticaV324() {
   const [optimizer, setOptimizer] = useState<Optimizer>(DEFAULT_HYPERPARAMETERS.optimizer);
   const [momentum, setMomentum] = useState<number>(DEFAULT_HYPERPARAMETERS.momentum);
   const [dropout, setDropout] = useState<number>(DEFAULT_HYPERPARAMETERS.dropout);
-  const [contextSize, setContextSize] = useState<number>(DEFAULT_HYPERPARAMETERS.contextSize);
+  const [contextSize, setContextSize] = useState<number>(defaultContextSize(DEFAULT_ARCHITECTURE));
   const [temperature, setTemperature] = useState(DEFAULT_GENERATION.temperature);
   const [topK, setTopK] = useState(DEFAULT_GENERATION.topK);
   const [topP, setTopP] = useState(DEFAULT_GENERATION.topP);
@@ -639,6 +640,10 @@ export default function NeuroLinguaDomesticaV324() {
       if (architecture === nextArchitecture) return;
 
       setArchitecture(nextArchitecture);
+      // Follow the new architecture's default context unless the user chose their own value.
+      setContextSize((prev) =>
+        prev === defaultContextSize(architecture) ? defaultContextSize(nextArchitecture) : prev
+      );
 
       if (nextArchitecture === 'transformer') {
         setUseAdvanced(false);
@@ -2003,7 +2008,7 @@ export default function NeuroLinguaDomesticaV324() {
     setOptimizer(DEFAULT_HYPERPARAMETERS.optimizer);
     setMomentum(DEFAULT_HYPERPARAMETERS.momentum);
     setDropout(DEFAULT_HYPERPARAMETERS.dropout);
-    setContextSize(DEFAULT_HYPERPARAMETERS.contextSize);
+    setContextSize(defaultContextSize(architecture));
     setSeed(DEFAULT_HYPERPARAMETERS.seed);
     setResume(DEFAULT_HYPERPARAMETERS.resume);
     setUseLayerNorm(false);
@@ -2016,7 +2021,7 @@ export default function NeuroLinguaDomesticaV324() {
     setAttentionDropout(DEFAULT_HYPERPARAMETERS.transformer.attentionDropout);
     setDropConnectRate(DEFAULT_HYPERPARAMETERS.transformer.dropConnectRate);
     setNumKVHeads(DEFAULT_HYPERPARAMETERS.transformer.numKVHeads);
-  }, []);
+  }, [architecture]);
 
   async function onGenerate() {
     if (!modelRef.current || !input.trim()) {

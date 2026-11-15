@@ -60,9 +60,21 @@ export const DEFAULT_HYPERPARAMETERS = {
     ffHiddenDim: 512,
     attentionDropout: 0.05,
     dropConnectRate: 0.02,
-    numKVHeads: 4
+    numKVHeads: 4,
+    /**
+     * Context window for the Transformer. Attention needs room to work: with the MLP default of
+     * 4 it sees four tokens (with the character tokenizer, less than one word).
+     */
+    contextSize: 32
   }
 } as const;
+
+/** Default context window of an architecture (the MLPs average their context, so 4 is enough). */
+export function defaultContextSize(architecture: 'feedforward' | 'advanced' | 'transformer') {
+  return architecture === 'transformer'
+    ? DEFAULT_HYPERPARAMETERS.transformer.contextSize
+    : DEFAULT_HYPERPARAMETERS.contextSize;
+}
 
 /**
  * Default generation parameters

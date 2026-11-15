@@ -83,7 +83,7 @@ Experiment tracking and results.
 |----------|-------------|
 | [Model Benchmark](./benchmarks/MODEL_BENCHMARK.md) | Held-out comparison of the three architectures (`pnpm benchmark:models`) |
 | [Generation Repetition](./benchmarks/GENERATION_REPETITION.md) | Loops under greedy decoding: no-repeat n-grams vs. repetition penalty, measured defaults |
-| [UI Training Defaults](./benchmarks/UI_TRAINING_DEFAULTS.md) | Context 32 and the training stride in the app: cost per epoch and held-out quality |
+| [UI Training Defaults](./benchmarks/UI_TRAINING_DEFAULTS.md) | Context 32, the training stride and held-out validation in the app: cost per epoch and held-out quality |
 | [Math Audit](./audits/MATH_AUDIT.md) | Numerical audit of `src/math` and the causal statistics against numpy/scipy |
 | [Logbook](./experiments/logbook.md) | Experiment log and notes |
 | [Experiment Runs](./experiments/runs/) | Individual experiment run data (JSON) |

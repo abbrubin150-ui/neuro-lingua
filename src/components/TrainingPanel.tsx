@@ -26,6 +26,7 @@ interface TrainingPanelProps {
   samplingMode: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat' | 'contrastive';
   seed: number;
   resume: boolean;
+  useValidation: boolean;
 
   // Advanced features
   useAdvanced: boolean;
@@ -119,6 +120,7 @@ interface TrainingPanelProps {
   onSamplingModeChange: (value: 'off' | 'topk' | 'topp' | 'typical' | 'mirostat') => void;
   onSeedChange: (value: number) => void;
   onResumeChange: (value: boolean) => void;
+  onUseValidationChange: (value: boolean) => void;
 
   // Advanced callbacks
   onUseAdvancedChange: (value: boolean) => void;
@@ -2196,6 +2198,17 @@ export function TrainingPanel(props: TrainingPanelProps) {
             onChange={(e) => props.onResumeChange(e.target.checked)}
           />{' '}
           Resume training when possible
+        </label>
+        <label
+          style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}
+          title="Keeps every 10th sentence out of training, scores it after each epoch, stops when it no longer improves and keeps the best model. Short texts train on all of the text."
+        >
+          <input
+            type="checkbox"
+            checked={props.useValidation}
+            onChange={(e) => props.onUseValidationChange(e.target.checked)}
+          />{' '}
+          Hold out 10% for validation, stop early
         </label>
         <div style={{ marginInlineStart: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button

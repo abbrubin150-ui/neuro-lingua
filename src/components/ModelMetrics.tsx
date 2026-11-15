@@ -8,7 +8,15 @@ import type { Architecture } from './TrainingPanel';
 import type { ModelMeta, ModelMetaStore } from '../types/modelMeta';
 
 interface ModelMetricsProps {
-  stats: { loss: number; acc: number; ppl: number; lossEMA: number; tokensPerSec: number };
+  stats: {
+    loss: number;
+    acc: number;
+    ppl: number;
+    lossEMA: number;
+    tokensPerSec: number;
+    /** Bits per character on the held-out part of the text; absent when nothing is held out. */
+    validationBpc?: number;
+  };
   info: { V: number; P: number };
   activeArchitecture: Architecture;
   activeModelMeta: ModelMeta | null;
@@ -429,6 +437,19 @@ export function ModelMetrics({
           <div style={{ fontSize: 12, color: '#94a3b8' }}>Perplexity</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: '#f59e0b' }}>
             {stats.ppl.toFixed(2)}
+          </div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div
+            style={{ fontSize: 12, color: '#94a3b8' }}
+            title="Bits per character on text held out of training (lower is better). Unlike the loss above, it shows how the model does on text it has not seen."
+          >
+            Validation (bits/char)
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#a78bfa' }}>
+            {stats.validationBpc !== undefined && Number.isFinite(stats.validationBpc)
+              ? stats.validationBpc.toFixed(3)
+              : '—'}
           </div>
         </div>
         <div style={{ textAlign: 'center' }}>

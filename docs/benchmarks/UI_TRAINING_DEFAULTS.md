@@ -1,4 +1,4 @@
-# UI training defaults: context 32 and the training stride
+# UI training defaults: context 32, the training stride and held-out validation
 
 Measured on 2026-11-15 (Node 22 on a 4-core CPU, single thread) to choose how the browser app
 trains the Transformer after its default context grew from 4 to 32 tokens. Seeds are fixed;
@@ -70,11 +70,47 @@ that run was not completed.
 - On the built-in texts 30 epochs still fit the text (stride 32 leaves the example corpus
   under-trained at 30 epochs).
 
+## Held-out validation and early stopping in the app
+
+The app's default of 30 epochs is 120 passes at stride 8, far past the best held-out loss on the
+corpus above (≈ 4 passes). The app therefore holds text out, as the CLI does
+(`src/lib/validationSplit.ts`, `DEFAULT_VALIDATION`):
+
+- Every 10th paragraph is held out; with fewer than 20 paragraphs, every 10th sentence or line.
+  Interleaving keeps the two parts alike. The tokenizer and vocabulary are learned from the
+  training part only.
+- After each epoch the held-out part is scored (bits per character, shown next to the training
+  loss). Training stops after 3 epochs without improvement, and the model of the best epoch is
+  kept. With EMA weight averaging the averaged weights are kept instead and validation is only
+  reported.
+- Texts with fewer than 20 sentences, or whose held-out part would be under 200 characters, train
+  on all of the text as before (the app's two built-in texts are in this group).
+
+The same loop run in Node with the app's helpers, on `data/corpus.txt` (83 sentences: 9,587
+training / 1,103 held-out characters; the smaller model above with DropConnect 0.02, context 32,
+stride 8, at most 30 epochs):
+
+| Epoch | Training loss | Held-out bits per character |
+| --- | --- | --- |
+| 1 | 6.074 | **2.998** |
+| 2 | 4.742 | 3.027 |
+| 3 | 3.664 | 3.094 |
+| 4 | 2.433 | 3.250 |
+
+Training stopped after epoch 4 (54 s) and the model of epoch 1 was kept: 2.998 bits per
+character, against 3.250 for the last model. The training loss kept falling throughout, which is
+why it cannot guide the stopping point. In the stride table above, held-out loss kept rising to
+about 6 bits per character by 32 epochs.
+
+The best epoch here is the first one, so the best point may lie before the end of epoch 1; the
+app validates once per epoch.
+
 ## Limits
 
-- One run per configuration; the quality table uses a smaller model than the UI default to keep
+- One run per configuration; the quality tables use a smaller model than the UI default to keep
   the runs short.
-- The app's default of 30 epochs is 120 passes at stride 8. On the 9 K-character corpus above
-  that is far past the best held-out loss (≈ 4 passes). The app does not hold text out or stop
-  early; the CLI does. Fewer epochs, or held-out validation in the app, is the remaining gap.
+- A model at 3 bits per character on this 10 K-character corpus is still poor: its samples are
+  word fragments. Validation picks the best model the data allows; it does not replace more text.
+- The held-out sentences come from the same document as the training text, so the score is
+  optimistic for text from elsewhere.
 - Models stored before this change keep the stride saved with them.

@@ -80,6 +80,18 @@ export function defaultTrainingStride(contextSize: number): number {
   return Math.max(1, Math.floor(contextSize / 4));
 }
 
+/**
+ * Held-out validation while training in the app: every 10th sentence or paragraph is kept out
+ * of training, scored after each epoch, and training stops after `patience` epochs without
+ * improvement, keeping the best model. Texts too small to spare a validation part train on all
+ * of the text. See docs/benchmarks/UI_TRAINING_DEFAULTS.md.
+ */
+export const DEFAULT_VALIDATION = {
+  enabled: true,
+  fraction: 0.1,
+  patience: 3
+} as const;
+
 /** Default context window of an architecture (the MLPs average their context, so 4 is enough). */
 export function defaultContextSize(architecture: 'feedforward' | 'advanced' | 'transformer') {
   return architecture === 'transformer'

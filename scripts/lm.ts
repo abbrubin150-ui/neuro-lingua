@@ -23,6 +23,8 @@ import {
   type FactoryOptions
 } from '../src/factory/pipeline';
 import { readCorpusDocuments, loadModelFile } from '../src/factory/node/files';
+import { recommendedNoRepeatNgram } from '../src/generation/sampling';
+import { DEFAULT_GENERATION } from '../src/config/constants';
 import { createInferenceServer } from '../src/factory/node/server';
 import {
   DataParallelTrainer,
@@ -118,6 +120,9 @@ eval options
 
 generate / serve options
   --model <package>  --prompt <text>  --max-tokens <n>  --temperature <x>  --top-p <x>  --top-k <n>
+  --repetition-penalty <x>  (default 1 = off)
+  --no-repeat-ngram <n>     never repeat a sequence of n tokens (default: 16 for character
+                            models, 3 otherwise; 0 = off)
   --seed <n>  --port <n> (default 8787)  --host <h> (default 127.0.0.1)  --cors
 `;
 
@@ -361,7 +366,21 @@ async function generate(a: Args) {
     num(a, 'max-tokens', 60),
     num(a, 'temperature', 0.8),
     num(a, 'top-k', 0),
-    num(a, 'top-p', 0.9)
+    num(a, 'top-p', 0.9),
+    0,
+    0,
+    0,
+    0,
+    0.1,
+    {
+      repetitionPenalty: num(a, 'repetition-penalty', DEFAULT_GENERATION.repetitionPenalty),
+      repetitionWindow: DEFAULT_GENERATION.repetitionWindow,
+      noRepeatNgramSize: num(
+        a,
+        'no-repeat-ngram',
+        recommendedNoRepeatNgram(model.getTokenizerConfig().mode)
+      )
+    }
   );
   console.log(text);
 }

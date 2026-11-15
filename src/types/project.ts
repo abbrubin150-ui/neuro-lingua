@@ -267,7 +267,7 @@ export function createProject(
   name: string,
   description: string,
   language: 'en' | 'he' | 'mixed' = 'en',
-  defaultArchitecture: Architecture = 'feedforward'
+  defaultArchitecture: Architecture = 'transformer'
 ): Project {
   return {
     id: `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,

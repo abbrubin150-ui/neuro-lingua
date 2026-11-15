@@ -322,6 +322,10 @@ pnpm build                     # Production build
 18. **Single-thread vs data-parallel training share code**: `TransformerLM.train` and the
     replicas both go through `prepareTrainingWindows` / `planEpoch` / `trainWindow`; change the
     training step there, not in one path only (`tests/factory/parallel.test.ts` compares them).
+19. **Generation loops**: `generate()` takes `RepetitionControls` (`src/generation/sampling.ts`),
+    applied on every decoding path and over the prompt too. The defaults are a no-repeat n-gram of
+    16 for character models and 3 otherwise, with the CTRL repetition penalty off (it lowered the
+    real-word rate). See `docs/benchmarks/GENERATION_REPETITION.md`.
 
 ## Documentation
 

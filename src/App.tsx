@@ -32,6 +32,7 @@ import {
   DEFAULT_HYPERPARAMETERS,
   DEFAULT_GENERATION,
   DEFAULT_ADVANCED_CONFIG,
+  DEFAULT_ARCHITECTURE,
   DEFAULT_IB_CONFIG,
   DEFAULT_LOSS_CONFIG,
   DEFAULT_LOSS_MASK_CONFIG,
@@ -100,6 +101,7 @@ import {
   type ModelOrigin
 } from './lib/modelExport';
 import { trainSubwordModel, subwordVocabulary } from './tokenizer/subword';
+import { recommendedNoRepeatNgram } from './generation/sampling';
 
 /** Default subword vocabulary size for the 'bpe' tokenizer mode. */
 const DEFAULT_BPE_VOCAB_SIZE = 2000;
@@ -368,7 +370,7 @@ function getStorageKeyForArchitecture(architecture: Architecture): string {
   return architecture === 'transformer' ? TRANSFORMER_MODEL_STORAGE_KEY : MODEL_STORAGE_KEY;
 }
 
-function loadLatestModel(architecture: Architecture = 'feedforward'): ProNeuralLM | null {
+function loadLatestModel(architecture: Architecture = DEFAULT_ARCHITECTURE): ProNeuralLM | null {
   if (architecture === 'transformer') {
     return TransformerLM.loadFromLocalStorage(TRANSFORMER_MODEL_STORAGE_KEY);
   }
@@ -461,11 +463,14 @@ export default function NeuroLinguaDomesticaV324() {
   const [maxTokens, setMaxTokens] = useState(DEFAULT_GENERATION.maxTokens);
   const [frequencyPenalty, setFrequencyPenalty] = useState(DEFAULT_GENERATION.frequencyPenalty);
   const [presencePenalty, setPresencePenalty] = useState(DEFAULT_GENERATION.presencePenalty);
+  const [repetitionPenalty, setRepetitionPenalty] = useState(DEFAULT_GENERATION.repetitionPenalty);
+  // null = follow the tokenizer (recommendedNoRepeatNgram); a number = set by the user
+  const [noRepeatNgramOverride, setNoRepeatNgramOverride] = useState<number | null>(null);
   const [seed, setSeed] = useState<number>(DEFAULT_HYPERPARAMETERS.seed);
   const [resume, setResume] = useState<boolean>(DEFAULT_HYPERPARAMETERS.resume);
 
   // Architecture selection
-  const [architecture, setArchitecture] = useState<Architecture>('feedforward');
+  const [architecture, setArchitecture] = useState<Architecture>(DEFAULT_ARCHITECTURE);
 
   // Advanced features
   const [useAdvanced, setUseAdvanced] = useState(DEFAULT_ADVANCED_CONFIG.useAdvanced);
@@ -2020,6 +2025,13 @@ export default function NeuroLinguaDomesticaV324() {
     }
     let calculatedConfidence: number | null = null;
     setMessages((m) => [...m, { type: 'user', content: input, timestamp: Date.now() }]);
+    const repetitionControls = {
+      repetitionPenalty,
+      repetitionWindow: DEFAULT_GENERATION.repetitionWindow,
+      noRepeatNgramSize:
+        noRepeatNgramOverride ??
+        recommendedNoRepeatNgram(modelRef.current.getTokenizerConfig().mode)
+    };
 
     let txt: string;
 
@@ -2066,7 +2078,8 @@ export default function NeuroLinguaDomesticaV324() {
             presencePenalty,
             tau,
             miroTau,
-            miroEta
+            miroEta,
+            repetitionControls
           );
         }
         samples.push(sample);
@@ -2122,7 +2135,8 @@ export default function NeuroLinguaDomesticaV324() {
           presencePenalty,
           tau,
           miroTau,
-          miroEta
+          miroEta,
+          repetitionControls
         );
       }
 
@@ -2713,6 +2727,15 @@ export default function NeuroLinguaDomesticaV324() {
               onFrequencyPenaltyChange={setFrequencyPenalty}
               presencePenalty={presencePenalty}
               onPresencePenaltyChange={setPresencePenalty}
+              repetitionPenalty={repetitionPenalty}
+              onRepetitionPenaltyChange={setRepetitionPenalty}
+              noRepeatNgramSize={
+                noRepeatNgramOverride ??
+                recommendedNoRepeatNgram(
+                  modelRef.current?.getTokenizerConfig().mode ?? tokenizerConfig.mode
+                )
+              }
+              onNoRepeatNgramSizeChange={setNoRepeatNgramOverride}
               useBeamSearch={useBeamSearch}
               onUseBeamSearchChange={setUseBeamSearch}
               confidence={confidence}

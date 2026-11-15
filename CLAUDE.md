@@ -48,7 +48,7 @@ pnpm electron:build           # Build Windows installer
 
 ```
 src/
-├── App.tsx                    # Main application component (90KB)
+├── App.tsx                    # Main application component (107KB)
 ├── main.tsx                   # Entry point with error boundary
 ├── lib/                       # Core neural network implementations
 │   ├── ProNeuralLM.ts         # Baseline feedforward language model
@@ -79,7 +79,7 @@ src/
 ├── tokenizer/                 # subword.ts (BPE used by the models), BPETokenizer.ts (library)
 └── visualization/             # Embedding visualization
 
-tests/                         # 135+ test files mirroring src/ structure
+tests/                         # 90 test files mirroring src/ structure
 docs/                          # Comprehensive documentation
 ├── INDEX.md                   # Documentation hub
 ├── architecture/              # System design documents
@@ -237,10 +237,10 @@ change; new models use `objective: 'causal'`.
 
 | File | Purpose |
 |------|---------|
-| `src/App.tsx` | Main application (90KB, central logic) |
+| `src/App.tsx` | Main application (107KB, central logic) |
 | `src/lib/ProNeuralLM.ts` | Baseline neural network |
 | `src/lib/TransformerLM.ts` | Transformer implementation |
-| `src/components/TrainingPanel.tsx` | Main training interface (73KB) |
+| `src/components/TrainingPanel.tsx` | Main training interface (87KB) |
 | `src/backend/webgpu.ts` | WebGPU binding layer |
 | `src/generation/sampling.ts` | Text generation methods |
 | `src/types/project.ts` | Core type definitions |
@@ -287,7 +287,7 @@ pnpm build                     # Production build
 
 1. **localStorage limits**: ~5-10MB typically, be mindful of model sizes
 2. **WebGPU availability**: Always test CPU fallback path
-3. **Large files**: `App.tsx` (90KB) and `TrainingPanel.tsx` (73KB) are substantial
+3. **Large files**: `App.tsx` (107KB) and `TrainingPanel.tsx` (87KB) are substantial
 4. **Strict TypeScript**: All types must be explicit, use discriminated unions
 5. **No React import needed**: JSX transform handles it (react-jsx)
 6. **Bilingual UI**: Components support English and Hebrew (en/he toggle)

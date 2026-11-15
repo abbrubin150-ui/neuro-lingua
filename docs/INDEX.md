@@ -7,6 +7,7 @@
 ## Quick Links
 
 - [Project README](../README.md) - Project overview and quickstart
+- [מפרט מלא · Specification (Hebrew)](./SPECIFICATION.md) - Full description and specification of the repository: components, models, formats, CLI, measured quality, limits
 - [Claude Assistant Guide](./guides/CLAUDE_ASSISTANT_GUIDE.md) - Comprehensive AI assistant guide (120KB)
 - [Development Setup](./guides/DEVELOPMENT_SETUP_GUIDE.md) - Get started with development
 - [Offline Model Factory](./guides/OFFLINE_MODEL_FACTORY.md) - Your own language model, offline, without external AI services

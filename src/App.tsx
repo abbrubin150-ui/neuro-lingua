@@ -1585,6 +1585,8 @@ export default function NeuroLinguaDomesticaV324() {
     let bestModelJson: Record<string, unknown> | null = null;
     let lastValidationBpc: number | undefined;
     let bestValidationBpc = NaN;
+    let bestEpochTraining = { loss: 0, accuracy: 0 };
+    let keptEpoch: number | null = null;
     let epochsRun = 0;
 
     for (let e = 0; e < total; e++) {
@@ -1645,6 +1647,7 @@ export default function NeuroLinguaDomesticaV324() {
           );
           if (earlyStopping.record(e + 1, validation.loss)) {
             bestValidationBpc = lastValidationBpc;
+            bestEpochTraining = { loss: res.loss, accuracy: res.accuracy };
             bestModelJson = JSON.parse(JSON.stringify(modelRef.current!.toJSON())) as Record<
               string,
               unknown
@@ -1711,7 +1714,18 @@ export default function NeuroLinguaDomesticaV324() {
       if (bestValidation.epoch < epochsRun && !useEMA) {
         modelRef.current = restoreModel(bestModelJson);
         lastValidationBpc = bestBpc;
-        setStats((prev) => ({ ...prev, validationBpc: bestBpc }));
+        keptEpoch = bestValidation.epoch;
+        // The numbers shown from here on describe the model that was kept, not the last epoch.
+        lastLoss = bestEpochTraining.loss;
+        lastAcc = bestEpochTraining.accuracy;
+        setStats((prev) => ({
+          ...prev,
+          loss: bestEpochTraining.loss,
+          acc: bestEpochTraining.accuracy,
+          ppl: Math.exp(Math.max(1e-8, bestEpochTraining.loss)),
+          validationBpc: bestBpc
+        }));
+        setTrainingHistory(modelRef.current.getTrainingHistory());
         addSystemMessage(
           `🏅 Kept the model of epoch ${bestValidation.epoch} of ${epochsRun}: ${bestBpc.toFixed(3)} bits per character on the held-out text`
         );
@@ -1787,7 +1801,9 @@ export default function NeuroLinguaDomesticaV324() {
       }
 
       addSystemMessage(
-        `✅ Training complete! Final-epoch accuracy: ${(finalAccuracy * 100).toFixed(1)}%`
+        keptEpoch !== null
+          ? `✅ Training complete! Kept epoch ${keptEpoch}: training accuracy ${(finalAccuracy * 100).toFixed(1)}%, ${lastValidationBpc?.toFixed(3)} bits per character on the held-out text`
+          : `✅ Training complete! Final-epoch accuracy: ${(finalAccuracy * 100).toFixed(1)}%`
       );
       persistModel(modelRef.current!);
 

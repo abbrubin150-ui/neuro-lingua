@@ -332,12 +332,12 @@ pnpm build                     # Production build
 20. **UI defaults**: Transformer, BPE tokenizer (2,000 subwords, merges learned when training
     starts), context 32 (`defaultContextSize(architecture)`; the MLPs keep 4), training stride
     context / 4 (`defaultTrainingStride`: each token is a target 4 times per epoch). Saved UI
-    settings win.
+    settings win. On very short texts BPE learns few merges and is close to character tokens.
 21. **Validation in the app**: `splitForValidation` (`src/lib/validationSplit.ts`) holds out
     every 10th sentence / paragraph; `train()` in App.tsx fits the tokenizer and the model on
     `fitText` only, scores the rest each epoch (`evaluateInSlices`), stops after 3 epochs without
     improvement and restores the best epoch's model (a new instance in `modelRef.current`).
-    Short texts return `null` and train on everything. On very short texts BPE learns few merges and is close to character tokens.
+    Short texts return `null` and train on everything.
 
 ## Documentation
 

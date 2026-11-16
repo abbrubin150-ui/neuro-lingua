@@ -36,7 +36,8 @@ export interface EdgeLearningDiagnostics {
 export interface DiagnosableModel {
   collectRepresentations(
     text: string,
-    maxSamples?: number
+    maxSamples?: number,
+    yieldIntervalMs?: number
   ): Promise<{ representations: number[][]; labels: number[]; probabilities: number[][] }>;
   getVocabSize(): number;
 }
@@ -53,13 +54,14 @@ export interface DiagnosableModel {
 export async function computeEdgeLearningDiagnostics(
   model: DiagnosableModel,
   text: string,
-  options: { maxSamples?: number; trainingWindows?: number } = {}
+  options: { maxSamples?: number; trainingWindows?: number; yieldIntervalMs?: number } = {}
 ): Promise<EdgeLearningDiagnostics> {
   const timestamp = Date.now();
   try {
     const { representations, labels, probabilities } = await model.collectRepresentations(
       text,
-      options.maxSamples ?? 256
+      options.maxSamples ?? 256,
+      options.yieldIntervalMs ?? 0
     );
     const n = labels.length;
     if (n === 0) {

@@ -335,9 +335,14 @@ pnpm build                     # Production build
     settings win. On very short texts BPE learns few merges and is close to character tokens.
 21. **Validation in the app**: `splitForValidation` (`src/lib/validationSplit.ts`) holds out
     every 10th sentence / paragraph; `train()` in App.tsx fits the tokenizer and the model on
-    `fitText` only, scores the rest each epoch (`evaluateInSlices`), stops after 3 epochs without
-    improvement and restores the best epoch's model (a new instance in `modelRef.current`).
-    Short texts return `null` and train on everything.
+    `fitText` only, scores the rest each epoch (`evaluateInSlices` with `fast`: half a window per
+    pass via `TransformerLM.evaluateChunkedSums`, within 1% of `evaluate()`), stops after 3 epochs
+    without improvement and restores the best epoch's model (a new instance in
+    `modelRef.current`), whose statistics are then shown. Short texts return `null` and train on
+    everything. `evaluate()` stays exact (one pass per token); the CLI uses it.
+22. **Checking the app in a browser**: `BROWSER=none pnpm dev --host 127.0.0.1` (the dev server
+    otherwise tries `xdg-open` and exits) and drive it with Playwright; long synchronous work
+    (diagnostics, scoring) must yield, see `yieldIntervalMs` in `collectRepresentations`.
 
 ## Documentation
 

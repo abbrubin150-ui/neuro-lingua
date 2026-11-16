@@ -105,6 +105,43 @@ about 6 bits per character by 32 epochs.
 The best epoch here is the first one, so the best point may lie before the end of epoch 1; the
 app validates once per epoch.
 
+### Fast scoring for early stopping
+
+`evaluate()` predicts every token from its own full window, one forward pass per token. With the
+UI default model that took 18 s for the 371 held-out tokens above, about a third of an epoch. A
+causal pass already yields a prediction at every position, so `TransformerLM.evaluateChunkedSums`
+scores half a window per pass: every token still has at least half a context window. The app
+compares epochs with it and scores the kept model once with the exact `evaluate()`; the CLI keeps
+using the exact one.
+
+Same run as the table above, six epochs without stopping (smaller model):
+
+| Epoch | Exact bpc | Fast bpc | Exact ms | Fast ms |
+| --- | --- | --- | --- | --- |
+| 1 | 2.998 | 2.996 | 2,952 | 244 |
+| 2 | 3.027 | 3.023 | 2,639 | 262 |
+| 3 | 3.094 | 3.080 | 2,202 | 185 |
+| 4 | 3.250 | 3.224 | 2,418 | 206 |
+| 5 | 3.506 | 3.471 | 2,541 | 253 |
+| 6 | 3.697 | 3.660 | 2,378 | 207 |
+
+The fast score is within 1% of the exact one, ranks the epochs the same way, and is about 11
+times cheaper.
+
+### Checked in a browser
+
+The app was run in Chromium (Playwright, `pnpm dev`) with its defaults (Transformer, 1.17 M
+parameters, BPE, context 32) on `data/corpus.txt`, epoch limit 12:
+
+- Training stopped after epoch 4 and kept the model of epoch 1: 3.037 bits per character on the
+  held-out text (exact score), training accuracy 11.7%. The statistics and the completion message
+  show the kept epoch.
+- The four epochs took 185 s (233 s with exact scoring every epoch).
+- The longest stretch in which the page did not respond was 1.2 s, at the final save. Before, the
+  edge-learning diagnostics at the end of training blocked the page for 9.2 s; they now yield.
+- No console errors. Generation from the kept model produced word fragments ("Neuro-Lingua",
+  "paramet", "techn"), as expected at 3 bits per character.
+
 ## Limits
 
 - One run per configuration; the quality tables use a smaller model than the UI default to keep

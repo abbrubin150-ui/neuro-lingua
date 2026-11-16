@@ -1634,9 +1634,11 @@ export class ProNeuralLM {
    */
   async collectRepresentations(
     text: string,
-    maxSamples = 256
+    maxSamples = 256,
+    yieldIntervalMs = 0
   ): Promise<{ representations: number[][]; labels: number[]; probabilities: number[][] }> {
     const seqs = this.createTrainingSequences(text);
+    let lastYield = Date.now();
     const step = Math.max(1, Math.ceil(seqs.length / Math.max(1, maxSamples)));
     const representations: number[][] = [];
     const labels: number[] = [];
@@ -1647,6 +1649,11 @@ export class ProNeuralLM {
       representations.push(h.slice());
       labels.push(tgt);
       probabilities.push(probs.slice());
+      // Interactive callers (the app) pass an interval so the page stays responsive.
+      if (yieldIntervalMs > 0 && Date.now() - lastYield >= yieldIntervalMs) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        lastYield = Date.now();
+      }
     }
     return { representations, labels, probabilities };
   }

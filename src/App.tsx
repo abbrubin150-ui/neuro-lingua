@@ -1637,7 +1637,8 @@ export default function NeuroLinguaDomesticaV324() {
         const validation = await evaluateInSlices(
           modelRef.current!,
           validationSplit.validation,
-          abortControllerRef.current?.signal
+          abortControllerRef.current?.signal,
+          { fast: true }
         );
         if (validation) {
           lastValidationBpc = bitsPerCharacter(
@@ -1688,7 +1689,8 @@ export default function NeuroLinguaDomesticaV324() {
         const currentBeta = getBetaSchedule(betaSchedule, e, total, betaStart, betaEnd);
         const { representations, labels } = await modelRef.current.collectRepresentations(
           fitText,
-          IB_MONITOR_SAMPLES
+          IB_MONITOR_SAMPLES,
+          TRAINING_YIELD_INTERVAL_MS
         );
         const estimate = estimateInformationPlane(representations, labels, currentBeta, numBins);
         setIbMetricsHistory((prev) => [...prev, estimate]);
@@ -1710,9 +1712,23 @@ export default function NeuroLinguaDomesticaV324() {
     // With EMA weight averaging the averaged weights are applied below instead.
     const bestValidation = earlyStopping.best;
     if (validationSplit && bestValidation && bestModelJson) {
-      const bestBpc = bestValidationBpc;
-      if (bestValidation.epoch < epochsRun && !useEMA) {
-        modelRef.current = restoreModel(bestModelJson);
+      let bestBpc = bestValidationBpc;
+      const restored = bestValidation.epoch < epochsRun && !useEMA;
+      if (restored) modelRef.current = restoreModel(bestModelJson);
+      // The epochs were compared with the fast chunked score; the number reported for the kept
+      // model is the exact one (every token predicted from its full context), unless training
+      // was stopped by hand or the weights are about to be replaced by their EMA.
+      if (!useEMA && !abortControllerRef.current?.signal.aborted && trainingRef.current.running) {
+        const exact = await evaluateInSlices(
+          modelRef.current!,
+          validationSplit.validation,
+          abortControllerRef.current?.signal
+        );
+        if (exact) {
+          bestBpc = bitsPerCharacter(exact.loss, exact.tokens, validationSplit.validation.length);
+        }
+      }
+      if (restored) {
         lastValidationBpc = bestBpc;
         keptEpoch = bestValidation.epoch;
         // The numbers shown from here on describe the model that was kept, not the last epoch.
@@ -1725,11 +1741,13 @@ export default function NeuroLinguaDomesticaV324() {
           ppl: Math.exp(Math.max(1e-8, bestEpochTraining.loss)),
           validationBpc: bestBpc
         }));
-        setTrainingHistory(modelRef.current.getTrainingHistory());
+        setTrainingHistory(modelRef.current!.getTrainingHistory());
         addSystemMessage(
           `🏅 Kept the model of epoch ${bestValidation.epoch} of ${epochsRun}: ${bestBpc.toFixed(3)} bits per character on the held-out text`
         );
       } else {
+        lastValidationBpc = bestBpc;
+        setStats((prev) => ({ ...prev, validationBpc: bestBpc }));
         addSystemMessage(
           `🧪 Best validation at epoch ${bestValidation.epoch} of ${epochsRun}: ${bestBpc.toFixed(3)} bits per character on the held-out text`
         );
@@ -1785,7 +1803,8 @@ export default function NeuroLinguaDomesticaV324() {
         // loss variance over (a subsample of) the training windows.
         const diagnostics = await computeEdgeLearningDiagnostics(modelRef.current!, fitText, {
           maxSamples: 256,
-          trainingWindows: modelRef.current!.countTrainingWindows(fitText)
+          trainingWindows: modelRef.current!.countTrainingWindows(fitText),
+          yieldIntervalMs: TRAINING_YIELD_INTERVAL_MS
         });
         setEdgeLearningDiagnostics(diagnostics);
 

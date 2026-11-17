@@ -524,7 +524,7 @@ export default function StudioApp() {
           >
             {t.language}
           </button>
-          <a className="btn btn--ghost" href="./index.html">
+          <a className="btn btn--ghost" href="./classic.html">
             {t.classicUi}
           </a>
         </div>

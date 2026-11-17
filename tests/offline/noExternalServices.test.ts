@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = path.resolve(__dirname, '../..');
 const SCANNED_DIRECTORIES = ['src', 'scripts', 'electron', 'public'];
-const SCANNED_FILES = ['index.html', 'studio.html', 'vite.config.ts'];
+const SCANNED_FILES = ['index.html', 'classic.html', 'studio.html', 'vite.config.ts'];
 const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.html', '.json', '.webmanifest']);
 
 function walk(dir: string): string[] {

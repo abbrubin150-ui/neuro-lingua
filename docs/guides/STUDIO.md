@@ -1,7 +1,9 @@
-# Neuro-Lingua Studio (`studio.html`)
+# Neuro-Lingua Studio (the main page)
 
-A second, focused interface next to the classic UI (`index.html`, unchanged). Open
-`/studio.html` (dev: `http://localhost:5173/studio.html`; Pages: `…/neuro-lingua/studio.html`).
+The Studio is the app's main page (`index.html`; dev: `http://localhost:5173/`; Pages:
+`https://abbrubin150-ui.github.io/neuro-lingua/`). The previous interface is unchanged and lives
+at `classic.html` (linked from the Studio's top bar). `studio.html` redirects old links to the
+main page. The desktop app opens the Studio too (`dist/index.html`).
 
 Five steps in a side navigation: **Data → Model → Train → Generate → Models**. English / Hebrew
 (RTL), light / dark, works at phone width. Shortcuts: Ctrl/⌘+Enter train or stop, Ctrl/⌘+G
@@ -33,5 +35,5 @@ Sophia / Newton / BFGS, Mirostat, contrastive and beam search, and the Monte-Car
 
 `src/studio/`: `trainer.ts` (training loop without React), `modelIO.ts` (storage, import /
 export, generation), `settings.ts` (options, presets, validation), `strings.ts` (EN/HE),
-`StudioApp.tsx`, `components.tsx`, `studio.css`. Tests: `tests/studio/`. Vite builds both pages
-(`rollupOptions.input`), and the offline service worker precaches `studio.html`.
+`StudioApp.tsx`, `components.tsx`, `studio.css`. Tests: `tests/studio/`. Vite builds all three pages
+(`rollupOptions.input`), and the offline service worker precaches them.

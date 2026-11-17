@@ -1,5 +1,7 @@
 # Neuro‑Lingua DOMESTICA — v4.4.0 (EN)
 
+> **Main page: Neuro-Lingua Studio** — a focused data → model → train → generate → models workspace (`index.html`, see [docs/guides/STUDIO.md](docs/guides/STUDIO.md)). The previous full interface is at `classic.html`.
+
 **Browser‑native neural language model** built in React + TypeScript.
 
 > Runtime version: **v4.4.0** (UI + model) · Governance/export spec documented in **CHANGELOG_v3.3.md**. The bilingual UI, project/run management, and WebGPU acceleration in `App.tsx` match this runtime.
@@ -392,7 +394,8 @@ The Node training script (`scripts/train.ts`) reads from `data/corpus.txt` and w
 │   ├── AdvancedNeuralLM.test.ts    # Advanced features tests
 │   ├── TransformerLM.test.ts       # Transformer tests
 │   └── numerics/                   # Numerical correctness tests
-├── index.html
+├── index.html                      # Studio (main page, src/studio/)
+├── classic.html                    # Classic UI (src/App.tsx)
 ├── neuro-lingua-lite.html          # Standalone lightweight version
 ├── package.json
 ├── tsconfig.json

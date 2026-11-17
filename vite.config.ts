@@ -78,9 +78,11 @@ export default defineConfig(() => ({
   build: {
     sourcemap: true,
     rollupOptions: {
-      // Two pages: the classic UI (index.html) and the Studio workspace (studio.html).
+      // The Studio is the main page (index.html); the classic UI is classic.html; studio.html
+      // redirects old links to the main page.
       input: {
         main: path.resolve(__dirname, 'index.html'),
+        classic: path.resolve(__dirname, 'classic.html'),
         studio: path.resolve(__dirname, 'studio.html')
       },
       output: {

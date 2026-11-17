@@ -78,6 +78,11 @@ export default defineConfig(() => ({
   build: {
     sourcemap: true,
     rollupOptions: {
+      // Two pages: the classic UI (index.html) and the Studio workspace (studio.html).
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        studio: path.resolve(__dirname, 'studio.html')
+      },
       output: {
         manualChunks: undefined
       }

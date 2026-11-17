@@ -73,6 +73,12 @@ function loadLocale(): Locale {
   }
 }
 
+const EMPTY_STATS = { loss: null, accuracy: null, bpc: null, keptEpoch: null, epochsRun: 0 };
+
+function fmt(value: number | null | undefined, format: (v: number) => string): string {
+  return value !== null && value !== undefined && Number.isFinite(value) ? format(value) : '—';
+}
+
 function formatDuration(ms: number): string {
   const s = Math.round(ms / 1000);
   if (s < 60) return `${s}s`;
@@ -120,15 +126,19 @@ export default function StudioApp() {
   const [modelRevision, setModelRevision] = useState(0);
   const originRef = useRef<ModelOrigin | undefined>(undefined);
   const [saved, setSaved] = useState(false);
-  const [lastStats, setLastStats] = useState<{ loss: number | null; bpc: number | null }>({
-    loss: null,
-    bpc: null
-  });
+  // Statistics of the model in memory after a run: the kept (best held-out) epoch's, not the last.
+  const [lastStats, setLastStats] = useState<{
+    loss: number | null;
+    accuracy: number | null;
+    bpc: number | null;
+    keptEpoch: number | null;
+    epochsRun: number;
+  }>(EMPTY_STATS);
 
   const [training, setTraining] = useState(false);
   const [progress, setProgress] = useState(0);
   const [epochs, setEpochs] = useState<EpochReport[]>([]);
-  const [runStarted, setRunStarted] = useState<number | null>(null);
+  const [elapsedMs, setElapsedMs] = useState<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const [prompt, setPrompt] = useState('');
@@ -223,7 +233,7 @@ export default function StudioApp() {
       originRef.current = origin;
       setSaved(isSaved);
       setEpochs([]);
-      setLastStats({ loss: null, bpc: null });
+      setLastStats(EMPTY_STATS);
     },
     []
   );
@@ -255,7 +265,8 @@ export default function StudioApp() {
       setTraining(true);
       setProgress(0);
       setEpochs([]);
-      setRunStarted(Date.now());
+      setElapsedMs(null);
+      const runStart = Date.now();
       setSection('train');
       try {
         const outcome = await trainModel(
@@ -275,6 +286,7 @@ export default function StudioApp() {
             onProgress: setProgress,
             onEpoch: (report, m) => {
               setEpochs((prev) => [...prev, report]);
+              setElapsedMs(Date.now() - runStart);
               addLog(
                 t.log.epoch(
                   report.epoch,
@@ -295,7 +307,13 @@ export default function StudioApp() {
         } else {
           setModel(outcome.model);
           originRef.current = outcome.origin;
-          setLastStats({ loss: outcome.loss, bpc: outcome.validationBpc });
+          setLastStats({
+            loss: outcome.loss,
+            accuracy: outcome.accuracy,
+            bpc: outcome.validationBpc,
+            keptEpoch: outcome.keptEpoch,
+            epochsRun: outcome.epochsRun
+          });
         }
         setModelRevision((r) => r + 1);
         if (outcome.reason === 'stopped') addLog(t.log.stopped(outcome.epochsRun), 'warn');
@@ -438,6 +456,21 @@ export default function StudioApp() {
   }
 
   const lastEpoch = epochs[epochs.length - 1];
+  // While training: the latest epoch. After a run: the model that was kept.
+  const shown =
+    !training && lastStats.loss !== null
+      ? {
+          loss: lastStats.loss,
+          accuracy: lastStats.accuracy,
+          bpc: lastStats.bpc,
+          kept: lastStats.keptEpoch
+        }
+      : {
+          loss: lastEpoch?.loss ?? null,
+          accuracy: lastEpoch?.accuracy ?? null,
+          bpc: lastEpoch?.validationBpc ?? null,
+          kept: null
+        };
   const historyPoints = useMemo(() => {
     if (epochs.length > 0) return epochs.map((e) => ({ x: e.epoch, y: e.loss }));
     if (!model) return [];
@@ -687,8 +720,7 @@ export default function StudioApp() {
                     onChange={(v) => patch({ tokenizer: v })}
                     options={[
                       { value: 'bpe', label: t.model.tokBpe },
-                      { value: 'character', label: t.model.tokCharacter },
-                      { value: 'unicode', label: t.model.tokWord }
+                      { value: 'character', label: t.model.tokCharacter }
                     ]}
                   />
                   {s.tokenizer === 'bpe' && (
@@ -949,32 +981,23 @@ export default function StudioApp() {
                 <div className="stats-row">
                   <Stat
                     label={t.train.epoch}
-                    value={lastEpoch ? `${lastEpoch.epoch}/${lastEpoch.total}` : '—'}
-                  />
-                  <Stat
-                    label={t.train.loss}
                     value={
-                      lastEpoch
-                        ? lastEpoch.loss.toFixed(3)
-                        : lastStats.loss !== null
-                          ? lastStats.loss.toFixed(3)
+                      shown.kept !== null
+                        ? t.train.keptOf(shown.kept, lastStats.epochsRun)
+                        : lastEpoch
+                          ? `${lastEpoch.epoch}/${lastEpoch.total}`
                           : '—'
                     }
                   />
+                  <Stat label={t.train.loss} value={fmt(shown.loss, (v) => v.toFixed(3))} />
                   <Stat
                     label={t.train.accuracy}
-                    value={lastEpoch ? `${(lastEpoch.accuracy * 100).toFixed(1)}%` : '—'}
+                    value={fmt(shown.accuracy, (v) => `${(v * 100).toFixed(1)}%`)}
                   />
                   <Stat
                     tone="accent"
                     label={t.train.valBpc}
-                    value={
-                      !training && lastStats.bpc !== null && Number.isFinite(lastStats.bpc)
-                        ? lastStats.bpc.toFixed(3)
-                        : lastEpoch?.validationBpc !== undefined
-                          ? lastEpoch.validationBpc.toFixed(3)
-                          : '—'
-                    }
+                    value={fmt(shown.bpc, (v) => v.toFixed(3))}
                   />
                   <Stat
                     label={t.train.speed}
@@ -982,11 +1005,7 @@ export default function StudioApp() {
                   />
                   <Stat
                     label={t.train.elapsed}
-                    value={
-                      runStarted && lastEpoch
-                        ? formatDuration(epochs.reduce((a, e) => a + e.ms, 0))
-                        : '—'
-                    }
+                    value={elapsedMs !== null && lastEpoch ? formatDuration(elapsedMs) : '—'}
                   />
                 </div>
               </Card>

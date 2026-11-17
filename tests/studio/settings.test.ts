@@ -13,6 +13,17 @@ describe('Studio settings', () => {
     expect(validateSettings(DEFAULT_STUDIO_SETTINGS)).toEqual([]);
   });
 
+  it('defaults to the tiny transformer, which fits the browser storage', () => {
+    const tiny = applyPreset(DEFAULT_STUDIO_SETTINGS, 'transformer-tiny');
+    expect(DEFAULT_STUDIO_SETTINGS.transformer).toEqual(tiny.transformer);
+    expect(DEFAULT_STUDIO_SETTINGS.hiddenSize).toBe(tiny.hiddenSize);
+  });
+
+  it('word tokens (misleading held-out score) fall back to subwords', () => {
+    expect(mergeSettings({ tokenizer: 'unicode' }).tokenizer).toBe('bpe');
+    expect(mergeSettings({ tokenizer: 'character' }).tokenizer).toBe('character');
+  });
+
   it('presets are valid and set the transformer size', () => {
     const tiny = applyPreset(DEFAULT_STUDIO_SETTINGS, 'transformer-tiny');
     expect(tiny.transformer).toMatchObject({ numLayers: 2, numHeads: 4, numKVHeads: 2 });

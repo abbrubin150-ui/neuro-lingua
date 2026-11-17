@@ -11,7 +11,9 @@ generate.
 
 ## What it keeps (from the classic UI)
 
-- The three architectures, BPE / character / word tokenizers, Adam or momentum SGD.
+- The three architectures, BPE / character tokenizers, Adam or momentum SGD. Default model: the
+  `tiny` transformer (13x faster than `small` for 4.4% worse held-out bpc; it fits the browser
+  storage at full precision, `small` only at half precision).
 - Presets: transformer `tiny` / `small` (the `pnpm lm train` sizes, docs/benchmarks/MODEL_SIZE.md)
   and a fast MLP.
 - Held-out validation, early stopping and best-epoch restore (`splitForValidation`,
@@ -24,6 +26,11 @@ generate.
   model card, full JSON export, import of packages and JSON exports.
 
 ## What it leaves out
+
+Word tokens: 41% (English) to 73% (Hebrew) of held-out words were unknown in the repository's
+corpora, which made their bits per character look better than BPE while the model was worse.
+Word-level models from files or the classic UI still load and run.
+
 
 Options that are experimental, simulated or unmeasured in this repository: projects and the
 decision ledger, Cerebro injection, brain / triadic / causal panels, information-plane monitoring,

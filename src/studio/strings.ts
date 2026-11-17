@@ -106,6 +106,7 @@ const en = {
       'Continue keeps the current model (its size and tokenizer) and trains it further on the text.',
     noText: 'Add training text first (Data).',
     epoch: 'Epoch',
+    keptOf: (kept: number, of: number) => `${kept} (kept, of ${of})`,
     loss: 'Train loss',
     accuracy: 'Train accuracy',
     valBpc: 'Held-out bits/char',
@@ -116,7 +117,7 @@ const en = {
     chartBpc: 'held-out bits per character',
     chartEmpty: 'Curves appear after the first epoch.',
     bpcNote:
-      'Bits per character on held-out text: lower is better and it is comparable across tokenizers. During training transformers are scored with a fast approximation; the final number is exact.',
+      'Bits per character on held-out text: lower is better, and it compares subword and character models fairly. During training transformers are scored with a fast approximation; the final number is exact.',
     log: 'Activity',
     clearLog: 'Clear',
     shortcut: 'Ctrl/⌘ + Enter'
@@ -207,7 +208,7 @@ const en = {
       float32: 'Saved in the browser as a compact package (optimizer state not kept)',
       float16:
         'Saved in the browser at half precision to fit the storage quota; export a package to keep full precision',
-      none: 'Too large for browser storage: export a package to keep it'
+      none: 'Too large for browser storage, so the slot still holds the previously saved model: export a package to keep this one'
     },
     loaded: (slot: string) => `Loaded the model from the ${slot}`,
     notFound: 'Nothing usable is stored in that slot',
@@ -326,6 +327,7 @@ const he: Strings = {
     continueHint: 'המשך אימון שומר על המודל הנוכחי (גודל וטוקנייזר) וממשיך לאמן אותו על הטקסט.',
     noText: 'הוסיפו קודם טקסט לאימון (נתונים).',
     epoch: 'אפוק',
+    keptOf: (kept, of) => `${kept} (נשמר, מתוך ${of})`,
     loss: 'הפסד אימון',
     accuracy: 'דיוק אימון',
     valBpc: 'ביטים לתו (מוחזק)',
@@ -336,7 +338,7 @@ const he: Strings = {
     chartBpc: 'ביטים לתו על טקסט מוחזק',
     chartEmpty: 'העקומות יופיעו אחרי האפוק הראשון.',
     bpcNote:
-      'ביטים לתו על טקסט מוחזק: נמוך יותר עדיף, וניתן להשוואה בין טוקנייזרים. במהלך האימון טרנספורמרים נמדדים בקירוב מהיר; המספר הסופי מדויק.',
+      'ביטים לתו על טקסט מוחזק: נמוך יותר עדיף, ומאפשר השוואה הוגנת בין מודלי תת-מילים ותווים. במהלך האימון טרנספורמרים נמדדים בקירוב מהיר; המספר הסופי מדויק.',
     log: 'יומן פעילות',
     clearLog: 'ניקוי'
   },
@@ -419,7 +421,7 @@ const he: Strings = {
       json: 'נשמר בדפדפן',
       float32: 'נשמר בדפדפן כחבילה קומפקטית (בלי מצב האופטימייזר)',
       float16: 'נשמר בדפדפן בחצי דיוק כדי להיכנס למכסה; ייצאו חבילה כדי לשמור דיוק מלא',
-      none: 'גדול מדי לאחסון הדפדפן: ייצאו חבילה כדי לשמור אותו'
+      none: 'גדול מדי לאחסון הדפדפן, ולכן במשבצת נשאר המודל שנשמר קודם: ייצאו חבילה כדי לשמור את המודל הזה'
     },
     loaded: (slot) => `המודל נטען מ${slot}`,
     notFound: 'אין במשבצת הזו מודל שניתן לטעון',

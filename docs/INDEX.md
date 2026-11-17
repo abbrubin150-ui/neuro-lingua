@@ -7,6 +7,7 @@
 ## Quick Links
 
 - [Project README](../README.md) - Project overview and quickstart
+- [מפרט מלא · Specification (Hebrew)](./SPECIFICATION.md) - Full description and specification of the repository: components, models, formats, CLI, measured quality, limits
 - [Claude Assistant Guide](./guides/CLAUDE_ASSISTANT_GUIDE.md) - Comprehensive AI assistant guide (120KB)
 - [Development Setup](./guides/DEVELOPMENT_SETUP_GUIDE.md) - Get started with development
 - [Offline Model Factory](./guides/OFFLINE_MODEL_FACTORY.md) - Your own language model, offline, without external AI services
@@ -82,6 +83,8 @@ Experiment tracking and results.
 |----------|-------------|
 | [Model Benchmark](./benchmarks/MODEL_BENCHMARK.md) | Held-out comparison of the three architectures (`pnpm benchmark:models`) |
 | [Generation Repetition](./benchmarks/GENERATION_REPETITION.md) | Loops under greedy decoding: no-repeat n-grams vs. repetition penalty, measured defaults |
+| [UI Training Defaults](./benchmarks/UI_TRAINING_DEFAULTS.md) | Context 32, the training stride and held-out validation in the app: cost per epoch and held-out quality |
+| [Model Size](./benchmarks/MODEL_SIZE.md) | `tiny` vs `small` preset on the same data: bits per character, cost, overfitting, samples |
 | [Math Audit](./audits/MATH_AUDIT.md) | Numerical audit of `src/math` and the causal statistics against numpy/scipy |
 | [Logbook](./experiments/logbook.md) | Experiment log and notes |
 | [Experiment Runs](./experiments/runs/) | Individual experiment run data (JSON) |

@@ -195,14 +195,29 @@ export interface RepetitionControls {
 }
 
 /**
- * Default no-repeat n-gram length for a tokenizer (docs/benchmarks/GENERATION_REPETITION.md).
- * Measured: 16 characters stopped every greedy loop in English and Hebrew character models
- * (12 and 24 left some); 3 BPE tokens stopped them without breaking words (4 did). Word-level
- * tokenizers use 3, the usual value for word trigrams; not measured here.
+ * Default no-repeat n-gram length for a model (docs/benchmarks/GENERATION_REPETITION.md).
+ *
+ * Measured: a block of 16 characters stopped every greedy loop in English and Hebrew character
+ * models (12 and 24 left some), and 3 tokens did for a BPE model whose subwords average 4.4
+ * characters (4 broke words). Both fit "the block spans about 16 characters", so for subwords
+ * n = floor(16 / mean subword length), at least 3. This matters on small corpora, where few
+ * merges are learned and the subwords are close to single characters. Word-level tokenizers use
+ * 3, the usual word-trigram block (not measured here).
+ *
+ * @param vocab the model's vocabulary; without it a BPE model gets 3
  */
-export function recommendedNoRepeatNgram(mode: string): number {
+export function recommendedNoRepeatNgram(mode: string, vocab?: readonly string[]): number {
   if (mode === 'character') return 16;
-  return 3;
+  if (mode !== 'bpe' || !vocab) return 3;
+  let characters = 0;
+  let subwords = 0;
+  for (const token of vocab) {
+    if (/^<[A-Z]+>$/.test(token)) continue; // <PAD>, <BOS>, <EOS>, <UNK>
+    characters += [...token].length;
+    subwords++;
+  }
+  if (subwords === 0) return 3;
+  return Math.min(16, Math.max(3, Math.floor(16 / (characters / subwords))));
 }
 
 /** Tokens that would complete an n-gram (of `n` tokens) already present in `context`. */

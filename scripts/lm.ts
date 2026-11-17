@@ -378,7 +378,7 @@ async function generate(a: Args) {
       noRepeatNgramSize: num(
         a,
         'no-repeat-ngram',
-        recommendedNoRepeatNgram(model.getTokenizerConfig().mode)
+        recommendedNoRepeatNgram(model.getTokenizerConfig().mode, model.getVocab())
       )
     }
   );

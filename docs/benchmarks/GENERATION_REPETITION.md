@@ -78,8 +78,15 @@ At T=0.8 no configuration looped.
 
 | Setting | Default | Where |
 |---|---|---|
-| no-repeat n-gram | 16 for `character`, 3 for every other tokenizer | `recommendedNoRepeatNgram()` in `src/generation/sampling.ts`; UI, `pnpm lm generate`, `pnpm lm serve` |
+| no-repeat n-gram | 16 for `character`; ⌊16 ÷ mean subword length⌋ (at least 3) for `bpe`; 3 for word-level tokenizers | `recommendedNoRepeatNgram()` in `src/generation/sampling.ts`; UI, `pnpm lm generate`, `pnpm lm serve` |
 | repetition penalty | 1 (off) | `DEFAULT_GENERATION.repetitionPenalty` |
+
+Both measured points fit one rule, "the block spans about 16 characters": 16 tokens for
+characters, and 3 tokens for the BPE model above, whose subwords average 4.38 characters
+(⌊16 ÷ 4.38⌋ = 3). The rule matters on small corpora, where BPE learns few merges and its tokens
+are close to single characters (1.2 characters on the app's default text); a 3-token block there
+would ban repeated character triples. Values between the two measured points are interpolated,
+not measured.
 
 The value 3 for word-level tokenizers (`unicode`, `ascii`, `custom`) is the usual word-trigram
 block. It was not measured here.

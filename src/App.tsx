@@ -33,6 +33,9 @@ import {
   DEFAULT_GENERATION,
   DEFAULT_ADVANCED_CONFIG,
   DEFAULT_ARCHITECTURE,
+  DEFAULT_VALIDATION,
+  defaultContextSize,
+  defaultTrainingStride,
   DEFAULT_IB_CONFIG,
   DEFAULT_LOSS_CONFIG,
   DEFAULT_LOSS_MASK_CONFIG,
@@ -92,6 +95,8 @@ import { calculateDiversityScore } from './lib/BrainEngine';
 import { createTraceExport, generateTraceFilename } from './lib/traceExport';
 import { parseModelImport } from './lib/modelImport';
 import { restoreModel } from './lib/modelPackage';
+import { EarlyStopping, bitsPerCharacter, splitForValidation } from './lib/validationSplit';
+import { evaluateInSlices } from './lib/evaluateInSlices';
 import {
   originFromImport,
   packageBrowserModel,
@@ -429,7 +434,15 @@ export default function NeuroLinguaDomesticaV324() {
   // Training state
   const [isTraining, setIsTraining] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [stats, setStats] = useState({ loss: 0, acc: 0, ppl: 0, lossEMA: 0, tokensPerSec: 0 });
+  const [stats, setStats] = useState<{
+    loss: number;
+    acc: number;
+    ppl: number;
+    lossEMA: number;
+    tokensPerSec: number;
+    validationBpc?: number;
+  }>({ loss: 0, acc: 0, ppl: 0, lossEMA: 0, tokensPerSec: 0 });
+  const [useValidation, setUseValidation] = useState<boolean>(DEFAULT_VALIDATION.enabled);
   const [info, setInfo] = useState({ V: 0, P: 0 });
   const [trainingHistory, setTrainingHistory] = useState<
     { loss: number; accuracy: number; timestamp: number }[]
@@ -445,7 +458,7 @@ export default function NeuroLinguaDomesticaV324() {
   const [optimizer, setOptimizer] = useState<Optimizer>(DEFAULT_HYPERPARAMETERS.optimizer);
   const [momentum, setMomentum] = useState<number>(DEFAULT_HYPERPARAMETERS.momentum);
   const [dropout, setDropout] = useState<number>(DEFAULT_HYPERPARAMETERS.dropout);
-  const [contextSize, setContextSize] = useState<number>(DEFAULT_HYPERPARAMETERS.contextSize);
+  const [contextSize, setContextSize] = useState<number>(defaultContextSize(DEFAULT_ARCHITECTURE));
   const [temperature, setTemperature] = useState(DEFAULT_GENERATION.temperature);
   const [topK, setTopK] = useState(DEFAULT_GENERATION.topK);
   const [topP, setTopP] = useState(DEFAULT_GENERATION.topP);
@@ -639,6 +652,10 @@ export default function NeuroLinguaDomesticaV324() {
       if (architecture === nextArchitecture) return;
 
       setArchitecture(nextArchitecture);
+      // Follow the new architecture's default context unless the user chose their own value.
+      setContextSize((prev) =>
+        prev === defaultContextSize(architecture) ? defaultContextSize(nextArchitecture) : prev
+      );
 
       if (nextArchitecture === 'transformer') {
         setUseAdvanced(false);
@@ -1326,11 +1343,27 @@ export default function NeuroLinguaDomesticaV324() {
       updateRun(activeRun.id, { status: 'running', startedAt: Date.now() });
     }
 
+    // Held-out validation: every 10th sentence / paragraph stays out of training (tokenizer and
+    // vocabulary included). Too little text: train on all of it.
+    const validationSplit = useValidation
+      ? splitForValidation(trainingText, { fraction: DEFAULT_VALIDATION.fraction })
+      : null;
+    const fitText = validationSplit?.train ?? trainingText;
+    if (validationSplit) {
+      addSystemMessage(
+        `🧪 Validation: every ${validationSplit.every}th ${validationSplit.unit} is held out (${validationSplit.validation.length} of ${trainingText.length} characters); training stops after ${DEFAULT_VALIDATION.patience} epochs without improvement`
+      );
+    } else if (useValidation) {
+      addSystemMessage(
+        'ℹ️ The text is too short to hold part of it out for validation: training on all of it'
+      );
+    }
+
     // Subword tokenizer: learn the merges from this corpus whenever a new model is created
     // (a resumed model keeps its merges, so its vocabulary stays the same).
     let activeTokenizer = tokenizerConfig;
     if (tokenizerConfig.mode === 'bpe' && (!resume || !modelRef.current || !tokenizerConfig.bpe)) {
-      const bpe = trainSubwordModel(trainingText, {
+      const bpe = trainSubwordModel(fitText, {
         vocabSize: tokenizerConfig.bpeVocabSize ?? DEFAULT_BPE_VOCAB_SIZE
       });
       activeTokenizer = { mode: 'bpe', bpe, bpeVocabSize: tokenizerConfig.bpeVocabSize };
@@ -1339,7 +1372,7 @@ export default function NeuroLinguaDomesticaV324() {
         `🔤 Subword tokenizer learned from the corpus: ${subwordVocabulary(bpe).length} subwords`
       );
     }
-    const vocab = buildVocab(trainingText, activeTokenizer);
+    const vocab = buildVocab(fitText, activeTokenizer);
     if (vocab.length < MIN_VOCAB_SIZE) {
       addSystemMessage(`❌ Need more training text (at least ${MIN_VOCAB_SIZE} unique tokens).`);
       setIsTraining(false);
@@ -1405,7 +1438,14 @@ export default function NeuroLinguaDomesticaV324() {
             ffHiddenDim: normalizedFfHidden,
             attentionDropout: normalizedAttentionDropout,
             dropConnectRate: normalizedDropConnect,
-            numKVHeads: normalizedNumKVHeads
+            numKVHeads: normalizedNumKVHeads,
+            trainingStride: defaultTrainingStride(
+              clamp(
+                contextSize,
+                HYPERPARAMETER_CONSTRAINTS.contextSize.min,
+                HYPERPARAMETER_CONSTRAINTS.contextSize.max
+              )
+            )
           }
         );
         const gqaInfo =
@@ -1528,7 +1568,7 @@ export default function NeuroLinguaDomesticaV324() {
     let lastAcc = 0;
     let lossEMA = 0;
     const emaAlpha = 0.1; // EMA smoothing factor
-    const tokens = ProNeuralLM.tokenizeText(trainingText, activeTokenizer);
+    const tokens = ProNeuralLM.tokenizeText(fitText, activeTokenizer);
     const totalTokens = tokens.length;
     const trainingStartTime = Date.now();
     let latestTokensPerSec = 0;
@@ -1539,6 +1579,15 @@ export default function NeuroLinguaDomesticaV324() {
       abortControllerRef.current?.signal ?? null
     );
     let lastProgressUpdate = 0;
+
+    // Early stopping on the held-out part; the best model is kept as a deep copy of its JSON.
+    const earlyStopping = new EarlyStopping(DEFAULT_VALIDATION.patience);
+    let bestModelJson: Record<string, unknown> | null = null;
+    let lastValidationBpc: number | undefined;
+    let bestValidationBpc = NaN;
+    let bestEpochTraining = { loss: 0, accuracy: 0 };
+    let keptEpoch: number | null = null;
+    let epochsRun = 0;
 
     for (let e = 0; e < total; e++) {
       // Check both AbortController and running flag
@@ -1562,7 +1611,7 @@ export default function NeuroLinguaDomesticaV324() {
         lastProgressUpdate = now;
         setProgress(((e + done / windows) / total) * 100);
       });
-      const res = await modelRef.current!.train(trainingText, 1, currentLossMaskConfig);
+      const res = await modelRef.current!.train(fitText, 1, currentLossMaskConfig);
       const epochEndTime = Date.now();
       // Stopped during the epoch: the interrupted epoch was not recorded.
       if (abortControllerRef.current?.signal.aborted || !trainingRef.current.running) break;
@@ -1580,6 +1629,35 @@ export default function NeuroLinguaDomesticaV324() {
       const tokensPerSec = epochDuration > 0 ? totalTokens / epochDuration : 0;
       latestTokensPerSec = tokensPerSec;
 
+      epochsRun = e + 1;
+
+      // Score the held-out part (in slices, so the page stays responsive and Stop still works).
+      let stopEarly = false;
+      if (validationSplit) {
+        const validation = await evaluateInSlices(
+          modelRef.current!,
+          validationSplit.validation,
+          abortControllerRef.current?.signal,
+          { fast: true }
+        );
+        if (validation) {
+          lastValidationBpc = bitsPerCharacter(
+            validation.loss,
+            validation.tokens,
+            validationSplit.validation.length
+          );
+          if (earlyStopping.record(e + 1, validation.loss)) {
+            bestValidationBpc = lastValidationBpc;
+            bestEpochTraining = { loss: res.loss, accuracy: res.accuracy };
+            bestModelJson = JSON.parse(JSON.stringify(modelRef.current!.toJSON())) as Record<
+              string,
+              unknown
+            >;
+          }
+          stopEarly = earlyStopping.shouldStop();
+        }
+      }
+
       // Report the current epoch (an average over all epochs so far would be dominated by the
       // first, untrained epochs).
       setStats({
@@ -1587,7 +1665,8 @@ export default function NeuroLinguaDomesticaV324() {
         acc: res.accuracy,
         ppl: Math.exp(Math.max(1e-8, res.loss)),
         lossEMA: lossEMA,
-        tokensPerSec: tokensPerSec
+        tokensPerSec: tokensPerSec,
+        validationBpc: lastValidationBpc
       });
       lastLoss = res.loss;
       lastAcc = res.accuracy;
@@ -1609,17 +1688,71 @@ export default function NeuroLinguaDomesticaV324() {
       if (useIB && modelRef.current) {
         const currentBeta = getBetaSchedule(betaSchedule, e, total, betaStart, betaEnd);
         const { representations, labels } = await modelRef.current.collectRepresentations(
-          trainingText,
-          IB_MONITOR_SAMPLES
+          fitText,
+          IB_MONITOR_SAMPLES,
+          TRAINING_YIELD_INTERVAL_MS
         );
         const estimate = estimateInformationPlane(representations, labels, currentBeta, numBins);
         setIbMetricsHistory((prev) => [...prev, estimate]);
       }
 
       await new Promise((r) => setTimeout(r, TRAINING_UI_UPDATE_DELAY));
+      if (stopEarly) {
+        addSystemMessage(
+          `⏹️ Early stopping after epoch ${e + 1}: no validation improvement for ${DEFAULT_VALIDATION.patience} epochs`
+        );
+        setProgress(100);
+        break;
+      }
     }
     modelRef.current?.setInteractiveTraining(0, null);
     modelRef.current?.setTrainingProgressCallback(null);
+
+    // Keep the model of the best validation epoch (also when training was stopped by hand).
+    // With EMA weight averaging the averaged weights are applied below instead.
+    const bestValidation = earlyStopping.best;
+    if (validationSplit && bestValidation && bestModelJson) {
+      let bestBpc = bestValidationBpc;
+      const restored = bestValidation.epoch < epochsRun && !useEMA;
+      if (restored) modelRef.current = restoreModel(bestModelJson);
+      // The epochs were compared with the fast chunked score; the number reported for the kept
+      // model is the exact one (every token predicted from its full context), unless training
+      // was stopped by hand or the weights are about to be replaced by their EMA.
+      if (!useEMA && !abortControllerRef.current?.signal.aborted && trainingRef.current.running) {
+        const exact = await evaluateInSlices(
+          modelRef.current!,
+          validationSplit.validation,
+          abortControllerRef.current?.signal
+        );
+        if (exact) {
+          bestBpc = bitsPerCharacter(exact.loss, exact.tokens, validationSplit.validation.length);
+        }
+      }
+      if (restored) {
+        lastValidationBpc = bestBpc;
+        keptEpoch = bestValidation.epoch;
+        // The numbers shown from here on describe the model that was kept, not the last epoch.
+        lastLoss = bestEpochTraining.loss;
+        lastAcc = bestEpochTraining.accuracy;
+        setStats((prev) => ({
+          ...prev,
+          loss: bestEpochTraining.loss,
+          acc: bestEpochTraining.accuracy,
+          ppl: Math.exp(Math.max(1e-8, bestEpochTraining.loss)),
+          validationBpc: bestBpc
+        }));
+        setTrainingHistory(modelRef.current!.getTrainingHistory());
+        addSystemMessage(
+          `🏅 Kept the model of epoch ${bestValidation.epoch} of ${epochsRun}: ${bestBpc.toFixed(3)} bits per character on the held-out text`
+        );
+      } else {
+        lastValidationBpc = bestBpc;
+        setStats((prev) => ({ ...prev, validationBpc: bestBpc }));
+        addSystemMessage(
+          `🧪 Best validation at epoch ${bestValidation.epoch} of ${epochsRun}: ${bestBpc.toFixed(3)} bits per character on the held-out text`
+        );
+      }
+    }
 
     if (trainingRef.current.running) {
       // Apply EMA weights for inference/evaluation after training
@@ -1668,9 +1801,10 @@ export default function NeuroLinguaDomesticaV324() {
       try {
         // Measured on the trained model: empirical output-layer Fisher, predictive entropy and
         // loss variance over (a subsample of) the training windows.
-        const diagnostics = await computeEdgeLearningDiagnostics(modelRef.current!, trainingText, {
+        const diagnostics = await computeEdgeLearningDiagnostics(modelRef.current!, fitText, {
           maxSamples: 256,
-          trainingWindows: modelRef.current!.countTrainingWindows(trainingText)
+          trainingWindows: modelRef.current!.countTrainingWindows(fitText),
+          yieldIntervalMs: TRAINING_YIELD_INTERVAL_MS
         });
         setEdgeLearningDiagnostics(diagnostics);
 
@@ -1686,7 +1820,9 @@ export default function NeuroLinguaDomesticaV324() {
       }
 
       addSystemMessage(
-        `✅ Training complete! Final-epoch accuracy: ${(finalAccuracy * 100).toFixed(1)}%`
+        keptEpoch !== null
+          ? `✅ Training complete! Kept epoch ${keptEpoch}: training accuracy ${(finalAccuracy * 100).toFixed(1)}%, ${lastValidationBpc?.toFixed(3)} bits per character on the held-out text`
+          : `✅ Training complete! Final-epoch accuracy: ${(finalAccuracy * 100).toFixed(1)}%`
       );
       persistModel(modelRef.current!);
 
@@ -2003,7 +2139,7 @@ export default function NeuroLinguaDomesticaV324() {
     setOptimizer(DEFAULT_HYPERPARAMETERS.optimizer);
     setMomentum(DEFAULT_HYPERPARAMETERS.momentum);
     setDropout(DEFAULT_HYPERPARAMETERS.dropout);
-    setContextSize(DEFAULT_HYPERPARAMETERS.contextSize);
+    setContextSize(defaultContextSize(architecture));
     setSeed(DEFAULT_HYPERPARAMETERS.seed);
     setResume(DEFAULT_HYPERPARAMETERS.resume);
     setUseLayerNorm(false);
@@ -2016,7 +2152,7 @@ export default function NeuroLinguaDomesticaV324() {
     setAttentionDropout(DEFAULT_HYPERPARAMETERS.transformer.attentionDropout);
     setDropConnectRate(DEFAULT_HYPERPARAMETERS.transformer.dropConnectRate);
     setNumKVHeads(DEFAULT_HYPERPARAMETERS.transformer.numKVHeads);
-  }, []);
+  }, [architecture]);
 
   async function onGenerate() {
     if (!modelRef.current || !input.trim()) {
@@ -2030,7 +2166,10 @@ export default function NeuroLinguaDomesticaV324() {
       repetitionWindow: DEFAULT_GENERATION.repetitionWindow,
       noRepeatNgramSize:
         noRepeatNgramOverride ??
-        recommendedNoRepeatNgram(modelRef.current.getTokenizerConfig().mode)
+        recommendedNoRepeatNgram(
+          modelRef.current.getTokenizerConfig().mode,
+          modelRef.current.getVocab()
+        )
     };
 
     let txt: string;
@@ -2419,6 +2558,7 @@ export default function NeuroLinguaDomesticaV324() {
               samplingMode={samplingMode}
               seed={seed}
               resume={resume}
+              useValidation={useValidation}
               tokenizerConfig={tokenizerConfig}
               customTokenizerPattern={customTokenizerPattern}
               tokenizerError={tokenizerError}
@@ -2466,6 +2606,7 @@ export default function NeuroLinguaDomesticaV324() {
               onSamplingModeChange={setSamplingMode}
               onSeedChange={setSeed}
               onResumeChange={setResume}
+              onUseValidationChange={setUseValidation}
               // Advanced callbacks
               onUseAdvancedChange={setUseAdvanced}
               onUseGPUChange={setUseGPU}
@@ -2732,7 +2873,8 @@ export default function NeuroLinguaDomesticaV324() {
               noRepeatNgramSize={
                 noRepeatNgramOverride ??
                 recommendedNoRepeatNgram(
-                  modelRef.current?.getTokenizerConfig().mode ?? tokenizerConfig.mode
+                  modelRef.current?.getTokenizerConfig().mode ?? tokenizerConfig.mode,
+                  modelRef.current?.getVocab()
                 )
               }
               onNoRepeatNgramSizeChange={setNoRepeatNgramOverride}

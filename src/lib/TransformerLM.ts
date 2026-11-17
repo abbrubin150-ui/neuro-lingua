@@ -26,6 +26,7 @@
 
 import {
   ProNeuralLM,
+  type EvaluationSums,
   type ForwardCache,
   type Optimizer,
   type TokenizerConfig
@@ -843,6 +844,55 @@ export class TransformerLM extends ProNeuralLM {
       stats.learned++;
     }
     return learn;
+  }
+
+  /**
+   * Fast held-out scoring for the causal objective, in chunks of half a context window.
+   *
+   * `evaluate()` predicts every token from its own full window: one forward pass per token. A
+   * causal pass already yields a prediction at every position, so here each pass scores the last
+   * `contextSize / 2` targets of a window, and consecutive windows advance by that much. Every
+   * token is still predicted from at least half a context window (a full one at the end of each
+   * chunk), at about `contextSize / 2` times less work. The loss is therefore slightly higher
+   * than `evaluate()`'s; use it to compare epochs of one model (early stopping), and
+   * `evaluate()` for reported results.
+   *
+   * Returns the sums over chunks [startChunk, endChunk) (`total` is the number of chunks), to be
+   * combined with `ProNeuralLM.evaluationResult`, or null for the pooled objective.
+   */
+  evaluateChunkedSums(text: string, startChunk = 0, endChunk = Infinity): EvaluationSums | null {
+    if (!this.isCausal()) return null;
+    const self = this as any;
+    const seqs = self.createTrainingSequences(text) as [number[], number][];
+    const unkIdx = self.toIndex(self.unk) as number;
+    const T = this.getContextSize();
+    const step = Math.max(1, Math.floor(T / 2));
+    const chunks = Math.ceil(seqs.length / step);
+    const sums: EvaluationSums = { nll: 0, correct: 0, oov: 0, count: 0, total: chunks };
+    const last = Math.min(endChunk, chunks);
+    for (let c = Math.max(0, startChunk); c < last; c++) {
+      // Targets [first, lastTarget] are scored from the window that ends at lastTarget.
+      const first = c * step;
+      const lastTarget = Math.min(seqs.length, first + step) - 1;
+      const [ctx, finalTarget] = seqs[lastTarget];
+      const count = lastTarget - first + 1;
+      const scored: number[] = [];
+      for (let t = T - count; t < T; t++) scored.push(t);
+      const pass = this.stackForward(ctx, false, scored);
+      for (let k = 0; k < count; k++) {
+        // Position t predicts ctx[t + 1]; the last position predicts the window's own target.
+        const t = scored[k];
+        const tgt = t === T - 1 ? finalTarget : ctx[t + 1];
+        const probs = pass.probs[k];
+        sums.nll -= Math.log(Math.max(probs[tgt], 1e-12));
+        let best = 0;
+        for (let i = 1; i < probs.length; i++) if (probs[i] > probs[best]) best = i;
+        if (best === tgt) sums.correct++;
+        if (tgt === unkIdx) sums.oov++;
+        sums.count++;
+      }
+    }
+    return sums;
   }
 
   // ---------------------------------------------------------------------------

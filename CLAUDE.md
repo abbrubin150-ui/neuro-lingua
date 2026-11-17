@@ -48,7 +48,7 @@ pnpm electron:build           # Build Windows installer
 
 ```
 src/
-├── App.tsx                    # Main application component (90KB)
+├── App.tsx                    # Main application component (107KB)
 ├── main.tsx                   # Entry point with error boundary
 ├── lib/                       # Core neural network implementations
 │   ├── ProNeuralLM.ts         # Baseline feedforward language model
@@ -79,7 +79,7 @@ src/
 ├── tokenizer/                 # subword.ts (BPE used by the models), BPETokenizer.ts (library)
 └── visualization/             # Embedding visualization
 
-tests/                         # 135+ test files mirroring src/ structure
+tests/                         # 93 test files mirroring src/ structure
 docs/                          # Comprehensive documentation
 ├── INDEX.md                   # Documentation hub
 ├── architecture/              # System design documents
@@ -237,10 +237,10 @@ change; new models use `objective: 'causal'`.
 
 | File | Purpose |
 |------|---------|
-| `src/App.tsx` | Main application (90KB, central logic) |
+| `src/App.tsx` | Main application (107KB, central logic) |
 | `src/lib/ProNeuralLM.ts` | Baseline neural network |
 | `src/lib/TransformerLM.ts` | Transformer implementation |
-| `src/components/TrainingPanel.tsx` | Main training interface (73KB) |
+| `src/components/TrainingPanel.tsx` | Main training interface (87KB) |
 | `src/backend/webgpu.ts` | WebGPU binding layer |
 | `src/generation/sampling.ts` | Text generation methods |
 | `src/types/project.ts` | Core type definitions |
@@ -272,7 +272,9 @@ pnpm build                     # Production build
 - Offloads only the MLP's matrix-vector products; each product flattens and uploads the weight
   matrix and waits for a readback, so small models are often as fast on the CPU. No speedup has
   been measured in this repository.
-- The Transformer always trains on the CPU (≈ 26 ms per context window with the UI defaults)
+- The Transformer always trains on the CPU. With the UI defaults (context 32, `trainingStride` 8)
+  one epoch costs ≈ 20 ms per token (≈ 190 ms with every overlapping window; see
+  `docs/benchmarks/UI_TRAINING_DEFAULTS.md`)
 - Automatic CPU fallback if unavailable
 - Browser support: Chrome/Edge 113+, Firefox 127+ (with flag)
 
@@ -287,7 +289,7 @@ pnpm build                     # Production build
 
 1. **localStorage limits**: ~5-10MB typically, be mindful of model sizes
 2. **WebGPU availability**: Always test CPU fallback path
-3. **Large files**: `App.tsx` (90KB) and `TrainingPanel.tsx` (73KB) are substantial
+3. **Large files**: `App.tsx` (107KB) and `TrainingPanel.tsx` (87KB) are substantial
 4. **Strict TypeScript**: All types must be explicit, use discriminated unions
 5. **No React import needed**: JSX transform handles it (react-jsx)
 6. **Bilingual UI**: Components support English and Hebrew (en/he toggle)
@@ -323,9 +325,24 @@ pnpm build                     # Production build
     replicas both go through `prepareTrainingWindows` / `planEpoch` / `trainWindow`; change the
     training step there, not in one path only (`tests/factory/parallel.test.ts` compares them).
 19. **Generation loops**: `generate()` takes `RepetitionControls` (`src/generation/sampling.ts`),
-    applied on every decoding path and over the prompt too. The defaults are a no-repeat n-gram of
-    16 for character models and 3 otherwise, with the CTRL repetition penalty off (it lowered the
+    applied on every decoding path and over the prompt too. The default no-repeat n-gram spans
+    about 16 characters (`recommendedNoRepeatNgram(mode, vocab)`: 16 for characters, 16 / mean
+    subword length for BPE, at least 3), with the CTRL repetition penalty off (it lowered the
     real-word rate). See `docs/benchmarks/GENERATION_REPETITION.md`.
+20. **UI defaults**: Transformer, BPE tokenizer (2,000 subwords, merges learned when training
+    starts), context 32 (`defaultContextSize(architecture)`; the MLPs keep 4), training stride
+    context / 4 (`defaultTrainingStride`: each token is a target 4 times per epoch). Saved UI
+    settings win. On very short texts BPE learns few merges and is close to character tokens.
+21. **Validation in the app**: `splitForValidation` (`src/lib/validationSplit.ts`) holds out
+    every 10th sentence / paragraph; `train()` in App.tsx fits the tokenizer and the model on
+    `fitText` only, scores the rest each epoch (`evaluateInSlices` with `fast`: half a window per
+    pass via `TransformerLM.evaluateChunkedSums`, within 1% of `evaluate()`), stops after 3 epochs
+    without improvement and restores the best epoch's model (a new instance in
+    `modelRef.current`), whose statistics are then shown. Short texts return `null` and train on
+    everything. `evaluate()` stays exact (one pass per token); the CLI uses it.
+22. **Checking the app in a browser**: `BROWSER=none pnpm dev --host 127.0.0.1` (the dev server
+    otherwise tries `xdg-open` and exits) and drive it with Playwright; long synchronous work
+    (diagnostics, scoring) must yield, see `yieldIntervalMs` in `collectRepresentations`.
 
 ## Documentation
 

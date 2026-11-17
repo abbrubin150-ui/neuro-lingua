@@ -60,9 +60,44 @@ export const DEFAULT_HYPERPARAMETERS = {
     ffHiddenDim: 512,
     attentionDropout: 0.05,
     dropConnectRate: 0.02,
-    numKVHeads: 4
+    numKVHeads: 4,
+    /**
+     * Context window for the Transformer. Attention needs room to work: with the MLP default of
+     * 4 it sees four tokens (with the character tokenizer, less than one word).
+     */
+    contextSize: 32
   }
 } as const;
+
+/**
+ * Training stride the app uses for the Transformer: a quarter of the context, so every token is
+ * a training target 4 times per epoch, as it was with the former default (context 4, every
+ * window). With every overlapping window at context 32 a single epoch is 32 passes: 188 ms per
+ * token, and past the best held-out loss on a small corpus
+ * (docs/benchmarks/UI_TRAINING_DEFAULTS.md).
+ */
+export function defaultTrainingStride(contextSize: number): number {
+  return Math.max(1, Math.floor(contextSize / 4));
+}
+
+/**
+ * Held-out validation while training in the app: every 10th sentence or paragraph is kept out
+ * of training, scored after each epoch, and training stops after `patience` epochs without
+ * improvement, keeping the best model. Texts too small to spare a validation part train on all
+ * of the text. See docs/benchmarks/UI_TRAINING_DEFAULTS.md.
+ */
+export const DEFAULT_VALIDATION = {
+  enabled: true,
+  fraction: 0.1,
+  patience: 3
+} as const;
+
+/** Default context window of an architecture (the MLPs average their context, so 4 is enough). */
+export function defaultContextSize(architecture: 'feedforward' | 'advanced' | 'transformer') {
+  return architecture === 'transformer'
+    ? DEFAULT_HYPERPARAMETERS.transformer.contextSize
+    : DEFAULT_HYPERPARAMETERS.contextSize;
+}
 
 /**
  * Default generation parameters
@@ -252,10 +287,15 @@ export const DEFAULT_LOSS_MASK_CONFIG = {
 };
 
 /**
- * Default tokenizer configuration
+ * Default tokenizer configuration: subwords (BPE) learned from the training text.
+ *
+ * Word-level tokens leave many held-out words out of vocabulary, and on the same data and split
+ * BPE reached 1.959 bits per character against 2.159 for characters
+ * (docs/benchmarks/GENERATION_REPETITION.md). The merges are learned when training starts.
  */
 export const DEFAULT_TOKENIZER_CONFIG: TokenizerConfig = {
-  mode: 'unicode'
+  mode: 'bpe',
+  bpeVocabSize: 2000
 } as const;
 
 /**

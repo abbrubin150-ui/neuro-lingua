@@ -93,7 +93,8 @@ export async function complete(
       noRepeatNgramSize: Math.max(
         0,
         Math.floor(
-          request.no_repeat_ngram_size ?? recommendedNoRepeatNgram(model.getTokenizerConfig().mode)
+          request.no_repeat_ngram_size ??
+            recommendedNoRepeatNgram(model.getTokenizerConfig().mode, model.getVocab())
         )
       )
     }

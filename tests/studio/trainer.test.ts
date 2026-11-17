@@ -17,7 +17,7 @@ const LONG_TEXT = Array.from({ length: 120 }, (_, i) => SENTENCES[i % SENTENCES.
 function mlpSettings() {
   const s = structuredCloneSettings(DEFAULT_STUDIO_SETTINGS);
   s.architecture = 'feedforward';
-  s.tokenizer = 'unicode';
+  s.tokenizer = 'character';
   s.hiddenSize = 16;
   s.contextSize = 3;
   s.epochs = 3;

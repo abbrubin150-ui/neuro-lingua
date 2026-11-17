@@ -15,7 +15,12 @@ import {
 import type { ActivationFunction, LRSchedule } from '../lib/AdvancedNeuralLM';
 
 export type Architecture = 'feedforward' | 'advanced' | 'transformer';
-export type StudioTokenizer = 'bpe' | 'character' | 'unicode';
+/**
+ * Word tokens are left out: on held-out text 41% (English) to 73% (Hebrew) of the words were
+ * unknown in our corpora, so their bits per character looked better than BPE while the model was
+ * worse. Word-level models still load and run.
+ */
+export type StudioTokenizer = 'bpe' | 'character';
 export type StudioOptimizer = 'adam' | 'momentum';
 export type SamplingMode = 'greedy' | 'topk' | 'topp' | 'typical';
 
@@ -66,7 +71,9 @@ export const DEFAULT_STUDIO_SETTINGS: StudioSettings = {
   architecture: 'transformer',
   tokenizer: 'bpe',
   bpeVocabSize: 2000,
-  hiddenSize: DEFAULT_HYPERPARAMETERS.hiddenSize,
+  // The `tiny` preset: 13x faster than `small` for 4.4% worse held-out bits per character
+  // (docs/benchmarks/MODEL_SIZE.md), and it fits the browser storage at full precision.
+  hiddenSize: 64,
   contextSize: defaultContextSize('transformer'),
   epochs: DEFAULT_HYPERPARAMETERS.epochs,
   learningRate: DEFAULT_HYPERPARAMETERS.learningRate,
@@ -76,10 +83,10 @@ export const DEFAULT_STUDIO_SETTINGS: StudioSettings = {
   seed: DEFAULT_HYPERPARAMETERS.seed,
   validation: true,
   transformer: {
-    numLayers: DEFAULT_HYPERPARAMETERS.transformer.numLayers,
-    numHeads: DEFAULT_HYPERPARAMETERS.transformer.numHeads,
-    numKVHeads: DEFAULT_HYPERPARAMETERS.transformer.numKVHeads,
-    ffHiddenDim: DEFAULT_HYPERPARAMETERS.transformer.ffHiddenDim,
+    numLayers: 2,
+    numHeads: 4,
+    numKVHeads: 2,
+    ffHiddenDim: 128,
     attentionDropout: DEFAULT_HYPERPARAMETERS.transformer.attentionDropout,
     dropConnectRate: DEFAULT_HYPERPARAMETERS.transformer.dropConnectRate
   },
@@ -233,7 +240,7 @@ export function mergeSettings(stored: unknown, base: StudioSettings = DEFAULT_ST
     ['feedforward', 'advanced', 'transformer'],
     base.architecture
   );
-  merged.tokenizer = oneOf(merged.tokenizer, ['bpe', 'character', 'unicode'], base.tokenizer);
+  merged.tokenizer = oneOf(merged.tokenizer, ['bpe', 'character'], base.tokenizer);
   merged.optimizer = oneOf(merged.optimizer, ['adam', 'momentum'], base.optimizer);
   merged.generation.sampling = oneOf(
     merged.generation.sampling,

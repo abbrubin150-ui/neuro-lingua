@@ -49,6 +49,7 @@ pnpm electron:build           # Build Windows installer
 ```
 src/
 ├── App.tsx                    # Main application component (107KB)
+├── studio/                    # Studio workspace (studio.html): trainer.ts, modelIO.ts, StudioApp.tsx
 ├── main.tsx                   # Entry point with error boundary
 ├── lib/                       # Core neural network implementations
 │   ├── ProNeuralLM.ts         # Baseline feedforward language model
@@ -350,6 +351,7 @@ pnpm build                     # Production build
 - **docs/guides/CLAUDE_ASSISTANT_GUIDE.md** - Detailed AI assistant guide (120KB)
 - **docs/guides/DEVELOPMENT_SETUP_GUIDE.md** - Setup instructions
 - **docs/guides/OFFLINE_MODEL_FACTORY.md** - Offline model production (CLI, packages, server, PWA)
+- **docs/guides/STUDIO.md** - The Studio workspace (`studio.html`), a second UI beside the classic one
 - **docs/architecture/** - System design documents
 - **docs/theory/** - Mathematical foundations
 
